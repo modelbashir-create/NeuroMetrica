@@ -1,3 +1,11 @@
+//
+//  NeuroMetricaApp.swift
+//  NeuroMetrica
+//
+//  Created by Mohamed Elbashir on 11/12/25.
+//
+
+
 import SwiftUI
 
 @main

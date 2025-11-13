@@ -1,15 +1,5 @@
-//
-//  DummyStudyBrowser.swift
-//  NeuroMetrica
-//
-//  Created by Mohamed Elbashir on 11/12/25.
-//
-
-
 import Foundation
 import CoreGraphics
-
-// MARK: - Dummy StudyBrowser
 
 public final class DummyStudyBrowser: StudyBrowser {
     private var cachedStudy: Study?
@@ -19,8 +9,7 @@ public final class DummyStudyBrowser: StudyBrowser {
     public func loadDemoStudy() throws -> Study {
         if let s = cachedStudy { return s }
 
-        // Build a simple synthetic gradient volume for testing
-        let size = SIMD3<Int>(128, 128, 64)  // width, height, depth
+        let size = SIMD3<Int>(128, 128, 64)
         var voxels = [Int16]()
         voxels.reserveCapacity(size.x * size.y * size.z)
 
@@ -61,8 +50,6 @@ public final class DummyStudyBrowser: StudyBrowser {
     }
 }
 
-// MARK: - CPU SliceGenerator (supports all orientations)
-
 public final class CPUSliceGenerator: SliceGenerator {
     public init() {}
 
@@ -83,7 +70,6 @@ public final class CPUSliceGenerator: SliceGenerator {
         }
     }
 
-    // Axial: x (width), y (height), fix z
     private func makeAxialSlice(
         from volume: Volume3D<Int16>,
         index: Int,
@@ -109,7 +95,6 @@ public final class CPUSliceGenerator: SliceGenerator {
         return makeGrayImage(width: w, height: h, pixels: pixels)
     }
 
-    // Coronal: x (width), z (height), fix y
     private func makeCoronalSlice(
         from volume: Volume3D<Int16>,
         index: Int,
@@ -135,7 +120,6 @@ public final class CPUSliceGenerator: SliceGenerator {
         return makeGrayImage(width: w, height: d, pixels: pixels)
     }
 
-    // Sagittal: y (width), z (height), fix x
     private func makeSagittalSlice(
         from volume: Volume3D<Int16>,
         index: Int,
@@ -160,8 +144,6 @@ public final class CPUSliceGenerator: SliceGenerator {
 
         return makeGrayImage(width: h, height: d, pixels: pixels)
     }
-
-    // MARK: - Helpers
 
     private func wwWlRange(window: Float, level: Float) -> (Float, Float) {
         let minVal = level - window / 2

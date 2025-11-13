@@ -2,7 +2,7 @@
 //  StudyBrowser.swift
 //  NeuroMetrica
 //
-//  Created by Mohamed Elbashir on 11/12/25.
+
 //
 
 
@@ -12,12 +12,31 @@ import CoreGraphics
 /// Loads studies (from disk, demo data, PACS, etc.).
 public protocol StudyBrowser {
     func loadDemoStudy() throws -> Study
-    // Later you can add:
-    // func listRecentStudies() throws -> [StudySummary]
-    // func loadStudy(id: UUID) throws -> Study
+   
+  
 }
 
-/// Turns a 3D volume into a 2D CGImage for display.
+
+public protocol ImagingFileImporter {
+    /// Given a URL (file or directory), parse into one or more Studies.
+    func importStudies(at url: URL) throws -> [Study]
+}
+
+
+public protocol VolumeProcessing {
+   
+    func register(
+        fixed: Volume3D<Int16>,
+        moving: Volume3D<Int16>
+    ) throws -> Transform3D
+
+    /// Segment a hematoma
+    func segmentHematoma(
+        in volume: Volume3D<Int16>
+    ) throws -> Volume3D<UInt8>
+}
+
+/// Turns a 3D volume into a 2D CGImage
 public protocol SliceGenerator {
     func makeSlice(
         from volume: Volume3D<Int16>,

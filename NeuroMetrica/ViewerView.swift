@@ -1,3 +1,10 @@
+//
+//  ViewerView.swift
+//  NeuroMetrica
+//
+//  Created by Mohamed Elbashir on 11/12/25.
+//
+
 import SwiftUI
 
 struct ViewerView: View {
@@ -123,7 +130,7 @@ struct ViewerView: View {
     }
 }
 
-// MARK: - Small subviews in same file to avoid extra files
+// MARK: - Small subviews (keep in same file to avoid extra files)
 
 struct OrientationPicker: View {
     let orientation: VolumeOrientation
