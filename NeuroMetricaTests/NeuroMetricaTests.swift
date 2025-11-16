@@ -22,8 +22,8 @@ final class NeuroMetricaTests: XCTestCase {
     }
 
     func testPerformanceExample() throws {
-
-        me
+        measure {
+            // Code to measure goes here
         }
     }
 
