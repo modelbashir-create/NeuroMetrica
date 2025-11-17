@@ -15,7 +15,7 @@ In the not so super distant future I envision AI can enable imaging applications
 
 Update: I decided on my UI work flow. sketch UI on my Ipad after researching designs and other software, Figma for a quick mockup go, then back to swift UI to dial things in before wiring. UI docs will be coming and I will add license information at V2 stage. 
 
-Update 2: Calibration per device will be a big challlenge and I dont have the expertise or resources to do that. Eventually I will write a calibration alogrithem that works with calorimeters. Calibration tool will be finished after V2 but before V3 at that point I will buy a cheap calorimeter from amazon to start with, run some tests and see how close to DICOM GSDF calibration can I get on my ipad pro. 
+Update 2: Calibration per device will be a big challlenge and I dont have the expertise or resources to do that. Eventually I will write a calibration alogrithem that works with colorimeters. Calibration tool will be finished after V2 but before V3 at that point I will buy a cheap calorimeter from amazon to start with, run some tests and see how close to DICOM GSDF calibration can I get on my ipad pro. 
 
 
 ## V1 – Core Viewer (DICOM + NIfTI).  ---- End 2025 
