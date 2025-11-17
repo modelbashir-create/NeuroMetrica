@@ -5,7 +5,7 @@ NeuroMetrica is solo developed neurosurgery focused imaging and planning workspa
 
 #### my reasons for attempting this project is to let go of restrictions (hardware, backward compatibility, regulatory concerns) and just experiment. Bringing modern technologies together and see where I land. 
 
-In the world I envision AI can enable imaging applications to :
+in the not so super distant future I envision AI can enable imaging applications to :
 
 - Compare suggestions and planning stage against what surgeons actually did and what happened to the patient.
 - Track patterns where its guidance was helpful, neutral, or wrong, and adjust its internal confidence.
@@ -13,7 +13,10 @@ In the world I envision AI can enable imaging applications to :
 - provide labeled imaging data and case data for researchers
 
 
-Update: I decided on my UI work flow. Sketch UI on my Ipad after researching designs and other software, Figma for a quick mockup go back to swift Ui to dial things in before wiring.  
+Update: I decided on my UI work flow. Sketch UI on my Ipad after researching designs and other software, Figma for a quick mockup go back to swift Ui to dial things in before wiring. UI docs will be coming and I will add license information at V2 stage. 
+
+Update 2: Calibration per device will be a big challlenge and I dont have the expertise or resources to do that. Eventually I will write a calibration alogrithem that works with calorimeters. Big limitation is I wont have control over the entire screen because of IOS controls. I can not even control within the app space except for the viewing window. 
+
 
 ## V1 – Core Viewer (DICOM + NIfTI).  ---- End 2025 
 
