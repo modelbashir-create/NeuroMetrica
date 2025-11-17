@@ -1,21 +1,21 @@
 # NeuroMetrica
 
-NeuroMetrica is solo developed neurosurgery focused imaging and planning workspace built for Apple silicon. Eventually I want to provide users with AI models and allow them to use their own models and for the app to work as a platform. I am using chatgbt for documentation, UI wiring, scaffolding, debugging, everything I can safely dump on it. 
+NeuroMetrica is solo developed neurosurgery focused imaging and planning workspace built for Apple silicon. Eventually I want to provide users with AI tools and allow them to use their own models on device. I am using chatgbt for documentation, UI wiring, scaffolding, debugging, everything I can safely dump on it. 
 
 
-#### my reasons for attempting this project is to let go of restrictions (hardware, backward compatibility, regulatory concerns) and just experiment. Bringing modern technologies together and see where I land. 
+#### my reasons for attempting this project is to experiment, push modern Apple hardware (find a use case for those NPUs), and teach myself more about medical imaging science. 
 
-in the not so super distant future I envision AI can enable imaging applications to :
+
+In the not so super distant future I envision AI can enable imaging applications to: 
 
 - Compare suggestions and planning stage against what surgeons actually did and what happened to the patient.
 - Track patterns where its guidance was helpful, neutral, or wrong, and adjust its internal confidence.
-- Use large, de-identified cohorts of real cases and outcomes (from users who explicitly opt in) to recalibrate itself, not just once during training but continuously across its lifetime.
-- provide labeled imaging data and case data for researchers
+- Use large, de-identified cohorts of real cases and outcomes to recalibrate itself, not just once during training but continuously in realtime. 
 
 
-Update: I decided on my UI work flow. Sketch UI on my Ipad after researching designs and other software, Figma for a quick mockup go back to swift Ui to dial things in before wiring. UI docs will be coming and I will add license information at V2 stage. 
+Update: I decided on my UI work flow. sketch UI on my Ipad after researching designs and other software, Figma for a quick mockup go, then back to swift UI to dial things in before wiring. UI docs will be coming and I will add license information at V2 stage. 
 
-Update 2: Calibration per device will be a big challlenge and I dont have the expertise or resources to do that. Eventually I will write a calibration alogrithem that works with calorimeters. Big limitation is I wont have control over the entire screen because of IOS controls. I can not even control within the app space except for the viewing window. 
+Update 2: Calibration per device will be a big challlenge and I dont have the expertise or resources to do that. Eventually I will write a calibration alogrithem that works with calorimeters. Calibration tool will be finished after V2 but before V3 at that point I will buy a cheap calorimeter from amazon to start with, run some tests and see how close to DICOM GSDF calibration can I get on my ipad pro. 
 
 
 ## V1 – Core Viewer (DICOM + NIfTI).  ---- End 2025 
