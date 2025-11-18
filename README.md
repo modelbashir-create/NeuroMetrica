@@ -1,28 +1,83 @@
-# NeuroMetrica is a solo-developed, neurosurgery focused imaging and planning workspace built for Apple silicon. The long term goal is to give clinicians powerful AI tools on device including the ability to run their own models on iPad, Mac, and iPhone by integrating popular neuroimaging models such as HD-BET, nnU-Net, SynthSeg, and VoxelMorph into a Core ML–driven pipeline. The main focuse will be to create a robust and powerful federated learning platform to train ML models. 
+## NeuroMetrica
+
+NeuroMetrica is a solo-developed, neurosurgery focused imaging and planning workspace built for Apple silicon (iPad, Mac, and  iPhone). The long-term goal is to give clinicians powerful on device AI tools by integrating strong, pre-trained neuroimaging models into a mobile software viewer. 
 
 
-NeuroMetrica is a a federated learning platform for medical imaging:
-	•	A user loads a volume or scan and draws a tumor mask, region of interest, or segmentation.
-	•	The iPad slices the volume into tiles and uses those tiles and labels to run training steps locally.
-	•	The device updates its local model weights and, occasionally, sends only those weight updates to the server.
-	•	The server aggregates updates from many users into a new global model and sends that model back down via in app updates.
+The core design goal is to build a **federated learning platform** for medical imaging rather than a cloud only model server.
 
+### Federated learning: 
 
-Problems I solve with this approach:
+NeuroMetrica acts as a federated learning client:
 
-1. Training is distributed across all users’ devices. The server’s main job is aggregation, not heavy compute.
-2. Raw volumes, DICOMs, and patient identifiers stay on the device. Only ML weight updates are transmitted, greatly reducing data-sharing risk.
-3. Every labeled case makes the global model a little better. Users are not just solving their own case; they are continuously improving the tools they will use on their next patient.
+- A user loads a CT/MR volume and draws a tumor mask, region of interest, or other segmentation.
+- The device slices the volume into tiles and runs raining steps locally on device using those labels.
+- The local student model updates its weights, and periodically sends only weight updates (no scans, or PHIs) to a central server runing Nvidia Flare. 
+- The server aggregates updates from many users into a new global student model and ships updated weights back down via in-app model updates.
 
+https://developer.nvidia.com/blog/effortless-federated-learning-on-mobile-with-nvidia-flare-and-meta-executorch/
 
+### Why this approach
 
-#### my reasons for attempting this project is to experiment, push modern Apple hardware (find a use case for those NPUs), and teach myself more about medical imaging science. 
+1. Distributed training – Training is spread across users’ devices; the server’s main job is aggregation, not heavy compute.  
+2. Privacy by design** – Raw volumes, DICOMs, and patient identifiers stay on the device. Only ML weight updates are transmitted, which greatly reduces data-sharing risk.  
+3. Every case helps the next – Each labeled case makes the global model a little better. Users are not just solving their own case; they are continuously improving the tools they will use on their next patient.
+
+---
+
+### Planned teacher models (server-side)
+
+On the server, NeuroMetrica will use a small group of teachers of pre-trained models. A single on-device student model (I call the model Red Eyes) is distilled from these teachers and then updated via federated learning.
+
+**Brain MRI**
+
+- **SynthSeg**  (https://github.com/BBillot/SynthSeg)
+  - Robust brain structure segmentation across scanners, resolutions, and MRI contrasts.  
+  - Used to supervise:
+    - A **brain mask head** (brain vs non-brain, derived from SynthSeg labels).  
+    - A **brain structures head** (multi-class parcellation: GM/WM/CSF + subcortical regions).
+
+- **BraTS nnU-Net (pre-trained on BraTS glioma)** (https://github.com/mobarakol/nnUNet_BraTS)
+  - Brain tumor segmentation (enhancing tumor / tumor core / edema) on multi-sequence MRI.  
+  - Used to supervise:
+    - A dedicated **tumor head** in the student model.
+
+- **VoxelMorph (brain registration)**  (https://github.com/voxelmorph/voxelmorph)
+  - Learned deformable registration between brain volumes (e.g., patient→atlas or pre-op→post-op).  
+  - Used to supervise:
+    - A **registration head** that predicts deformation fields.
+
+**Spine**
+
+- **Spinal Cord Toolbox (SCT deepseg_sc / deepseg_gm)**  (https://github.com/sct-pipeline/deepseg-training)
+  - Pre-trained deep learning models for spinal cord (and optionally gray matter) segmentation on spine MRI.  
+  - Used to supervise:
+    - A **spinal cord head** for cervical/thoracic MRIs.
+
+- **TotalSegmentator (CT, nnU-Net-based)**  (https://github.com/wasserth/TotalSegmentator) 
+  - Multi-organ CT segmentation model that includes vertebrae, ribs, and other bony structures.  
+  - Used to supervise:
+    - A **vertebrae head** (per-vertebra labels on CT).  
+    - Optional **additional spine/CT heads** (e.g., spinal canal, ribs) if needed.
+
+The long-term idea is:
+
+> **Server:** run these heavier teacher models on NVIDIA GPUs, train and refine a single multi-head student.  
+> **Device:** run the compressed student model on iPad/Mac (ExecuTorch + Core ML), keep federated learning always on, and optionally offer cloud “teacher mode” as an opt-in for users who want the strongest possible server-side based results. 
+
+---
+
+#### Why I’m building this
+
+I’m using NeuroMetrica as a sandbox to experiment, push modern Apple hardware (find a use case for those neural engines), and teach myself more about medical imaging. 
 
 
 Update: I decided on my UI work flow. sketch UI on my Ipad after researching designs and other software, Figma for a quick mockup, then back to swift UI to dial things in before wiring. UI docs will be coming and I will add license information at V2 stage. 
 
 Update 2: Calibration per device will be a big challlenge and I dont have the expertise or resources to do that. Eventually I will write a calibration alogrithem that works with colorimeters. Calibration tool will be finished after V2 but before V3 at that point I will buy a cheap calorimeter from amazon to start with, run some tests and see how close to DICOM GSDF calibration can I get on my ipad pro. 
 
+Update 3: decided on federated learning flow NVIDIA MONAI for initial traning and flare + flower for deployment of red eyes. Server stuff is not that hard already so many examples. figuring out CoreML backend with exotorch is very new and i need to do some research of flare deployment on ios. 
+
+Update 4: I will try to integrate one full feature tumor detection with exotorch core ML backend and Flare server as proof of concept before moving on to V3. 
 
 ## V1 – Core Viewer (DICOM + NIfTI).  ---- End 2025 
 
