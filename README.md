@@ -1,19 +1,25 @@
-# NeuroMetrica
+# NeuroMetrica is a solo-developed, neurosurgery focused imaging and planning workspace built for Apple silicon. The long term goal is to give clinicians powerful AI tools on device including the ability to run their own models on iPad, Mac, and iPhone by integrating popular neuroimaging models such as HD-BET, nnU-Net, SynthSeg, and VoxelMorph into a Core ML–driven pipeline. The main focuse will be to create a robust and powerful federated learning platform to train ML models. 
 
-NeuroMetrica is solo developed neurosurgery focused imaging and planning workspace built for Apple silicon. Eventually I want to provide users with AI tools and allow them to use their own models on device. I am using chatgbt for documentation, UI wiring, scaffolding, debugging, everything I can safely dump on it. 
+
+NeuroMetrica is a a federated learning platform for medical imaging:
+	•	A user loads a volume or scan and draws a tumor mask, region of interest, or segmentation.
+	•	The iPad slices the volume into tiles and uses those tiles and labels to run training steps locally.
+	•	The device updates its local model weights and, occasionally, sends only those weight updates to the server.
+	•	The server aggregates updates from many users into a new global model and sends that model back down via in app updates.
+
+
+Problems I solve with this approach:
+
+1. Training is distributed across all users’ devices. The server’s main job is aggregation, not heavy compute.
+2. Raw volumes, DICOMs, and patient identifiers stay on the device. Only ML weight updates are transmitted, greatly reducing data-sharing risk.
+3. Every labeled case makes the global model a little better. Users are not just solving their own case; they are continuously improving the tools they will use on their next patient.
+
 
 
 #### my reasons for attempting this project is to experiment, push modern Apple hardware (find a use case for those NPUs), and teach myself more about medical imaging science. 
 
 
-In the not so super distant future I envision AI can enable imaging applications to: 
-
-- Compare suggestions and planning stage against what surgeons actually did and what happened to the patient.
-- Track patterns where its guidance was helpful, neutral, or wrong, and adjust its internal confidence.
-- Use large, de-identified cohorts of real cases and outcomes to recalibrate itself, not just once during training but continuously in realtime. 
-
-
-Update: I decided on my UI work flow. sketch UI on my Ipad after researching designs and other software, Figma for a quick mockup go, then back to swift UI to dial things in before wiring. UI docs will be coming and I will add license information at V2 stage. 
+Update: I decided on my UI work flow. sketch UI on my Ipad after researching designs and other software, Figma for a quick mockup, then back to swift UI to dial things in before wiring. UI docs will be coming and I will add license information at V2 stage. 
 
 Update 2: Calibration per device will be a big challlenge and I dont have the expertise or resources to do that. Eventually I will write a calibration alogrithem that works with colorimeters. Calibration tool will be finished after V2 but before V3 at that point I will buy a cheap calorimeter from amazon to start with, run some tests and see how close to DICOM GSDF calibration can I get on my ipad pro. 
 
@@ -182,7 +188,7 @@ Goal: make the 3D environment clinically useful by adding sculpting, “bone rem
 
 ---
 
-## V5 – AI, Registration & Smart Workflows.  End 2028 
+## V5 – AI, Registration & Smart Workflows. Mid 2028 
 
 Goal: layer intelligence on top of the mature 2D/3D viewer. Allowing users to load their own models and create a reference models for users to learn from. 
 
