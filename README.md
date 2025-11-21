@@ -80,7 +80,12 @@ Update 3: decided on federated learning flow NVIDIA MONAI for initial traning an
 
 Update 4: I will try to integrate one full feature tumor detection with exotorch core ML backend and Flare server as proof of concept before moving on to V3. 
 
-Update 5: Update 5: Finished designing the iOS app logo and have Icon Composer ready. The icon is inspired by my internal codenames: RedEye for the on-device student model and Brightmind for the server-side teacher model + FLARE pipeline. I’m excited to start the server and model-training work, but I know the app itself needs to mature first—especially the frontend. UI is the hardest part for me: I love Illustrator and Figma, but going from sketch → mockup → SwiftUI implementation → wiring everything together is a grind. To stay sane, I’m taking a systematic approach: finish the UI mockups, then implement them while I work in parallel on Brightmind.
+Update 5: Finished designing the iOS app logo and have Icon Composer ready. The icon is inspired by my internal codenames: RedEye for the on-device student model and Brightmind for the server-side teacher model + FLARE pipeline. I’m excited to start the server and model-training work, but I know the app itself needs to mature first—especially the frontend. UI is the hardest part for me: I love Illustrator and Figma, but going from sketch → mockup → SwiftUI implementation → wiring everything together is a grind. To stay sane, I’m taking a systematic approach: finish the UI mockups, then implement them while I work in parallel on Brightmind.
+
+Update 6: I started reasearching old PACS from 90s-2000s to get inspiration. I want things to look and feel modern but also respect the history. I want the application to feel modern yet familiar. I want to see a radiologist or surgeon feel some nostalgia looking at my application. I want them to be reminded of Agfa IMPAX or siemens MagicView from the 90s or the Fuji Synapse PACS from the early 2000s. I pay homage to this heritage through color selection, layout design, translating old toolbar icons to modern SF icons. 
+
+
+
 
 ## V1 – Core Viewer (DICOM + NIfTI).  ---- End 2025 
 
