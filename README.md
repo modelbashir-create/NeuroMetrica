@@ -71,23 +71,6 @@ The long-term idea is:
 
 I’m using NeuroMetrica as a sandbox to experiment, push modern Apple hardware (find a use case for those neural engines), and teach myself more about medical imaging. 
 
-#### Project Update notes: 
-
-
-Update: I: decided on my UI work flow. sketch UI on my Ipad after researching designs and other software, Figma for a quick mockup, then back to swift UI to dial things in before wiring. UI docs will be coming and I will add license information at V2 stage. 
-
-Update 2: Calibration per device will be a big challlenge and I dont have the expertise or resources to do that. Eventually I will write a calibration alogrithem that works with colorimeters. Calibration tool will be finished after V2 but before V3 at that point I will buy a cheap calorimeter from amazon to start with, run some tests and see how close to DICOM GSDF calibration can I get on my ipad pro. 
-
-Update 3: decided on federated learning flow NVIDIA MONAI for initial traning and flare + flower for deployment of red eyes. Server stuff is not that hard already so many examples. figuring out CoreML backend with exotorch is very new and i need to do some research of flare deployment on ios. 
-
-Update 4: I will try to integrate one full feature tumor detection with exotorch core ML backend and Flare server as proof of concept before moving on to V3. 
-
-Update 5: Finished designing the iOS app logo and have Icon Composer ready. The icon is inspired by my internal codenames: RedEye for the on-device student model and Brightmind for the server-side teacher model + FLARE pipeline. I’m excited to start the server and model-training work, but I know the app itself needs to mature first—especially the frontend. UI is the hardest part for me: I love Illustrator and Figma, but going from sketch → mockup → SwiftUI implementation → wiring everything together is a grind. To stay sane, I’m taking a systematic approach: finish the UI mockups, then implement them while I work in parallel on Brightmind.
-
-Update 6: I started reasearching old PACS from 90s-2000s to get inspiration. I want things to look and feel modern but also respect the history. I want the application to feel modern yet familiar. I want to see a radiologist or surgeon feel some nostalgia looking at my application. I want them to be reminded of Agfa IMPAX or siemens MagicView from the 90s or the Fuji Synapse PACS from the early 2000s. I pay homage to this heritage through color selection, layout design, translating old toolbar icons to modern animated SF icons. I will channel my inner Jony Ive. 
-
-
-
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
