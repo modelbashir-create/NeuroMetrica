@@ -28,9 +28,14 @@ The project is organized as an Xcode **workspace**:\
 ```text\
 NeuroMetricaWorkspace/\
     NeuroMetrica.xcworkspace        # Workspace file\
+\
     NeuroMetrica/                   # App project (SwiftUI / MVVM)\
     ChromaImagingKit/               # Swift package (image engine)\
-    DCMTKLoader/                    # Swift package (DICOM loading)\
+\
+    DCMTKLoader/                    # Swift package (DICOM loading; scaffold/planned)\
+\
+    ThirdParty/                     # Vendored third\uc0\u8209 party libraries\
+        dcmtk/                      # Upstream DCMTK source tree (unmodified)\
 ```\
 \
 ### 1.1 NeuroMetrica (App Project)\
