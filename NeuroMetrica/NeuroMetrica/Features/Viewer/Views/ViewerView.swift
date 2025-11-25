@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct ViewerView: View {
     @ObservedObject var viewModel: ViewerViewModel
+    @EnvironmentObject var appSettings: AppSettings
 
     // For drag-based scrubbing
     @State private var accumulatedDrag: CGFloat = 0
@@ -58,6 +59,7 @@ struct ViewerView: View {
             OrientationControlView(viewModel: viewModel)
             SliceNavigationView(viewModel: viewModel)
             WWLControlsView(viewModel: viewModel)
+            backendPicker
         }
         .padding()
         // Keyboard focus and arrow-key navigation
@@ -147,6 +149,20 @@ struct ViewerView: View {
         #else
         EmptyView()
         #endif
+    }
+
+    private var backendPicker: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Processing Backend")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Picker("Processing Backend", selection: $appSettings.processingBackend) {
+                ForEach(ProcessingBackend.allCases) { backend in
+                    Text(backend.displayName).tag(backend)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
     }
 }
 

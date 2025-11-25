@@ -7,6 +7,7 @@ struct NeuroMetricaApp: App {
     var body: some Scene {
         WindowGroup {
             ViewerView(viewModel: appContainer.viewerViewModel)
+                .environmentObject(appContainer.appSettings)
         }
     }
 }

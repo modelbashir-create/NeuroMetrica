@@ -89,6 +89,11 @@ public struct WindowLevelGPU {
         let outPointer = outBuffer.contents().bindMemory(to: Float.self, capacity: count)
         let outPixels = Array(UnsafeBufferPointer(start: outPointer, count: count))
 
-        return CIImage2D(width: image.width, height: image.height, pixels: outPixels)
+        return CIImage2D(
+            width: image.width,
+            height: image.height,
+            pixels: outPixels,
+            orientation: image.orientation
+        )
     }
 }

@@ -48,8 +48,10 @@ public struct SliceExtractGPU {
     // MARK: - Public API
 
     /// Axial slice: z-plane, size = width x height (x, y)
-    public static func axialSlice(from volume: CIImageVolume, z: Int) -> CIImage2D {
-        precondition(z >= 0 && z < volume.depth, "❌ Axial slice index out of range.")
+    public static func axialSlice(from volume: CIImageVolume, z: Int) throws -> CIImage2D {
+        guard z >= 0 && z < volume.depth else {
+            throw SliceExtractError.invalidIndex
+        }
         let context = ChromaContext.shared
         let device = context.device
         let commandBuffer = context.makeCommandBuffer()
@@ -109,8 +111,10 @@ public struct SliceExtractGPU {
     }
 
     /// Coronal slice: y-plane, size = width x depth (x, z)
-    public static func coronalSlice(from volume: CIImageVolume, y: Int) -> CIImage2D {
-        precondition(y >= 0 && y < volume.height, "❌ Coronal slice index out of range.")
+    public static func coronalSlice(from volume: CIImageVolume, y: Int) throws -> CIImage2D {
+        guard y >= 0 && y < volume.height else {
+            throw SliceExtractError.invalidIndex
+        }
         let context = ChromaContext.shared
         let device = context.device
         let commandBuffer = context.makeCommandBuffer()
@@ -171,8 +175,10 @@ public struct SliceExtractGPU {
     }
 
     /// Sagittal slice: x-plane, size = height x depth (y, z)
-    public static func sagittalSlice(from volume: CIImageVolume, x: Int) -> CIImage2D {
-        precondition(x >= 0 && x < volume.width, "❌ Sagittal slice index out of range.")
+    public static func sagittalSlice(from volume: CIImageVolume, x: Int) throws -> CIImage2D {
+        guard x >= 0 && x < volume.width else {
+            throw SliceExtractError.invalidIndex
+        }
         let context = ChromaContext.shared
         let device = context.device
         let commandBuffer = context.makeCommandBuffer()
@@ -230,5 +236,101 @@ public struct SliceExtractGPU {
             pixels: slicePixels,
             orientation: .sagittal
         )
+    }
+}
+
+enum SliceExtractError: Error {
+    case invalidIndex
+}
+
+extension SliceExtractGPU {
+    static func extractSlice(
+        from volume: CIImageVolume,
+        orientation: SliceOrientation,
+        index: Int,
+        backend: ChromaProcessingBackend
+    ) throws -> CIImage2D {
+        switch backend {
+        case .gpu:
+            return try extractGPU(
+                from: volume,
+                orientation: orientation,
+                index: index
+            )
+        case .cpu:
+            return try extractCPU(
+                from: volume,
+                orientation: orientation,
+                index: index
+            )
+        }
+    }
+
+    private static func extractGPU(
+        from volume: CIImageVolume,
+        orientation: SliceOrientation,
+        index: Int
+    ) throws -> CIImage2D {
+        switch orientation {
+        case .axial:
+            return try axialSlice(from: volume, z: index)
+        case .coronal:
+            return try coronalSlice(from: volume, y: index)
+        case .sagittal:
+            return try sagittalSlice(from: volume, x: index)
+        }
+    }
+
+    private static func extractCPU(
+        from volume: CIImageVolume,
+        orientation: SliceOrientation,
+        index: Int
+    ) throws -> CIImage2D {
+        switch orientation {
+        case .axial:
+            guard index >= 0 && index < volume.depth else { throw SliceExtractError.invalidIndex }
+            let start = index * volume.width * volume.height
+            let end = start + (volume.width * volume.height)
+            let slicePixels = Array(volume.voxels[start..<end])
+            return CIImage2D(
+                width: volume.width,
+                height: volume.height,
+                pixels: slicePixels,
+                orientation: .axial
+            )
+        case .coronal:
+            guard index >= 0 && index < volume.height else { throw SliceExtractError.invalidIndex }
+            var pixels: [Float] = .init(repeating: 0, count: volume.width * volume.depth)
+            var cursor = 0
+            for z in 0..<volume.depth {
+                let base = z * volume.height * volume.width + index * volume.width
+                let rowRange = base..<(base + volume.width)
+                pixels.replaceSubrange(cursor..<(cursor + volume.width), with: volume.voxels[rowRange])
+                cursor += volume.width
+            }
+            return CIImage2D(
+                width: volume.width,
+                height: volume.depth,
+                pixels: pixels,
+                orientation: .coronal
+            )
+        case .sagittal:
+            guard index >= 0 && index < volume.width else { throw SliceExtractError.invalidIndex }
+            var pixels: [Float] = .init(repeating: 0, count: volume.height * volume.depth)
+            var cursor = 0
+            for z in 0..<volume.depth {
+                for y in 0..<volume.height {
+                    let flatIndex = z * volume.height * volume.width + y * volume.width + index
+                    pixels[cursor] = volume.voxels[flatIndex]
+                    cursor += 1
+                }
+            }
+            return CIImage2D(
+                width: volume.height,
+                height: volume.depth,
+                pixels: pixels,
+                orientation: .sagittal
+            )
+        }
     }
 }
