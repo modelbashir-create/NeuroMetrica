@@ -1,0 +1,1039 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FF7A019E2EC7EDB900CD988F /* CIImage2D+Image.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7A019D2EC7EDB600CD988F /* CIImage2D+Image.swift */; };
+		FF93BE4D2ED56D4A00A9F042 /* RedEngine  in Frameworks */ = {isa = PBXBuildFile; productRef = FF93BE4C2ED56D4A00A9F042 /* RedEngine  */; };
+		FF93BE502ED56D6800A9F042 /* DCMTKLoader in Frameworks */ = {isa = PBXBuildFile; productRef = FF93BE4F2ED56D6800A9F042 /* DCMTKLoader */; };
+		FF93BE532ED56E0700A9F042 /* ChromaImagingKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF93BE522ED56E0700A9F042 /* ChromaImagingKit */; };
+		FF9BB72F2EC6D326000F271C /* DCMTKLoader in Frameworks */ = {isa = PBXBuildFile; productRef = FF9BB72E2EC6D326000F271C /* DCMTKLoader */; };
+		FF9BB7322EC6D415000F271C /* ChromaImagingKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF9BB7312EC6D415000F271C /* ChromaImagingKit */; };
+		FF9BB7332EC6D8FA000F271C /* NeuroMetricaUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F82EC6C90A00315F9C /* NeuroMetricaUITestsLaunchTests.swift */; };
+		FF9BB7342EC6D8FA000F271C /* NeuroMetricaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F72EC6C90A00315F9C /* NeuroMetricaUITests.swift */; };
+		FF9BB7352EC6D903000F271C /* NeuroMetricaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F52EC6C90A00315F9C /* NeuroMetricaTests.swift */; };
+		FF9BB7692EC7199D000F271C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FF9BB7672EC7199D000F271C /* Assets.xcassets */; };
+		FF9BB76A2EC7199D000F271C /* SliceNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7612EC7199D000F271C /* SliceNavigationView.swift */; };
+		FF9BB76B2EC7199D000F271C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7592EC7199D000F271C /* SettingsView.swift */; };
+		FF9BB76C2EC7199D000F271C /* DebugOverlayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB74B2EC7199D000F271C /* DebugOverlayViewModel.swift */; };
+		FF9BB76D2EC7199D000F271C /* ImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7542EC7199D000F271C /* ImportView.swift */; };
+		FF9BB76E2EC7199D000F271C /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73A2EC7199D000F271C /* AppSettings.swift */; };
+		FF9BB76F2EC7199D000F271C /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7622EC7199D000F271C /* ViewerView.swift */; };
+		FF9BB7702EC7199D000F271C /* ChromaEngineBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73F2EC7199D000F271C /* ChromaEngineBridge.swift */; };
+		FF9BB7712EC7199D000F271C /* ImportSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7502EC7199D000F271C /* ImportSource.swift */; };
+		FF9BB7722EC7199D000F271C /* NeuroMetricaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7372EC7199D000F271C /* NeuroMetricaApp.swift */; };
+		FF9BB7732EC7199D000F271C /* WWLControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7632EC7199D000F271C /* WWLControlsView.swift */; };
+		FF9BB7742EC7199D000F271C /* ViewerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB75C2EC7199D000F271C /* ViewerState.swift */; };
+		FF9BB7752EC7199D000F271C /* OrientationControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7602EC7199D000F271C /* OrientationControlView.swift */; };
+		FF9BB7762EC7199D000F271C /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7392EC7199D000F271C /* AppError.swift */; };
+		FF9BB7772EC7199D000F271C /* AppContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7362EC7199D000F271C /* AppContainer.swift */; };
+		FF9BB7782EC7199D000F271C /* Color+NeuroMetrica.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7442EC7199D000F271C /* Color+NeuroMetrica.swift */; };
+		FF9BB7792EC7199D000F271C /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7572EC7199D000F271C /* SettingsViewModel.swift */; };
+		FF9BB77A2EC7199D000F271C /* View+NeuroMetrica.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7452EC7199D000F271C /* View+NeuroMetrica.swift */; };
+		FF9BB77B2EC7199D000F271C /* MainThreadExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7472EC7199D000F271C /* MainThreadExecutor.swift */; };
+		FF9BB77C2EC7199D000F271C /* RecentFilesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73D2EC7199D000F271C /* RecentFilesStore.swift */; };
+		FF9BB77D2EC7199D000F271C /* ViewerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB75E2EC7199D000F271C /* ViewerViewModel.swift */; };
+		FF9BB77E2EC7199D000F271C /* DebugOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB74D2EC7199D000F271C /* DebugOverlayView.swift */; };
+		FF9BB77F2EC7199D000F271C /* ImportViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7522EC7199D000F271C /* ImportViewModel.swift */; };
+		FF9BB7802EC7199D000F271C /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7412EC7199D000F271C /* AppLogger.swift */; };
+		FF9BB7812EC7199D000F271C /* FilePickerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73C2EC7199D000F271C /* FilePickerService.swift */; };
+		FF9E7BC72ED571BB00C890AD /* ChromaImagingKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF9E7BC62ED571BB00C890AD /* ChromaImagingKit */; };
+		FF9E7BCA2ED5727400C890AD /* ChromaImagingKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF9E7BC92ED5727400C890AD /* ChromaImagingKit */; };
+		FF9E7BCD2ED572C500C890AD /* RedEngine  in Frameworks */ = {isa = PBXBuildFile; productRef = FF9E7BCC2ED572C500C890AD /* RedEngine  */; };
+		FFA92CE12ECA1169003844C4 /* DCMTKLoader in Frameworks */ = {isa = PBXBuildFile; productRef = FFA92CE02ECA1169003844C4 /* DCMTKLoader */; };
+		FFAD3C072ED5463500B5631E /* DCMTKLoader in Frameworks */ = {isa = PBXBuildFile; productRef = FFAD3C062ED5463500B5631E /* DCMTKLoader */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FFB3E2222EC54F1900EBFFE6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FFB3E20C2EC54F1600EBFFE6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FFB3E2132EC54F1600EBFFE6;
+			remoteInfo = NeuroMetrica;
+		};
+		FFB3E22C2EC54F1900EBFFE6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FFB3E20C2EC54F1600EBFFE6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FFB3E2132EC54F1600EBFFE6;
+			remoteInfo = NeuroMetrica;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		FF7A019D2EC7EDB600CD988F /* CIImage2D+Image.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CIImage2D+Image.swift"; sourceTree = "<group>"; };
+		FF9BB7362EC7199D000F271C /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
+		FF9BB7372EC7199D000F271C /* NeuroMetricaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeuroMetricaApp.swift; sourceTree = "<group>"; };
+		FF9BB7392EC7199D000F271C /* AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppError.swift; sourceTree = "<group>"; };
+		FF9BB73A2EC7199D000F271C /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		FF9BB73C2EC7199D000F271C /* FilePickerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePickerService.swift; sourceTree = "<group>"; };
+		FF9BB73D2EC7199D000F271C /* RecentFilesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesStore.swift; sourceTree = "<group>"; };
+		FF9BB73F2EC7199D000F271C /* ChromaEngineBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromaEngineBridge.swift; sourceTree = "<group>"; };
+		FF9BB7412EC7199D000F271C /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
+		FF9BB7442EC7199D000F271C /* Color+NeuroMetrica.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+NeuroMetrica.swift"; sourceTree = "<group>"; };
+		FF9BB7452EC7199D000F271C /* View+NeuroMetrica.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+NeuroMetrica.swift"; sourceTree = "<group>"; };
+		FF9BB7472EC7199D000F271C /* MainThreadExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainThreadExecutor.swift; sourceTree = "<group>"; };
+		FF9BB74B2EC7199D000F271C /* DebugOverlayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlayViewModel.swift; sourceTree = "<group>"; };
+		FF9BB74D2EC7199D000F271C /* DebugOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlayView.swift; sourceTree = "<group>"; };
+		FF9BB7502EC7199D000F271C /* ImportSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportSource.swift; sourceTree = "<group>"; };
+		FF9BB7522EC7199D000F271C /* ImportViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportViewModel.swift; sourceTree = "<group>"; };
+		FF9BB7542EC7199D000F271C /* ImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportView.swift; sourceTree = "<group>"; };
+		FF9BB7572EC7199D000F271C /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
+		FF9BB7592EC7199D000F271C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		FF9BB75C2EC7199D000F271C /* ViewerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerState.swift; sourceTree = "<group>"; };
+		FF9BB75E2EC7199D000F271C /* ViewerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerViewModel.swift; sourceTree = "<group>"; };
+		FF9BB7602EC7199D000F271C /* OrientationControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationControlView.swift; sourceTree = "<group>"; };
+		FF9BB7612EC7199D000F271C /* SliceNavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SliceNavigationView.swift; sourceTree = "<group>"; };
+		FF9BB7622EC7199D000F271C /* ViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerView.swift; sourceTree = "<group>"; };
+		FF9BB7632EC7199D000F271C /* WWLControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WWLControlsView.swift; sourceTree = "<group>"; };
+		FF9BB7672EC7199D000F271C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FFB3E2142EC54F1600EBFFE6 /* NeuroMetrica.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NeuroMetrica.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFB3E2212EC54F1900EBFFE6 /* NeuroMetricaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NeuroMetricaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFB3E22B2EC54F1900EBFFE6 /* NeuroMetricaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NeuroMetricaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFC408F52EC6C90A00315F9C /* NeuroMetricaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeuroMetricaTests.swift; sourceTree = "<group>"; };
+		FFC408F72EC6C90A00315F9C /* NeuroMetricaUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeuroMetricaUITests.swift; sourceTree = "<group>"; };
+		FFC408F82EC6C90A00315F9C /* NeuroMetricaUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeuroMetricaUITestsLaunchTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FFB3E2112EC54F1600EBFFE6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FFA92CE12ECA1169003844C4 /* DCMTKLoader in Frameworks */,
+				FFAD3C072ED5463500B5631E /* DCMTKLoader in Frameworks */,
+				FF9BB7322EC6D415000F271C /* ChromaImagingKit in Frameworks */,
+				FF9E7BCD2ED572C500C890AD /* RedEngine  in Frameworks */,
+				FF93BE502ED56D6800A9F042 /* DCMTKLoader in Frameworks */,
+				FF93BE4D2ED56D4A00A9F042 /* RedEngine  in Frameworks */,
+				FF9BB72F2EC6D326000F271C /* DCMTKLoader in Frameworks */,
+				FF9E7BC72ED571BB00C890AD /* ChromaImagingKit in Frameworks */,
+				FF93BE532ED56E0700A9F042 /* ChromaImagingKit in Frameworks */,
+				FF9E7BCA2ED5727400C890AD /* ChromaImagingKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FFB3E21E2EC54F1900EBFFE6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FFB3E2282EC54F1900EBFFE6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FF9BB7382EC7199D000F271C /* App */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7362EC7199D000F271C /* AppContainer.swift */,
+				FF9BB7372EC7199D000F271C /* NeuroMetricaApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		FF9BB73B2EC7199D000F271C /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7392EC7199D000F271C /* AppError.swift */,
+				FF9BB73A2EC7199D000F271C /* AppSettings.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		FF9BB73E2EC7199D000F271C /* FileSystem */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB73C2EC7199D000F271C /* FilePickerService.swift */,
+				FF9BB73D2EC7199D000F271C /* RecentFilesStore.swift */,
+			);
+			path = FileSystem;
+			sourceTree = "<group>";
+		};
+		FF9BB7402EC7199D000F271C /* Imaging */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB73F2EC7199D000F271C /* ChromaEngineBridge.swift */,
+			);
+			path = Imaging;
+			sourceTree = "<group>";
+		};
+		FF9BB7422EC7199D000F271C /* Logging */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7412EC7199D000F271C /* AppLogger.swift */,
+			);
+			path = Logging;
+			sourceTree = "<group>";
+		};
+		FF9BB7432EC7199D000F271C /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB73E2EC7199D000F271C /* FileSystem */,
+				FF9BB7402EC7199D000F271C /* Imaging */,
+				FF9BB7422EC7199D000F271C /* Logging */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		FF9BB7462EC7199D000F271C /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				FF7A019D2EC7EDB600CD988F /* CIImage2D+Image.swift */,
+				FF9BB7442EC7199D000F271C /* Color+NeuroMetrica.swift */,
+				FF9BB7452EC7199D000F271C /* View+NeuroMetrica.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		FF9BB7482EC7199D000F271C /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7472EC7199D000F271C /* MainThreadExecutor.swift */,
+			);
+			path = Helpers;
+			sourceTree = "<group>";
+		};
+		FF9BB7492EC7199D000F271C /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7462EC7199D000F271C /* Extensions */,
+				FF9BB7482EC7199D000F271C /* Helpers */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		FF9BB74A2EC7199D000F271C /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB73B2EC7199D000F271C /* Models */,
+				FF9BB7432EC7199D000F271C /* Services */,
+				FF9BB7492EC7199D000F271C /* Utils */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		FF9BB74C2EC7199D000F271C /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB74B2EC7199D000F271C /* DebugOverlayViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		FF9BB74E2EC7199D000F271C /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB74D2EC7199D000F271C /* DebugOverlayView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		FF9BB74F2EC7199D000F271C /* DevTools */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB74C2EC7199D000F271C /* ViewModels */,
+				FF9BB74E2EC7199D000F271C /* Views */,
+			);
+			path = DevTools;
+			sourceTree = "<group>";
+		};
+		FF9BB7512EC7199D000F271C /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7502EC7199D000F271C /* ImportSource.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		FF9BB7532EC7199D000F271C /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7522EC7199D000F271C /* ImportViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		FF9BB7552EC7199D000F271C /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7542EC7199D000F271C /* ImportView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		FF9BB7562EC7199D000F271C /* Import */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7512EC7199D000F271C /* Models */,
+				FF9BB7532EC7199D000F271C /* ViewModels */,
+				FF9BB7552EC7199D000F271C /* Views */,
+			);
+			path = Import;
+			sourceTree = "<group>";
+		};
+		FF9BB7582EC7199D000F271C /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7572EC7199D000F271C /* SettingsViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		FF9BB75A2EC7199D000F271C /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7592EC7199D000F271C /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		FF9BB75B2EC7199D000F271C /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7582EC7199D000F271C /* ViewModels */,
+				FF9BB75A2EC7199D000F271C /* Views */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		FF9BB75D2EC7199D000F271C /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB75C2EC7199D000F271C /* ViewerState.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		FF9BB75F2EC7199D000F271C /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB75E2EC7199D000F271C /* ViewerViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		FF9BB7642EC7199D000F271C /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7602EC7199D000F271C /* OrientationControlView.swift */,
+				FF9BB7612EC7199D000F271C /* SliceNavigationView.swift */,
+				FF9BB7622EC7199D000F271C /* ViewerView.swift */,
+				FF9BB7632EC7199D000F271C /* WWLControlsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		FF9BB7652EC7199D000F271C /* Viewer */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB75D2EC7199D000F271C /* Models */,
+				FF9BB75F2EC7199D000F271C /* ViewModels */,
+				FF9BB7642EC7199D000F271C /* Views */,
+			);
+			path = Viewer;
+			sourceTree = "<group>";
+		};
+		FF9BB7662EC7199D000F271C /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB74F2EC7199D000F271C /* DevTools */,
+				FF9BB7562EC7199D000F271C /* Import */,
+				FF9BB75B2EC7199D000F271C /* Settings */,
+				FF9BB7652EC7199D000F271C /* Viewer */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		FF9BB7682EC7199D000F271C /* NeuroMetrica */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7382EC7199D000F271C /* App */,
+				FF9BB74A2EC7199D000F271C /* Core */,
+				FF9BB7662EC7199D000F271C /* Features */,
+				FF9BB7672EC7199D000F271C /* Assets.xcassets */,
+			);
+			path = NeuroMetrica;
+			sourceTree = "<group>";
+		};
+		FFB3E20B2EC54F1600EBFFE6 = {
+			isa = PBXGroup;
+			children = (
+				FFC408FB2EC6C90A00315F9C /* NeuroMetrica */,
+				FFB3E2152EC54F1600EBFFE6 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FFB3E2152EC54F1600EBFFE6 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FFB3E2142EC54F1600EBFFE6 /* NeuroMetrica.app */,
+				FFB3E2212EC54F1900EBFFE6 /* NeuroMetricaTests.xctest */,
+				FFB3E22B2EC54F1900EBFFE6 /* NeuroMetricaUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FFC408F62EC6C90A00315F9C /* NeuroMetricaTests */ = {
+			isa = PBXGroup;
+			children = (
+				FFC408F52EC6C90A00315F9C /* NeuroMetricaTests.swift */,
+			);
+			path = NeuroMetricaTests;
+			sourceTree = "<group>";
+		};
+		FFC408F92EC6C90A00315F9C /* NeuroMetricaUITests */ = {
+			isa = PBXGroup;
+			children = (
+				FFC408F72EC6C90A00315F9C /* NeuroMetricaUITests.swift */,
+				FFC408F82EC6C90A00315F9C /* NeuroMetricaUITestsLaunchTests.swift */,
+			);
+			path = NeuroMetricaUITests;
+			sourceTree = "<group>";
+		};
+		FFC408FB2EC6C90A00315F9C /* NeuroMetrica */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7682EC7199D000F271C /* NeuroMetrica */,
+				FFC408F62EC6C90A00315F9C /* NeuroMetricaTests */,
+				FFC408F92EC6C90A00315F9C /* NeuroMetricaUITests */,
+			);
+			name = NeuroMetrica;
+			path = /Users/mohamedelbashir/Developer/NeuroMetricaWorkspace/NeuroMetrica;
+			sourceTree = "<absolute>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FFB3E2132EC54F1600EBFFE6 /* NeuroMetrica */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FFB3E2352EC54F1900EBFFE6 /* Build configuration list for PBXNativeTarget "NeuroMetrica" */;
+			buildPhases = (
+				FFB3E2102EC54F1600EBFFE6 /* Sources */,
+				FFB3E2112EC54F1600EBFFE6 /* Frameworks */,
+				FFB3E2122EC54F1600EBFFE6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NeuroMetrica;
+			packageProductDependencies = (
+				FF9BB72E2EC6D326000F271C /* DCMTKLoader */,
+				FF9BB7312EC6D415000F271C /* ChromaImagingKit */,
+				FFA92CE02ECA1169003844C4 /* DCMTKLoader */,
+				FFAD3C062ED5463500B5631E /* DCMTKLoader */,
+				FF93BE4C2ED56D4A00A9F042 /* RedEngine  */,
+				FF93BE4F2ED56D6800A9F042 /* DCMTKLoader */,
+				FF93BE522ED56E0700A9F042 /* ChromaImagingKit */,
+				FF9E7BC62ED571BB00C890AD /* ChromaImagingKit */,
+				FF9E7BC92ED5727400C890AD /* ChromaImagingKit */,
+				FF9E7BCC2ED572C500C890AD /* RedEngine  */,
+			);
+			productName = NeuroMetrica;
+			productReference = FFB3E2142EC54F1600EBFFE6 /* NeuroMetrica.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FFB3E2202EC54F1900EBFFE6 /* NeuroMetricaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FFB3E2382EC54F1900EBFFE6 /* Build configuration list for PBXNativeTarget "NeuroMetricaTests" */;
+			buildPhases = (
+				FFB3E21D2EC54F1900EBFFE6 /* Sources */,
+				FFB3E21E2EC54F1900EBFFE6 /* Frameworks */,
+				FFB3E21F2EC54F1900EBFFE6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FFB3E2232EC54F1900EBFFE6 /* PBXTargetDependency */,
+			);
+			name = NeuroMetricaTests;
+			packageProductDependencies = (
+			);
+			productName = NeuroMetricaTests;
+			productReference = FFB3E2212EC54F1900EBFFE6 /* NeuroMetricaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		FFB3E22A2EC54F1900EBFFE6 /* NeuroMetricaUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FFB3E23B2EC54F1900EBFFE6 /* Build configuration list for PBXNativeTarget "NeuroMetricaUITests" */;
+			buildPhases = (
+				FFB3E2272EC54F1900EBFFE6 /* Sources */,
+				FFB3E2282EC54F1900EBFFE6 /* Frameworks */,
+				FFB3E2292EC54F1900EBFFE6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FFB3E22D2EC54F1900EBFFE6 /* PBXTargetDependency */,
+			);
+			name = NeuroMetricaUITests;
+			packageProductDependencies = (
+			);
+			productName = NeuroMetricaUITests;
+			productReference = FFB3E22B2EC54F1900EBFFE6 /* NeuroMetricaUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FFB3E20C2EC54F1600EBFFE6 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					FFB3E2132EC54F1600EBFFE6 = {
+						CreatedOnToolsVersion = 26.0.1;
+						LastSwiftMigration = 2600;
+					};
+					FFB3E2202EC54F1900EBFFE6 = {
+						CreatedOnToolsVersion = 26.0.1;
+						TestTargetID = FFB3E2132EC54F1600EBFFE6;
+					};
+					FFB3E22A2EC54F1900EBFFE6 = {
+						CreatedOnToolsVersion = 26.0.1;
+						TestTargetID = FFB3E2132EC54F1600EBFFE6;
+					};
+				};
+			};
+			buildConfigurationList = FFB3E20F2EC54F1600EBFFE6 /* Build configuration list for PBXProject "NeuroMetrica" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = FFB3E20B2EC54F1600EBFFE6;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FF93BE4E2ED56D6800A9F042 /* XCLocalSwiftPackageReference "../DCMTKLoader" */,
+				FF9E7BC82ED5727400C890AD /* XCLocalSwiftPackageReference "../ChromaImagingKit" */,
+				FF9E7BCB2ED572C500C890AD /* XCLocalSwiftPackageReference "../RedEngine" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = FFB3E2152EC54F1600EBFFE6 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FFB3E2132EC54F1600EBFFE6 /* NeuroMetrica */,
+				FFB3E2202EC54F1900EBFFE6 /* NeuroMetricaTests */,
+				FFB3E22A2EC54F1900EBFFE6 /* NeuroMetricaUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		FFB3E2122EC54F1600EBFFE6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FF9BB7692EC7199D000F271C /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FFB3E21F2EC54F1900EBFFE6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FFB3E2292EC54F1900EBFFE6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FFB3E2102EC54F1600EBFFE6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FF9BB76A2EC7199D000F271C /* SliceNavigationView.swift in Sources */,
+				FF9BB76B2EC7199D000F271C /* SettingsView.swift in Sources */,
+				FF9BB76C2EC7199D000F271C /* DebugOverlayViewModel.swift in Sources */,
+				FF9BB76D2EC7199D000F271C /* ImportView.swift in Sources */,
+				FF9BB76E2EC7199D000F271C /* AppSettings.swift in Sources */,
+				FF9BB76F2EC7199D000F271C /* ViewerView.swift in Sources */,
+				FF9BB7702EC7199D000F271C /* ChromaEngineBridge.swift in Sources */,
+				FF9BB7712EC7199D000F271C /* ImportSource.swift in Sources */,
+				FF9BB7722EC7199D000F271C /* NeuroMetricaApp.swift in Sources */,
+				FF9BB7732EC7199D000F271C /* WWLControlsView.swift in Sources */,
+				FF9BB7742EC7199D000F271C /* ViewerState.swift in Sources */,
+				FF9BB7752EC7199D000F271C /* OrientationControlView.swift in Sources */,
+				FF9BB7762EC7199D000F271C /* AppError.swift in Sources */,
+				FF9BB7772EC7199D000F271C /* AppContainer.swift in Sources */,
+				FF9BB7782EC7199D000F271C /* Color+NeuroMetrica.swift in Sources */,
+				FF9BB7792EC7199D000F271C /* SettingsViewModel.swift in Sources */,
+				FF9BB77A2EC7199D000F271C /* View+NeuroMetrica.swift in Sources */,
+				FF9BB77B2EC7199D000F271C /* MainThreadExecutor.swift in Sources */,
+				FF9BB77C2EC7199D000F271C /* RecentFilesStore.swift in Sources */,
+				FF9BB77D2EC7199D000F271C /* ViewerViewModel.swift in Sources */,
+				FF9BB77E2EC7199D000F271C /* DebugOverlayView.swift in Sources */,
+				FF9BB77F2EC7199D000F271C /* ImportViewModel.swift in Sources */,
+				FF9BB7802EC7199D000F271C /* AppLogger.swift in Sources */,
+				FF9BB7812EC7199D000F271C /* FilePickerService.swift in Sources */,
+				FF7A019E2EC7EDB900CD988F /* CIImage2D+Image.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FFB3E21D2EC54F1900EBFFE6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FF9BB7352EC6D903000F271C /* NeuroMetricaTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FFB3E2272EC54F1900EBFFE6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FF9BB7332EC6D8FA000F271C /* NeuroMetricaUITestsLaunchTests.swift in Sources */,
+				FF9BB7342EC6D8FA000F271C /* NeuroMetricaUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FFB3E2232EC54F1900EBFFE6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FFB3E2132EC54F1600EBFFE6 /* NeuroMetrica */;
+			targetProxy = FFB3E2222EC54F1900EBFFE6 /* PBXContainerItemProxy */;
+		};
+		FFB3E22D2EC54F1900EBFFE6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FFB3E2132EC54F1600EBFFE6 /* NeuroMetrica */;
+			targetProxy = FFB3E22C2EC54F1900EBFFE6 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FFB3E2332EC54F1900EBFFE6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 3NCZ52UVDW;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		FFB3E2342EC54F1900EBFFE6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 3NCZ52UVDW;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		FFB3E2362EC54F1900EBFFE6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3NCZ52UVDW;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.modelbashir.NeuroMetrica;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		FFB3E2372EC54F1900EBFFE6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3NCZ52UVDW;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.modelbashir.NeuroMetrica;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		FFB3E2392EC54F1900EBFFE6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3NCZ52UVDW;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = Personal.NeuroMetricaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NeuroMetrica.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/NeuroMetrica";
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		FFB3E23A2EC54F1900EBFFE6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3NCZ52UVDW;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = Personal.NeuroMetricaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NeuroMetrica.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/NeuroMetrica";
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		FFB3E23C2EC54F1900EBFFE6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3NCZ52UVDW;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = Personal.NeuroMetricaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = NeuroMetrica;
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		FFB3E23D2EC54F1900EBFFE6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3NCZ52UVDW;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = Personal.NeuroMetricaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = NeuroMetrica;
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FFB3E20F2EC54F1600EBFFE6 /* Build configuration list for PBXProject "NeuroMetrica" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FFB3E2332EC54F1900EBFFE6 /* Debug */,
+				FFB3E2342EC54F1900EBFFE6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FFB3E2352EC54F1900EBFFE6 /* Build configuration list for PBXNativeTarget "NeuroMetrica" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FFB3E2362EC54F1900EBFFE6 /* Debug */,
+				FFB3E2372EC54F1900EBFFE6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FFB3E2382EC54F1900EBFFE6 /* Build configuration list for PBXNativeTarget "NeuroMetricaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FFB3E2392EC54F1900EBFFE6 /* Debug */,
+				FFB3E23A2EC54F1900EBFFE6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FFB3E23B2EC54F1900EBFFE6 /* Build configuration list for PBXNativeTarget "NeuroMetricaUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FFB3E23C2EC54F1900EBFFE6 /* Debug */,
+				FFB3E23D2EC54F1900EBFFE6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		FF93BE4E2ED56D6800A9F042 /* XCLocalSwiftPackageReference "../DCMTKLoader" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../DCMTKLoader;
+		};
+		FF9E7BC82ED5727400C890AD /* XCLocalSwiftPackageReference "../ChromaImagingKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../ChromaImagingKit;
+		};
+		FF9E7BCB2ED572C500C890AD /* XCLocalSwiftPackageReference "../RedEngine" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../RedEngine;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FF93BE4C2ED56D4A00A9F042 /* RedEngine  */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "RedEngine ";
+		};
+		FF93BE4F2ED56D6800A9F042 /* DCMTKLoader */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DCMTKLoader;
+		};
+		FF93BE522ED56E0700A9F042 /* ChromaImagingKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ChromaImagingKit;
+		};
+		FF9BB72E2EC6D326000F271C /* DCMTKLoader */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DCMTKLoader;
+		};
+		FF9BB7312EC6D415000F271C /* ChromaImagingKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ChromaImagingKit;
+		};
+		FF9E7BC62ED571BB00C890AD /* ChromaImagingKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ChromaImagingKit;
+		};
+		FF9E7BC92ED5727400C890AD /* ChromaImagingKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ChromaImagingKit;
+		};
+		FF9E7BCC2ED572C500C890AD /* RedEngine  */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "RedEngine ";
+		};
+		FFA92CE02ECA1169003844C4 /* DCMTKLoader */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DCMTKLoader;
+		};
+		FFAD3C062ED5463500B5631E /* DCMTKLoader */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DCMTKLoader;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = FFB3E20C2EC54F1600EBFFE6 /* Project object */;
+}
