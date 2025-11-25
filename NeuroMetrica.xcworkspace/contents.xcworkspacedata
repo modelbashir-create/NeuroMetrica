@@ -2,6 +2,6 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "absolute:/Users/mohamedelbashir/Documents/NeuroMetrica.xcodeproj">
+      location = "group:NeuroMetrica/NeuroMetrica.xcodeproj">
    </FileRef>
 </Workspace>
