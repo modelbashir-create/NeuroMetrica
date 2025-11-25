@@ -585,6 +585,13 @@ This tells SwiftPM where the bridging headers live and configures C++ compilatio
   ```\
 \
 - ChromaImagingKit should **not** know anything about DICOM internals\'97just `CIImageVolume`.\
+
+### 5.4 DCMTKLoader V1 surface (bridge + Swift)\
+- C bridge (`DicomBridge.h` / `.mm`): exposes `NM_DicomVolume` with `width`/`height`/`depth`, `spacingX`/`spacingY`/`spacingZ`, float32 `voxels` in z–y–x order, slice thickness/spacingBetweenSlices, orientation/position, rescale slope/intercept, VOI LUT windows, and rich identity/display metadata. A tag map (`allTags`) carries additional values keyed by `gggg,eeee` with value types (string/int/double/data). Functions: `nm_dicom_load_series` (returns 0 on success, loads a directory of DICOM slices, sorts by ImagePosition/InstanceNumber, applies rescale slope/intercept) and `nm_dicom_free` (releases buffers and tag ownership).  \
+- Swift loader (`DICOMLoader.loadSeries(at:)`): calls the bridge, maps errors to `DICOMLoaderError`, and returns `DICOMVolumeExport` containing `[Float]` voxels (z–y–x), dimensions, spacing tuple, and `DICOMMetadata`.  \
+- Models: `DICOMMetadata` (rows/columns/numberOfSlices, pixel spacing, slice spacing/thickness, orientation, position, IDs, modality, bit depth fields, photometric interpretation, rescale slope/intercept, window centers/widths, and `allTags` dictionary of `DICOMTagValue`) and `DICOMVolumeExport` (voxels + dimensions + spacing + metadata).  \
+- Layout note: voxels are float32 in z–y–x flattening so they can be fed directly into ChromaImagingKit's `CIImageVolume` via a thin adapter later.\
+
 \
 ---\
 \
