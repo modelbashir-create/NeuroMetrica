@@ -1,0 +1,31 @@
+# === Xcode build artifacts ===
+DerivedData/
+build/
+*.xcarchive
+
+# === Xcode user-specific data (safe to ignore) ===
+*.xcuserdata/
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+
+# === Swift Package Manager build artifacts ===
+.build/
+
+# If you want Git to ignore SwiftPM's per-user IDE state (but keep Package.resolved):
+.swiftpm/xcode/
+
+# === macOS junk ===
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# === Common editor junk ===
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# === Crash / log files ===
+*.log

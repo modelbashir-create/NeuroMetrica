@@ -14,7 +14,8 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(path: "/Users/mohamedelbashir/Developer/NeuroMetricaWorkspace/DCMTKLoader")
+        // ✅ use a relative path to the *real* dcmtkloader package
+        .package(path: "../NeuroMetrica/dcmtkloader")
     ],
     targets: [
         .target(
@@ -37,7 +38,7 @@ let package = Package(
         .target(
             name: "ChromaImagingKit",
             dependencies: [
-                "DCMTKLoader",
+                "DCMTKLoader",   // product from the dcmtkloader package
                 "CNifti"
             ],
             path: "Sources/ChromaImagingKit"
