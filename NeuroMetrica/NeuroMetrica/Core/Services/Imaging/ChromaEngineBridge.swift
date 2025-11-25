@@ -17,6 +17,10 @@ final class ChromaEngineBridge {
         self.engine = engine
     }
 
+    func updateBackend(_ backend: ChromaProcessingBackend) {
+        engine.backend = backend
+    }
+
     /// Load a NIfTI (.nii or .nii.gz) file into a CIImageVolume using ChromaEngine.
     ///
     /// This is async to play nicely with async/await call sites, even though the current
