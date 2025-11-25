@@ -1,0 +1,28 @@
+/*!
+
+\if MANPAGES
+\page dcm2cda Extract CDA file from DICOM encapsulated CDA
+\else
+\page dcm2cda dcm2cda: Extract CDA file from DICOM encapsulated CDA
+\endif
+
+\section dcm2cda_synopsis SYNOPSIS
+
+\verbatim
+dcm2cda [options] dcmfile-in cdafile-out
+\endverbatim
+
+\section dcm2cda_description DESCRIPTION
+
+The \b dcm2cda tool is deprecated.  Use \b dcmdecap instead, which supports
+the same command line parameters, and more.
+
+\section dcm2cda_see_also SEE ALSO
+
+<b>dcmdecap</b>(1)
+
+\section dcm2cda_copyright COPYRIGHT
+
+Copyright (C) 2023-2025 by OFFIS e.V., Escherweg 2, 26121 Oldenburg, Germany.
+
+*/

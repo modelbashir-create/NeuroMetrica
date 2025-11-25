@@ -1,0 +1,28 @@
+/*!
+
+\if MANPAGES
+\page cda2dcm Encapsulate CDA file into DICOM file format
+\else
+\page cda2dcm cda2dcm: Encapsulate CDA file into DICOM file format
+\endif
+
+\section cda2dcm_synopsis SYNOPSIS
+
+\verbatim
+cda2dcm [options] cdafile-in dcmfile-out
+\endverbatim
+
+\section cda2dcm_description DESCRIPTION
+
+The \b cda2dcm tool is deprecated.  Use \b dcmencap instead, which supports
+the same command line parameters, and more.
+
+\section cda2dcm_see_also SEE ALSO
+
+<b>dcmencap</b>(1)
+
+\section cda2dcm_copyright COPYRIGHT
+
+Copyright (C) 2018-2025 by OFFIS e.V., Escherweg 2, 26121 Oldenburg, Germany.
+
+*/

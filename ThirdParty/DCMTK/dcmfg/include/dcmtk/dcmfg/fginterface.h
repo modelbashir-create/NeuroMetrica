@@ -1,0 +1,485 @@
+/*
+ *
+ *  Copyright (C) 2015-2025, Open Connections GmbH
+ *  All rights reserved.  See COPYRIGHT file for details.
+ *
+ *  This software and supporting documentation are maintained by
+ *
+ *    OFFIS e.V.
+ *    R&D Division Health
+ *    Escherweg 2
+ *    D-26121 Oldenburg, Germany
+ *
+ *
+ *  Module:  dcmfg
+ *
+ *  Author:  Michael Onken
+ *
+ *  Purpose: Main interface class for managing Functional Groups
+ *
+ */
+
+#ifndef FGINTERFACE_H
+#define FGINTERFACE_H
+
+#include "dcmtk/config/osconfig.h"
+
+#include "dcmtk/dcmfg/fg.h"
+#include "dcmtk/dcmfg/fgdefine.h"
+#include "dcmtk/dcmfg/fgtypes.h"
+#include "dcmtk/ofstd/ofmap.h"
+
+// Forward declaration
+class IODMultiframeDimensionModule;
+
+/** Main interface class to access functional groups from DICOM Enhanced
+ *  objects. Allows reading, modifying and writing functional groups back
+ *  and forth from DICOM datasets.
+ */
+class DCMTK_DCMFG_EXPORT FGInterface
+{
+
+public:
+
+    /// Type representing per-frame functional groups, i.e.\ a number of
+    /// functional groups assigned to each frame
+    typedef OFMap<Uint32, FunctionalGroups*> PerFrameGroups;
+
+    /// Iterator type for iterating over functional groups
+    typedef FunctionalGroups::iterator iterator;
+
+    /// Const iterator type for iterating over functional groups
+    typedef FunctionalGroups::const_iterator const_iterator;
+
+    /** Constructor, constructs empty sets of per-frame and shared
+     *  functional groups
+     */
+    FGInterface();
+
+    /** Virtual destructor, frees memory
+     */
+    virtual ~FGInterface();
+
+    /** Delete all functional groups (shared and per-frame)
+     */
+    virtual void clear();
+
+    /** Checks the functional groups for consistency. The following checks are
+     *  performed:
+     *    -# Check that every frame has a FrameContent functional group.
+     *    -# Check that any per-frame group is not shared at the same time.
+     *    -# Check for each per-frame group, that it is allowed to be per-frame.
+     *    -# Check for each shared group, that it is allowed to be shared.
+     *  @return OFTrue, if check consistency is ok, error otherwise
+     */
+    virtual OFBool check();
+
+    /** Returns number of frames. Computed by number of per-frame
+     *  functional group items (i.e.\ the Number of Frames attribute
+     *  is not taken into account).
+     *  @return Number of frames
+     */
+    virtual size_t getNumberOfFrames();
+
+    /** Read enhanced multi-frame information from DICOM item, usually
+     *  DcmDataset, i.e.\ must contain Shared and Per-frame Functional Group
+     *  Sequences
+     *  @param  dataset The item to read from
+     *  @return EC_Normal if reading was successful, error otherwise
+     */
+    virtual OFCondition read(DcmItem& dataset);
+
+    /** Write enhanced multi-frame information to DICOM item,
+     *  usually DcmDataset, i.e.\ writes  Shared and Per-frame Functional Group
+     *  Sequences
+     *  @param  dataset The item to write to
+     *  @return EC_Normal if successful, error otherwise
+     */
+    virtual OFCondition write(DcmItem& dataset);
+
+    /** Get specific functional group for a frame, no matter whether it is stored
+     *  per frame or shared
+     *  @param  frameNo The frame number the functional group should apply to
+     *          (starts with 0)
+     *  @param  fgType The type of functional group to look for
+     *  @return The functional group if found, NULL otherwise
+     */
+    virtual FGBase* get(const Uint32 frameNo, const DcmFGTypes::E_FGType fgType);
+
+    // TODO Add get(..) version that takes the sequence tag (e.g.\ for unknown
+    // functional groups
+
+    /** Get specific functional group for a frame, no matter whether it is stored
+     *  per frame or shared.
+     *  @param  frameNo The frame number of group of interest (starts from 0)
+     *  @param  fgType The type of functional group to look for
+     *  @param  isPerFrame If OFTrue, the group found was found as per-frame,
+     *          otherwise it is a shared functional group
+     *  @return The functional group if found, error otherwise
+     */
+    virtual FGBase* get(const Uint32 frameNo, const DcmFGTypes::E_FGType fgType, OFBool& isPerFrame);
+
+    /** Return all per-frame functional groups, e.g.\ to iterate over them
+     *  @param  frameNo The frame number of the groups of interest (starts from 0)
+     *  @return The per-frame functional groups for the given frame
+     */
+    const FunctionalGroups* getPerFrame(const Uint32 frameNo) const;
+
+    /** Return all shared functional groups, e.g.\ to iterate over them
+     *  @return The shared functional groups
+     */
+    const FunctionalGroups* getShared() const;
+
+    /** Add functional group that should be shared for all frames. This will
+     *  delete all per-frame groups of the same type if existing.
+     *  @param  group   The group to be added. The group is copied.
+     *  @return EC_Normal, if adding was successful, error otherwise
+     */
+    virtual OFCondition addShared(const FGBase& group);
+
+    /** Add functional group for given frame. If there is already a shared
+     *  functional group with identical values, the call returns without
+     *  errors, too. If there is a shared group that differs, the shared group
+     *  is converted to be "per-frame" for all frames and then the given group
+     *  is inserted for the frame specified by the user.
+     *  If a per-frame functional group of the same type already exists it is
+     *  overwritten.
+     *  @param  frameNo The frame number this group should be added for (starts
+     *          from 0)
+     *  @param  group The group to be added. The group is copied when adding,
+     *          so the ownership stays with the caller, no matter what the
+     *          method returns.
+     *  @return EC_Normal, if adding was successful, error otherwise
+     */
+    virtual OFCondition addPerFrame(const Uint32 frameNo, const FGBase& group);
+
+    /** Deletes a shared functional group of the given type
+     *  @param fgType The type of functional group to delete
+     *  @return OFTrue if group existed and could be deleted, OFFalse (group did
+     *          not exist) otherwise
+     */
+    virtual OFBool deleteShared(const DcmFGTypes::E_FGType fgType);
+
+    /** Deletes per-frame functional group of the given type for a specific frame
+     *  @param frameNo The frame number for the functional group of interest.
+     *         First frame is frame 0.
+     *  @param fgType The type of functional group to delete
+     *  @return OFTrue if group existed and could be deleted, OFFalse (group did
+     *          not exist) otherwise
+     */
+    virtual OFBool deletePerFrame(const Uint32 frameNo, const DcmFGTypes::E_FGType fgType);
+
+    /** Deletes per-frame functional group for all frames
+     *  @param  fgType The type of functional group to delete
+     *  @return Number of per-frame groups deleted (usually equal to number of
+     *          frames)
+     */
+    size_t deletePerFrame(const DcmFGTypes::E_FGType fgType);
+
+    /** Deletes all functional groups for a specific frame
+     *  @param frameNo The frame number whose functional groups should be deleted.
+     *         First frame is frame 0.
+     *  @return Number of per-frame groups deleted for this frame
+     */
+    size_t deleteFrame(const Uint32 frameNo);
+
+    /** If enabled, functional group structure is checked before actual writing
+     *  is performed in the write() method. Checking might be time consuming
+     *  on functional groups with many frames, though disabling might result in
+     *  invalid functional group structures. Disabling should only be done if the
+     *  user knows that the functional groups are valid, wants to to adapt the
+     *  functional groups manually after calling write() or knows what he's doing
+     *  otherwise.<br>
+     *  Per default, checking is enabled.
+     *  @param  doCheck If OFTrue, checking will be performed. If OFFalse,
+     *          no checks are performed.
+     */
+    virtual void setCheckOnWrite(const OFBool doCheck);
+
+    /** Returns whether functional group structure is checked before actual
+     *  writing is performed in the write() method.
+     *  @return OFTrue if checking is performed, OFFalse otherwise
+     */
+    virtual OFBool getCheckOnWrite();
+
+    /** Sets the maximum number of threads to be used for reading and writing per-frame functional groups.
+     *  @param  numThreads The maximum number of threads to use
+     *    The number of threads will be adjusted to the number of frames, i.e.\ there will
+     *    be no more threads used than one fifth the number of frames (so that each thread must at least handle
+     *    10 frames, since otherwise the overhead of starting threads would be too high). The
+     *    number is adjusted on the fly.
+     */
+    virtual void setUseThreads(const Uint32 numThreads);
+
+    /** Returns the number of threads to be used for writing per-frame functional groups.
+     *  @return The number of threads to use
+     */
+    virtual Uint32 getUseThreads() const;
+
+protected:
+    /** Get shared functional group based on its type
+     *  @param  fgType The type of functional group
+     *  @return The functional group or NULL if not existent
+     */
+    virtual FGBase* getShared(const DcmFGTypes::E_FGType fgType);
+
+    /** Insert shared functional group
+     *  @param  group The functional group to be inserted
+     *  @param  replaceExisting If OFTrue, an existing shared functional group
+     *          will be deleted, otherwise the old group is not overwritten
+     *  @return EC_Normal if insertion worked, FG_EC_DoubledFG if group exists and
+     *          is not overwritten, other error code for other cases
+     */
+    virtual OFCondition insertShared(FGBase* group, const OFBool replaceExisting = OFTrue);
+
+    /** Get per-frame functional group
+     *  @param  frameNo  The frame number of the group
+     *  @param  fgType The type of the group
+     *  @return The functional group or NULL if not existent
+     */
+    virtual FGBase* getPerFrame(const Uint32 frameNo, const DcmFGTypes::E_FGType fgType);
+
+    /** Insert per-frame functional group
+     *  @param  frameNo The frame number the group should be added for
+     *  @param  group The functional group to be inserted
+     *  @param  replaceExisting If OFTrue, an existing per-frame functional group
+     *          will be deleted, otherwise the old group is not overwritten
+     *  @return EC_Normal if insertion worked, FG_EC_DoubledFG if group exists and
+     *          is not overwritten, other error code for other cases
+     */
+    virtual OFCondition insertPerFrame(const Uint32 frameNo, FGBase* group, const OFBool replaceExisting = OFTrue);
+
+    /** Get existing per-frame group or create it for the given frame. Note that
+     *  the per-frame groups do not have to be created "in order", i.e.\ one could
+     *  add groups in order 3,5,1 ,... .
+     *  @param  frameNo The frame number to get/create per-frame groups for
+     *  @return The functional groups if found/created, NULL in case of error
+     */
+    virtual FunctionalGroups* getOrCreatePerFrameGroups(const Uint32 frameNo);
+
+    /** Read Shared Functional Group Sequence from given item
+     *  @param  dataset The item to read from
+     *  @return EC_Normal if reading was successful, error otherwise
+     */
+    virtual OFCondition readSharedFG(DcmItem& dataset);
+
+    /** Read Per-Frame Functional Group Sequence from given item
+     *  @param  dataset The item to read from
+     *  @return EC_Normal if reading was successful, error otherwise
+     */
+    virtual OFCondition readPerFrameFG(DcmItem& dataset);
+
+    virtual OFCondition readPerFrameFGParallel(DcmSequenceOfItems& perFrameFGSeq, const Uint32 numThreads);
+
+    virtual OFCondition readPerFrameFGSequential(DcmSequenceOfItems& perFrameFGSeq);
+
+    /** Read single functional group into the item provided
+     *  @param  fgItem The item to read from
+     *  @param  groups The resulting group after reading
+     *  @return EC_Normal if reading was successful, error otherwise
+     */
+    static OFCondition readSingleFG(DcmItem& fgItem, FunctionalGroups& groups);
+
+    /** Write Shared Functional Group Sequence to given item
+     *  @param  dataset The item to write to
+     *  @return EC_Normal if writing was successful, error otherwise
+     */
+    virtual OFCondition writeSharedFG(DcmItem& dataset);
+
+    /** Write Per-Frame Functional Group Sequence to given item
+     *  @param  dataset The item to write to
+     *  @return EC_Normal if writing was successful, error otherwise
+     */
+    virtual OFCondition writePerFrameFG(DcmItem& dataset);
+
+    /** Write Per-Frame Functional Group Sequence to given item in parallel
+     *  @param  dataset The item to write to
+     *  @param  numThreads The maximum number of threads to use
+     *  @return EC_Normal if writing was successful, error otherwise
+     */
+    virtual OFCondition writePerFrameFGParallel(DcmItem& dataset, const Uint32 numThreads);
+
+    /** Write Per-Frame Functional Group Sequence to given item in sequential mode,
+     * i.e.\ no extra threads are used.
+     *  @param  dataset The item to write to
+     *  @return EC_Normal if writing was successful, error otherwise
+     */
+    virtual OFCondition writePerFrameFGSequential(DcmItem& dataset);
+
+    /** Convert a shared functional group to a per-frame one by copying the
+     *  shared one into a per-frame one for each frame and deleting the shared one
+     *  afterwards.
+     *  @param  fgType The type of functional group to convert
+     *  @return EC_Normal if conversion worked out, FG_EC_NoSuchGroup if such a
+     *          group does not exist and other error otherwise. In the last case
+     *          the functional groups may be left in invalid state, but that
+     *          should only happen for fatal errors like exhausted memory.
+     */
+    virtual OFCondition convertSharedToPerFrame(const DcmFGTypes::E_FGType fgType);
+
+    /** Find an adequate number of threads to use for reading and writing per-frame functional groups.
+     *  The number is adjusted to the number of frames, i.e.\ there will be no more threads used
+     *  than one fifth the number of frames (so that each thread must at least handle
+     *  5 frames, since otherwise the overhead of starting threads would be too high).
+     *  @param numFrames The number of frames to read/write
+     *  @param userThreadSetting The user-defined number of threads to use
+     *  @return The adjusted number of threads to use
+     */
+    virtual Uint32 findAdequateNumberOfThreads(const Uint32 numFrames, const Uint32 userThreadSetting);
+
+    /// Threaded functional group writer, used to write per-frame functional groups
+    /// in parallel. Each thread gets assigned some frames and writes the functional groups
+    /// for those frames to the output vector.
+    struct ThreadedFGWriter : public OFThread
+    {
+        /// Vector of pairs of frame number and functional groups to write for that frame
+        OFVector<OFPair<Uint32, FunctionalGroups*> >* m_frameGroups;
+        /// Output vector, where the per-frame items are written to
+        /// (one item per frame containing all functional groups for that frame).
+        //  All threads write to the same vector, so it must be protected by a mutex.
+        /// The vector is resized to the total number of frames before starting the threads.
+        OFVector<DcmItem*>* m_perFrameResultItems;
+        /// Mutex to protect the output vector
+        OFMutex* m_perFrameResultItemsMutex;
+        /// Start frame this thread should handle (inclusive, starts with 0)
+        Uint32 m_startFrame;
+        /// End frame this thread should handle (exclusive, i.e.\ the last frame
+        /// this thread handles is m_endFrame - 1)
+        Uint32 m_endFrame;
+        /// Mutex to protect error output
+        OFMutex* m_errorMutex;
+        /// Pointer to a condition variable that is set if an error occurs
+        /// during writing. This is used to signal the main thread that an error
+        /// occurred during writing. The main thread can then check the error
+        /// condition variable to see if an error occurred and handle it accordingly.
+        OFConditionConst* m_errorOccurred;
+
+        /** Initialize the thread
+         * @param frameGroups Input vector of pairs of frame number and functional groups to write for that frame
+         * @param perFrameResultItems Output vector, where the per-frame items are written to,
+         *   (frame number as index, one item per frame containing all functional groups for that frame).
+         * @param perFrameResultItemsMutex Mutex to protect the output vector
+         * @param startFrame Start frame this thread should handle (inclusive, starts with 0)
+         * @param endFrame End frame this thread should handle (exclusive, i.e.\ the last frame this thread handles is m_endFrame - 1)
+         * @param errorOccurred Pointer to a condition variable that is set if an error occurs
+         * @param errorMutex Mutex to protect error output
+         */
+        void init(OFVector<OFPair<Uint32, FunctionalGroups*> >* frameGroups,
+                  OFVector<DcmItem*>* perFrameResultItems,
+                  OFMutex* perFrameResultItemsMutex,
+                  const Uint32 startFrame,
+                  const Uint32 endFrame,
+                  OFConditionConst* errorOccurred,
+                  OFMutex* errorMutex);
+
+        /// Default constructor
+        ThreadedFGWriter();
+
+        /// Destructor, nothing to do
+        ~ThreadedFGWriter();
+
+        /** Run method, called by OFThread::start()
+         *  This method will write the functional groups for the frames assigned
+         *  to this thread to the output vector. It will stop in case of an error
+         *  and set the error condition variable to indicate that an error occurred.
+         */
+        void run();
+    };
+
+    /// Threaded functional group reader, used to read per-frame functional groups
+    /// in parallel. Each thread gets assigned some frames and reads the functional groups
+    /// for those frames from the input vector.
+    /// The results are stored in the output vector, which is protected by a mutex.
+    struct ThreadedFGReader : public OFThread
+    {
+        /// Input vector of per-frame items, one item per frame
+        /// containing all functional groups for that frame.
+        OFVector<DcmItem*>* m_perFrameItems;
+        /// Mutex to protect the input vector
+        OFMutex* m_perFrameItemsMutex;
+        /// Output vector of per-frame functional groups, one item per frame
+        /// containing all functional groups for that frame.
+        PerFrameGroups* m_frameResultGroups;
+        /// Mutex to protect the output vector
+        OFMutex* m_frameResultGroupsMutex;
+        /// Start frame this thread should handle (inclusive, starts with 0)
+        /// (i.e.\ the first frame this thread handles is m_startFrame)
+        Uint32 m_startFrame;
+        /// End frame this thread should handle (exclusive, i.e.\ the last frame
+        /// this thread handles is m_endFrame - 1)
+        Uint32 m_endFrame;
+        /// Mutex to protect error output
+        OFMutex* m_errorMutex;
+        /// Pointer to a condition variable that is set if an error occurs
+        /// during reading. This is used to signal the main thread that an error
+        /// occurred during reading. The main thread can then check the error
+        /// condition variable to see if an error occurred and handle it accordingly.
+        OFConditionConst* m_errorOccurred;
+        /// Pointer to the FGInterface instance to read from. This is used to
+        /// access the FGInterface methods for reading functional groups.
+        /// It is set by the init() method and used in the run() method to read
+        /// each functional group
+        FGInterface* m_fgInterfacePtr; // Pointer to the FGInterface instance to read from
+
+        /** Initialize the thread
+         * @param perFrameItems Input vector of per-frame items, one item per frame
+         *        containing all functional groups for that frame.
+         * @param perFrameItemsMutex Mutex to protect the input vector
+         * @param m_frameResultGroups Output vector of per-frame functional groups,
+         *        one item per frame (index = frame number) containing all functional groups for that frame.
+         * @param frameResultGroupsMutex Mutex to protect the output vector
+         * @param startFrame Start frame this thread should handle (inclusive, starts with 0)
+         * @param endFrame End frame this thread should handle (exclusive, i.e.\ the last frame this thread handles is m_endFrame - 1)
+         * @param errorMutex Mutex to protect error output
+         * @param errorOccurred Pointer to a condition variable that is set if an error occurs
+         *        during reading. The main thread can check this variable to see if an error occurred.
+         * @param fgInterfacePtr Pointer to the FGInterface instance;
+         *        used to access its readSingleFG() method
+         */
+        void init(OFVector<DcmItem*>* perFrameItems,
+                  OFMutex* perFrameItemsMutex,
+                  PerFrameGroups* m_frameResultGroups,
+                  OFMutex* frameResultGroupsMutex,
+                  Uint32 startFrame,
+                  Uint32 endFrame,
+                  OFMutex* errorMutex,
+                  OFConditionConst* errorOccurred,
+                  FGInterface* fgInterfacePtr);
+
+        /// Default constructor
+        ThreadedFGReader();
+
+        /// Destructor
+        ~ThreadedFGReader();
+
+        /** Run method, called by OFThread::start()
+         *  This method will read the functional groups for the frames assigned
+         *  to this thread from the input vector and store them in the output vector.
+         *  It will stop in case of an error and set the error condition variable
+         *  to indicate that an error occurred.
+         */
+        void run();
+    };
+
+private:
+    /// Shared functional groups
+    FunctionalGroups m_shared;
+
+    /// Link from frame number (map key) to the list of functional groups (value)
+    /// relevant for the frame
+    PerFrameGroups m_perFrame;
+
+    /// If enabled, functional group structure is checked on write(). Otherwise,
+    /// checks are skipped.
+    OFBool m_checkOnWrite;
+
+    /// Maximum number of threads to use for reading and writing per-frame functional groups,
+    /// default is 1 thread (sequential writing). The number provided by the user
+    /// will be adjusted to the number of frames, i.e. there will be not more threads
+    /// used than one fifth the number of frames (so that each thread must at least handle
+    //  10 frames, since otherwise the overhead of starting threads would be too high). The
+    /// number is adjusted on the fly.
+    Uint32 m_numThreads;
+};
+
+#endif // MODMULTIFRAMEFGH_H

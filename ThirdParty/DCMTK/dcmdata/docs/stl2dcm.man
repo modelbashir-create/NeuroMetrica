@@ -1,0 +1,28 @@
+/*!
+
+\if MANPAGES
+\page stl2dcm Encapsulate STL file into DICOM file format
+\else
+\page stl2dcm stl2dcm: Encapsulate STL file into DICOM file format
+\endif
+
+\section stl2dcm_synopsis SYNOPSIS
+
+\verbatim
+stl2dcm [options] stlfile-in dcmfile-out
+\endverbatim
+
+\section stl2dcm_description DESCRIPTION
+
+The \b stl2dcm tool is deprecated.  Use \b dcmencap instead, which supports
+the same command line parameters, and more.
+
+\section stl2dcm_see_also SEE ALSO
+
+<b>dcmencap</b>(1)
+
+\section stl2dcm_copyright COPYRIGHT
+
+Copyright (C) 2018-2025 by OFFIS e.V., Escherweg 2, 26121 Oldenburg, Germany.
+
+*/
