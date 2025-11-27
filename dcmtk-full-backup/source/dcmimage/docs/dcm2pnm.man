@@ -1,0 +1,28 @@
+/*!
+
+\if MANPAGES
+\page dcm2pnm Convert DICOM images to PGM/PPM, PNG, TIFF or BMP
+\else
+\page dcm2pnm dcm2pnm: Convert DICOM images to PGM/PPM, PNG, TIFF or BMP
+\endif
+
+\section dcm2pnm_synopsis SYNOPSIS
+
+\verbatim
+dcm2pnm [options] dcmfile-in [bitmap-out]
+\endverbatim
+
+\section dcm2pnm_description DESCRIPTION
+
+The \b dcm2pnm tool is deprecated.  Use \b dcm2img instead, which supports
+the same command line parameters, and more.
+
+\section dcm2pnm_see_also SEE ALSO
+
+<b>dcm2img</b>(1)
+
+\section dcm2pnm_copyright COPYRIGHT
+
+Copyright (C) 1998-2024 by OFFIS e.V., Escherweg 2, 26121 Oldenburg, Germany.
+
+*/

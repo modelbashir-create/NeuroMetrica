@@ -1,0 +1,28 @@
+/*!
+
+\if MANPAGES
+\page pdf2dcm Encapsulate PDF file into DICOM file format
+\else
+\page pdf2dcm pdf2dcm: Encapsulate PDF file into DICOM file format
+\endif
+
+\section pdf2dcm_synopsis SYNOPSIS
+
+\verbatim
+pdf2dcm [options] pdffile-in dcmfile-out
+\endverbatim
+
+\section pdf2dcm_description DESCRIPTION
+
+The \b pdf2dcm tool is deprecated.  Use \b dcmencap instead, which supports
+the same command line parameters, and more.
+
+\section pdf2dcm_see_also SEE ALSO
+
+<b>dcmencap</b>(1)
+
+\section pdf2dcm_copyright COPYRIGHT
+
+Copyright (C) 2005-2025 by OFFIS e.V., Escherweg 2, 26121 Oldenburg, Germany.
+
+*/
