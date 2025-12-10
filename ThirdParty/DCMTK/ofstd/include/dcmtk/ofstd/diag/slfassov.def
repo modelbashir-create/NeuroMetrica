@@ -1,4 +1,0 @@
-// GCC and MSVC don't seem to have such a warning
-#if ( defined(__clang__) && (__clang_major__ >= 6) )
-#pragma clang diagnostic ignored "-Wself-assign-overloaded"
-#endif

@@ -1,0 +1,820 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2867
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 \
+## NeuroMetrica Workspace Architecture (Current as of Dec 2025)\
+\
+This document summarizes the **current architecture tree** of the NeuroMetrica workspace, the roles of each module, and the design rules the project follows:\
+\
+- **Strict MVVM** in the app target\
+- **Apple Human Interface Guidelines (HIG)** for UI structure and behavior\
+- Clear layering between:\
+  - App (UI + ViewModels)\
+  - Core services\
+  - Imaging engine packages (ChromaImagingCore, ChromaEngineKit)\
+  - ML runtime (RedEngine)\
+\
+- Canonical engine volume type: `CImageVolume` (defined in `ChromaEngineKit/Models` and produced from ITK via the `ITKImageIO` fa\'e7ade in `ChromaImagingCore`).\
+\
+---\
+\
+## 1. Workspace Layout\
+\
+The Xcode workspace currently contains **one app project** and **three local Swift packages**:\
+\
+```text\
+NeuroMetricaWorkspace/\
+    NeuroMetrica/         # App project (SwiftUI / MVVM, HIG-focused UI)\
+    ChromaImagingCore/    # Swift package \'96 thin ITK bridge for IO (no native processing)\
+    ChromaEngineKit/      # Swift package \'96 high-level "ChromaEngine" fa\'e7ade + ITK/native backends\
+    RedEngine/            # Swift package \'96 ML runtime for RedEye models\
+```\
+\
+---\
+\
+## 2. NeuroMetrica App Project (Strict MVVM)\
+\
+The app target lives under `NeuroMetrica/` and is organized into **App**, **Core**, and **Features**:\
+\
+```text\
+NeuroMetrica/\
+    App/\
+        AppContainer.swift\
+        NeuroMetricaApp.swift\
+\
+    Core/\
+        Models/\
+            AppError.swift\
+            AppSettings.swift\
+\
+        Services/\
+            FileSystem/\
+                FilePickerService.swift\
+                RecentFilesStore.swift\
+            Imaging/\
+                ChromaEngineBridge.swift\
+            Logging/\
+                AppLogger.swift\
+\
+        Utils/\
+            Extensions/\
+                CIImage2D+Image.swift\
+                Color+NeuroMetrica.swift\
+                View+NeuroMetrica.swift\
+            Helpers/\
+                MainThreadExecutor.swift\
+\
+        Features/\
+            DevTools/\
+                ViewModels/\
+                    DebugOverlayViewModel.swift\
+                Views/\
+                    DebugOverlayView.swift\
+\
+            Import/\
+                Models/\
+                    ImportSource.swift\
+                ViewModels/\
+                    ImportViewModel.swift\
+                Views/\
+                    ImportView.swift\
+\
+            Settings/\
+                ViewModels/\
+                    SettingsViewModel.swift\
+                Views/\
+                    SettingsView.swift\
+\
+            Viewer/\
+                Models/\
+                    ViewerState.swift\
+                ViewModels/\
+                    ViewerViewModel.swift\
+                Views/\
+                    ContentView.swift\
+                    OrientationControlView.swift\
+                    SliceNavigationView.swift\
+                    ViewerView.swift\
+                    WWLControlsView.swift\
+\
+    Assets/\
+        Assets.xcassets\
+\
+    NeuroMetricaTests/\
+        NeuroMetricaTests.swift\
+\
+    NeuroMetricaUITests/\
+        NeuroMetricaUITests.swift\
+\
+    NeuroMetricaUITestsLaunchTests/\
+        NeuroMetricaUITestsLaunchTests.swift\
+```\
+\
+### 2.1 App Layer (`App/`)\
+\
+**NeuroMetricaApp.swift**\
+- `@main` entry point.\
+- Creates the SwiftUI scene and installs `AppContainer` as the root view.\
+\
+**AppContainer.swift**\
+- The **composition root** for the entire app:\
+  - Creates shared services: `ChromaEngineBridge`, `FilePickerService`, `RecentFilesStore`, `AppLogger`.\
+  - Creates feature ViewModels: `ViewerViewModel`, `ImportViewModel`, `SettingsViewModel`, `DebugOverlayViewModel`.\
+  - Injects dependencies into feature views.\
+- Hosts the HIG-aligned top-level layout (e.g. `NavigationSplitView` on macOS/iPadOS).\
+\
+### 2.2 Core Models (`Core/Models`)\
+\
+**AppSettings.swift**\
+- Global, app-wide preferences and flags:\
+  - Default WW/WL presets\
+  - Last used orientation\
+  - UI-related preferences (e.g. show debug overlay)\
+- Intended to be persisted in a future pass (UserDefaults / JSON).\
+\
+**AppError.swift**\
+- Central error type for the app layer.\
+- Wraps lower-level engine errors and presents them in a user-friendly way.\
+\
+### 2.3 Core Services (`Core/Services`)\
+\
+**Imaging/ChromaEngineBridge.swift**\
+- Primary boundary between **NeuroMetrica** and the imaging engine packages.\
+- Wraps `ChromaEngineKit.ChromaEngine` (which in turn uses `ChromaImagingCore`).\
+- All production volume and series loading is delegated to ITK via the `ITKBridge` inside `ChromaImagingCore`, through the Swift fa\'e7ade `ITKImageIO`. DICOM is read through ITK\'92s DICOM IO stack (GDCM-based by default, with optional DCMTK support when enabled in the ITK build). The app never calls legacy Swift loaders directly for user data.\
+- Exposes VM-friendly methods like:\
+  - `loadVolume(from url: URL) async throws -> VolumeHandle` (internally chooses DICOM-series vs single-file path)\
+  - `makeSlice(\
+        from volume: VolumeHandle,\
+        orientation: SliceOrientation,\
+        index: Int,\
+        window: Float,\
+        level: Float\
+    ) async throws -> CIImage2D`\
+- Hides Metal, ITK, and low-level details from the app, presenting a clean, MVVM-friendly API to `ViewerViewModel`.\
+\
+**FileSystem/FilePickerService.swift**\
+- Abstraction over system file pickers.\
+- ViewModels call this to initiate file selection or normalize/import URLs.\
+\
+**FileSystem/RecentFilesStore.swift**\
+- In-memory store of recently opened volumes.\
+- Later will persist to disk so `ImportView` can show a HIG-style "Recents" list.\
+\
+**Logging/AppLogger.swift**\
+- Central logging facility.\
+- Records key user actions (open volume, change orientation, change WW/WL) and engine errors.\
+\
+### 2.4 Core Utils (`Core/Utils`)\
+\
+**Extensions/CIImage2D+Image.swift**\
+- Converts engine `CIImage2D` slices into `CGImage` and SwiftUI `Image`.\
+- This is the final bridge from the imaging engine to the UI.\
+\
+**Extensions/Color+NeuroMetrica.swift**\
+- Defines the color palette for the app.\
+- Uses system colors and custom named colors in `Assets.xcassets` to stay HIG-compliant.\
+\
+**Extensions/View+NeuroMetrica.swift**\
+- Shared SwiftUI view extensions and modifiers.\
+- Examples: common paddings, backgrounds, debug overlays.\
+\
+**Helpers/MainThreadExecutor.swift**\
+- Ensures UI updates from async tasks happen on the main thread / `MainActor`.\
+\
+### 2.5 Features (Strict MVVM)\
+\
+Each feature has **Models**, **ViewModels**, and **Views**. ViewModels own logic; Views own presentation.\
+\
+#### 2.5.1 Viewer Feature\
+\
+```text\
+Core/Features/Viewer/\
+    Models/\
+        ViewerState.swift\
+    ViewModels/\
+        ViewerViewModel.swift\
+    Views/\
+        ContentView.swift\
+        OrientationControlView.swift\
+        SliceNavigationView.swift\
+        ViewerView.swift\
+        WWLControlsView.swift\
+```\
+\
+**ViewerState.swift**\
+- Pure data struct for the viewer:\
+  - Current volume handle or identifier\
+  - Orientation (`axial`, `coronal`, `sagittal`)\
+  - Current slice index and slice count\
+  - Window/level\
+  - Loading/error flags\
+\
+**ViewerViewModel.swift**\
+- `ObservableObject` that owns all viewer behavior:\
+  - Holds a `ViewerState` instance.\
+  - Depends on `ChromaEngineBridge`, `AppLogger`, and optionally `RecentFilesStore`.\
+  - Public methods include:\
+    - `loadVolume(from importSource: ImportSource)`\
+    - `setOrientation(_:)`\
+    - `setSlice(index:)`\
+    - `setWindow(_:level:)`\
+  - On change, it calls `ChromaEngineBridge` to:\
+    - Load volumes\
+    - Generate slices\
+    - Apply WW/WL\
+  - Exposes the current SwiftUI `Image` for the active slice via `@Published`.\
+\
+**ContentView.swift**\
+- Top-level viewer shell for the NeuroMetrica app.\
+- Hosts the HIG-aligned three-column layout (NavigationSplitView with Studies sidebar, multi-viewport canvas, and Inspector), plus toolbar items and sheets (Export, Settings).\
+- Injected from `AppContainer` as the primary screen; delegates imaging logic to `ViewerViewModel` and lower-level viewer subviews (e.g., `CanvasView`, `ViewportView`).\
+\
+**ViewerView.swift**\
+- Focused imaging view used within the viewer feature.\
+- Responsible for rendering the active slice or viewport content on a diagnostic background and composing core viewer controls where needed.\
+- Can be reused inside previews or specialized flows, but the main app shell is provided by `ContentView.swift`.\
+\
+**OrientationControlView.swift**\
+- Provides a segmented control (e.g., AX / COR / SAG) to choose orientation.\
+- Calls into `ViewerViewModel.setOrientation(_:)`.\
+\
+**SliceNavigationView.swift**\
+- Provides a slider and optional stepper/buttons to move between slices.\
+- Bound to `viewerState.currentSliceIndex` and uses `viewerState.sliceCount`.\
+\
+**WWLControlsView.swift**\
+- Provides WW/WL controls:\
+  - Sliders or numeric input for window and level.\
+  - Possibly presets (e.g., "Brain", "Bone", "Soft Tissue").\
+- Calls into `ViewerViewModel.setWindow(_:level:)`.\
+\
+#### 2.5.2 Import Feature\
+\
+```text\
+Core/Features/Import/\
+    Models/\
+        ImportSource.swift\
+    ViewModels/\
+        ImportViewModel.swift\
+    Views/\
+        ImportView.swift\
+```\
+\
+**ImportSource.swift**\
+- Describes how a volume came into the app:\
+  - Underlying URL\
+  - Format (NIfTI, NRRD, PNG stack, etc.)\
+  - Optional display name/metadata.\
+\
+**ImportViewModel.swift**\
+- Coordinates importing:\
+  - Uses `FilePickerService` to present the system file picker.\
+  - Validates and wraps selected URLs as `ImportSource`.\
+  - Hands off chosen `ImportSource` to `ViewerViewModel` (e.g., via callback or shared dependency).\
+\
+**ImportView.swift**\
+- HIG-aligned sidebar view:\
+  - Primary "Open Volume\'85" button.\
+  - Recents list from `RecentFilesStore`.\
+  - Simple, readable layout.\
+\
+#### 2.5.3 Settings Feature\
+\
+```text\
+Core/Features/Settings/\
+    ViewModels/\
+        SettingsViewModel.swift\
+    Views/\
+        SettingsView.swift\
+```\
+\
+**SettingsViewModel.swift**\
+- Wraps `AppSettings` and applies changes.\
+- Manages persistence once implemented.\
+\
+**SettingsView.swift**\
+- Presents settings in a standard `Form` with `Toggle`, `Stepper`, `Picker`, etc.\
+- Follows macOS/iOS Settings design patterns.\
+\
+#### 2.5.4 DevTools Feature\
+\
+```text\
+Core/Features/DevTools/\
+    ViewModels/\
+        DebugOverlayViewModel.swift\
+    Views/\
+        DebugOverlayView.swift\
+```\
+\
+**DebugOverlayViewModel.swift**\
+- Tracks engine and debug information:\
+  - Timing metrics for key imaging operations (volume load, slice extraction, window/level, segmentation).\
+  - Active backend selection (ITK vs Native for slice/window/level/segmentation), as reported by `ChromaEngineConfig`.\
+  - Current verification mode (off / sampled / full) and any verification discrepancies surfaced by `VerificationRunner`.\
+  - High-level error counters or summaries from engine- and IO-level failures.\
+\
+**DebugOverlayView.swift**\
+- Developer-only overlay drawn on top of `ViewerView`.\
+- Shows performance numbers and engine state.\
+- Should be toggleable and hidden in production builds.\
+\
+### 2.6 Assets (`Assets/`)\
+\
+**Assets.xcassets**\
+- Central asset catalog for the app.\
+- Contains app icons, named colors, and any raster/vector artwork used by the UI. All colors referenced in `Color+NeuroMetrica.swift` should be backed by named colors here to stay consistent with HIG and support light/dark mode.\
+\
+### 2.7 Tests (`NeuroMetricaTests`, `NeuroMetricaUITests`, `NeuroMetricaUITestsLaunchTests`)\
+\
+**NeuroMetricaTests.swift**\
+- Main unit test file for the NeuroMetrica app target.\
+- Used to validate core logic in ViewModels, services, and other non-UI types.\
+\
+**NeuroMetricaUITests.swift**\
+- Main UI test file for the app.\
+- Drives the app through high-level user flows (e.g., launching, opening a volume, basic viewer interactions) to guard against regressions in navigation and layout.\
+\
+**NeuroMetricaUITestsLaunchTests.swift**\
+- Launch/boot UI test harness.\
+- Can be used to measure app startup performance and ensure the main scene still launches successfully after changes.\
+\
+---\
+\
+## 3. Engine Packages\
+\
+### 3.1 ChromaImagingCore \'97 Thin ITK Bridge (No-Compromise Layout)\
+\
+```text\
+ChromaImagingCore/\
+    Package.swift\
+    README.md\
+\
+    Sources/\
+        ChromaImagingCore/\
+            ChromaImagingCore.swift\
+\
+            Errors/\
+                ImagingCoreError.swift\
+\
+            ITK/\
+                ITKImageIO.swift\
+                ITKInfo.swift\
+\
+                Descriptors/\
+                    ITKImageDescriptor.swift\
+\
+            Utils/\
+                LoggingUtils.swift\
+                PathUtils.swift\
+\
+        ITKBridge/\
+            include/\
+                ITKBridge.h\
+            src/\
+                ITKBridge.mm\
+\
+    Tests/\
+        ImagingCoreTests/\
+            ChromaImagingCoreTests.swift\
+            ITKImageIOTests.swift\
+            ITKInfoTests.swift\
+\
+    ThirdParty/\
+        ITK/\
+            ITK.xcframework\
+```\
+\
+**Role:**\
+\
+`ChromaImagingCore` is a **small, focused package** that does just two things:\
+\
+1. Hosts the **prebuilt ITK xcframework** under `ThirdParty/ITK/ITK.xcframework`.\
+2. Exposes a minimal Swift + ObjC++ bridge around ITK.\
+\
+**File responsibilities:**\
+\
+- `ChromaImagingCore/ChromaImagingCore.swift`  \
+  Tiny entry-point / namespace for the package. Can expose any very small shared helpers required by the ITK fa\'e7ade, but should remain as light as possible.\
+\
+- `ChromaImagingCore/Errors/ImagingCoreError.swift`  \
+  Central error enum for the core package. Wraps lower-level ITK/bridge failures into a single, Swifty error type that higher layers (ChromaEngineKit) can interpret.\
+\
+- `ChromaImagingCore/ITK/ITKImageIO.swift`  \
+  Primary Swift fa\'e7ade for ITK-based IO. Takes URLs (single-file volumes, NIfTI, NRRD, etc.) and DICOM series directories, calls into `ITKBridge`, and returns `ITKImageDescriptor` values that describe the loaded volume in a Swift-friendly way.\
+\
+- `ChromaImagingCore/ITK/ITKInfo.swift`  \
+  Helper for querying capabilities and metadata from ITK: available IO modules, version/build info, supported pixel types, and any diagnostic information that should be exposed up to dev tools.\
+\
+- `ChromaImagingCore/ITK/Descriptors/ITKImageDescriptor.swift`  \
+  Lightweight Swift struct describing an ITK-loaded image/volume: dimensions, pixel type, spacing, orientation hints, and raw buffer handles. This is the only type that flows from the ITK layer into ChromaEngineKit, where it is converted into the canonical `CImageVolume`.\
+\
+- `ChromaImagingCore/Utils/LoggingUtils.swift`  \
+  Small logging helpers used inside the core package for ITK/bridge diagnostics (e.g., IO failures, unsupported formats), independent of the app\'92s `AppLogger`.\
+\
+- `ChromaImagingCore/Utils/PathUtils.swift`  \
+  Utilities for working with URLs and paths in a cross-platform-safe way (e.g., normalizing DICOM series directories, resolving symlinks, filtering file lists for ITK series readers).\
+\
+- `ITKBridge/include/ITKBridge.h`  \
+  Public C/ObjC header that exposes a stable C-style interface around ITK functionality (e.g., \'93load this volume\'94, \'93get basic metadata\'94). This is the only header that Swift sees when calling into the bridge.\
+\
+- `ITKBridge/src/ITKBridge.mm`  \
+  ObjC++ implementation that directly talks to ITK, GDCM, and optional DCMTK components. Implements the functions declared in `ITKBridge.h` and translates between C-friendly structs and native ITK types.\
+\
+- `Tests/ImagingCoreTests/ChromaImagingCoreTests.swift`  \
+  High-level tests for the core package: confirms basic wiring works (bridge can be called, ITK.xcframework loads, simple happy-path IO is functional).\
+\
+- `Tests/ImagingCoreTests/ITKImageIOTests.swift`  \
+  Focused tests for `ITKImageIO`: open sample NIfTI/NRRD/DICOM data and verify that descriptors come back with expected dimensions, spacing, and pixel types.\
+\
+- `Tests/ImagingCoreTests/ITKInfoTests.swift`  \
+  Tests for `ITKInfo`: validate that version strings, feature flags, and supported IO modules are reported correctly.\
+\
+- `ThirdParty/ITK/ITK.xcframework`  \
+  Prebuilt ITK binary (including GDCM and optional DCMTK) that the bridge links against. No app code should ever talk to this directly; all access flows through `ITKBridge` and `ITKImageIO`.\
+\
+### 3.2 ChromaEngineKit \'97 High-Level Engine / ChromaEngine (ITK vs Native Backends)\
+\
+```text\
+ChromaEngineKit/\
+    Package.swift\
+\
+    Sources/\
+        ChromaEngineKit/\
+            Core/\
+                ChromaEngine.swift\
+                ChromaEngineConfig.swift\
+                ChromaEngineError.swift\
+                VolumeHandle.swift\
+\
+            Models/\
+                CImageVolume.swift\
+                CIImage2D.swift\
+                CMetadata.swift\
+                SliceOrientation.swift\
+\
+            IO/\
+                VolumeLoader.swift\
+                ITKVolumeLoader.swift\
+\
+            Backends/\
+                BackendProtocols.swift\
+\
+                ITK/\
+                    ITKSliceBackend.swift\
+                    ITKWindowLevelBackend.swift\
+                    ITKSegmentationBackend.swift\
+\
+                Native/\
+                    NativeSliceBackend.swift\
+                    NativeWindowLevelBackend.swift\
+                    NativeSegmentationBackend.swift\
+\
+            Verification/\
+                VerificationMode.swift\
+                VerificationRunner.swift\
+\
+    Tests/\
+        ChromaEngineKitTests/\
+            ChromaEngineKitTests.swift\
+```\
+\
+**File responsibilities (high-level):**\
+\
+**Core/**\
+\
+- **ChromaEngine.swift**\
+  - The main fa\'e7ade type that NeuroMetrica (via `ChromaEngineBridge`) talks to.\
+  - Owns the registry of open volumes, manages `VolumeHandle` lifecycles, and exposes high-level operations like:\
+    - `openVolume(at url: URL) async throws -> VolumeHandle`\
+    - `makeSlice(for handle: VolumeHandle,\
+                 orientation: SliceOrientation,\
+                 index: Int,\
+                 window: Float,\
+                 level: Float) async throws -> CISlice`\
+  - Internally delegates IO to `IO/VolumeLoader` and processing to `Backends/*` based on `ChromaEngineConfig`.\
+\
+- **ChromaEngineConfig.swift**\
+  - Configuration object for the engine:\
+    - Which slice backend to use (ITK vs Native).\
+    - Which window/level backend to use.\
+    - Which segmentation backend to use.\
+    - Whether verification mode is enabled.\
+  - Lets the app (or dev tools) switch implementations without changing call sites.\
+\
+- **ChromaEngineError.swift**\
+  - Central error enum for the engine surface.\
+  - Wraps IO, backend, and verification failures into a single, app-friendly type.\
+\
+- **VolumeHandle.swift**\
+  - Lightweight, hashable identifier for an open volume.\
+  - Allows the app to refer to volumes without holding raw buffers or ITK pointers.\
+\
+**Models/**\
+\
+- **CImageVolume.swift**\
+  - Canonical in-memory representation of a 3D (or 4D) volume in the engine.\
+  - Stores dimensions, spacing, orientation information, and pixel buffer references.\
+  - Acts as the bridge between ITK-loaded data (`ITKImageDescriptor` in `ChromaImagingCore`) and all higher-level processing.\
+\
+- **CIImage2D.swift**\
+  - Represents a single 2D slice extracted from a `CImageVolume`.\
+  - Encapsulates orientation, index, and a handle to the pixel buffer suitable for conversion into `CIImage` / `CGImage`.\
+\
+- **CMetadata.swift**\
+  - Normalized metadata attached to a `CImageVolume`:\
+    - Patient/study/series identifiers.\
+    - Modality, acquisition date, etc., as available from ITK/GDCM/DCMTK.\
+  - Keeps PHI handling and display logic out of the low-level IO layer.\
+\
+- **SliceOrientation.swift**\
+  - Enum describing axial / coronal / sagittal (and potentially oblique) orientations.\
+  - Shared between all backends and the app so that orientation handling is consistent.\
+\
+**IO/**\
+\
+- **VolumeLoader.swift**\
+  - Protocol that defines how volumes are opened from URLs or file lists.\
+  - Abstract interface used by `ChromaEngine` so that different IO strategies can be swapped in the future if needed.\
+\
+- **ITKVolumeLoader.swift**\
+  - Concrete implementation of `VolumeLoader` that calls into `ChromaImagingCore.ITKImageIO`.\
+  - Responsible for:\
+    - Handling single-file formats (NIfTI, NRRD, etc.).\
+    - Handling DICOM series directories.\
+    - Converting `ITKImageDescriptor` values into fully-formed `CImageVolume` + `CMetadata` instances.\
+\
+**Backends/**\
+\
+- **BackendProtocols.swift**\
+  - Declares the core backend protocols used throughout the engine:\
+    - `SliceBackend`\
+    - `WindowLevelBackend`\
+    - `SegmentationBackend`\
+  - These protocols define the behavior for slice extraction, window/level, and segmentation. All concrete implementations in `Backends/ITK` and `Backends/Native` conform to these protocols so that `ChromaEngine` can swap ITK vs native backends via configuration without changing call sites.\
+\
+- **Backends/ITK/**\
+  - **ITKSliceBackend.swift**\
+    - Implements the `SliceBackend` protocol using ITK algorithms.\
+    - Performs slice extraction and any ITK-side resampling/interpolation.\
+\
+  - **ITKWindowLevelBackend.swift**\
+    - Implements `WindowLevelBackend` using ITK\'92s intensity transform utilities.\
+    - Serves as the \'93reference\'94 or \'93gold-standard\'94 implementation for WW/WL operations.\
+\
+  - **ITKSegmentationBackend.swift**\
+    - Implements `SegmentationBackend` with ITK-based segmentation algorithms.\
+    - Useful both as a production path and as a correctness reference for native implementations.\
+\
+- **Backends/Native/**\
+  - **NativeSliceBackend.swift**\
+    - Implements `SliceBackend` using native Swift + Accelerate/Metal code.\
+    - Tuned for Apple hardware (GPU-accelerated where appropriate).\
+\
+  - **NativeWindowLevelBackend.swift**\
+    - Implements `WindowLevelBackend` using native pipelines (e.g. vDSP, Core Image).\
+    - Designed to be fast and energy-efficient on Apple GPUs and NPUs.\
+\
+  - **NativeSegmentationBackend.swift**\
+    - Implements `SegmentationBackend` using native algorithms and/or ML pre/post-processing.\
+    - Intended evolution path as the platform matures beyond ITK-based processing.\
+\
+**Verification/**\
+\
+- **VerificationMode.swift**\
+  - Enum describing how verification is run:\
+    - `.off` \'96 use only the selected backend.\
+    - `.sampled` \'96 occasionally run both ITK and Native and compare.\
+    - `.full` \'96 always run both and assert on differences (dev/debug only).\
+\
+- **VerificationRunner.swift**\
+  - Helper that knows how to:\
+    - Invoke both ITK and Native backends for the same operation.\
+    - Compare outputs (e.g., pixel-wise diffs, metrics).\
+    - Log discrepancies via engine-level logging hooks.\
+  - Used internally by `ChromaEngine` when `ChromaEngineConfig.verificationMode` is not `.off`.\
+\
+**Tests/**\
+\
+- **ChromaEngineKitTests.swift**\
+  - Unit tests for the engine fa\'e7ade and backends:\
+    - Confirms that IO + backends produce stable, expected outputs.\
+    - Provides regression coverage for ITK vs Native parity, especially in verification mode.\
+\
+### 3.3 RedEngine \'97 ML Runtime / RedEye Models\
+\
+```text\
+RedEngine/\
+    Package.swift\
+\
+    Sources/\
+        RedEngine/\
+            Adapters/\
+                SliceTensorAdapter.swift\
+                VolumeTensorAdapter.swift\
+\
+            Core/\
+                Redengine.swift\
+                RedengineConfig.swift\
+                RedengineError.swift\
+                RedengineModel.swift\
+                RedengineTask.swift\
+\
+            Models/\
+                RedEye1/\
+                    RedEye1.swift\
+                    RedEye1Preprocessing.swift\
+\
+            Runtime/\
+                FxTorchRuntime.swift\
+                FlareRuntime.swift\
+\
+            Tasks/\
+                ClassificationTask.swift\
+                SegmentationTask.swift\
+\
+    Tests/\
+        RedEngineTests/\
+            RedEngineBasicTests.swift\
+            RedEye1Tests.swift\
+```\
+\
+**Role:**\
+\
+- Provides an on-device ML runtime for tasks like classification and segmentation.\
+- Converts slices/volumes into tensors (Adapters) and invokes RedEye models via concrete runtimes.\
+\
+---\
+\
+### 3.4 Core vs Kit: How the App Uses Them\
+\
+From NeuroMetrica\'92s perspective:\
+\
+- `ChromaImagingCore` is **never called directly** from the app. It is an engine-internal module that owns ITK-based IO and low-level processing.\
+- Canonical volume representation in the engine is `CImageVolume` (defined in `ChromaEngineKit/Models`); canonical ITK-backed IO fa\'e7ade is `ITKImageIO`. Older names like `NMImageIO` are deprecated and should not be used in new code.\
+- `ChromaEngineKit` is the only imaging engine surface the app depends on, via `ChromaEngine`.\
+- `ChromaEngineBridge` (in `NeuroMetrica/Core/Services/Imaging`) is the translation layer between:\
+  - App concepts (ImportSource, ViewerState, WW/WL presets), and\
+  - Engine concepts (`ChromaEngine` handles, volumes, slices).\
+\
+This split lets us add features like segmentation in **two ways** (ITK-based and native) while still presenting a single, HIG-compliant experience:\
+\
+- ITK-based segmentation is implemented in `ChromaEngineKit`\'92s ITK backends (e.g. `ITKSegmentationBackend`), which call into `ChromaImagingCore`/ITK as needed and are exposed via `ChromaEngine`.\
+- Native Metal/MPS segmentation is implemented in `ChromaEngineKit`\'92s Native backends (e.g. `NativeSegmentationBackend`) and is also exposed via `ChromaEngine`.\
+- The app can later offer a user-visible toggle (e.g. \'93Segmentation backend: ITK / Native\'94) without depending directly on either implementation.\
+\
+### 3.5 End-to-End Imaging Data Flow (DICOM / NIfTI / NRRD)\
+\
+At a high level, all production imaging data now flows through ITK, into the canonical `CImageVolume` type, and then up through `ChromaEngine` to the app:\
+\
+```text\
+User taps "Open Volume\'85" in ImportView\
+    \uc0\u9474 \
+    \uc0\u9660 \
+NeuroMetrica App (SwiftUI + MVVM)\
+\uc0\u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+[Core/Features/Import/Views/ImportView.swift]\
+    \uc0\u9474   (button / UI entry point)\
+    \uc0\u9660 \
+[Core/Features/Import/ViewModels/ImportViewModel.swift]\
+    \uc0\u9474   calls FilePickerService.open()\
+    \uc0\u9660 \
+[Core/Services/FileSystem/FilePickerService.swift]\
+    \uc0\u9474   returns URL(s) wrapped as ImportSource\
+    \uc0\u9660 \
+[Core/Features/Viewer/ViewModels/ViewerViewModel.swift]\
+    \uc0\u9474   calls ChromaEngineBridge.loadVolume(from: ImportSource)\
+    \uc0\u9660 \
+[Core/Services/Imaging/ChromaEngineBridge.swift]\
+    \uc0\u9474   translates ImportSource \u8594  URL list + options\
+    \uc0\u9660 \
+    \uc0\u9660 \
+ChromaEngineKit (engine fa\'e7ade + backends)\
+\uc0\u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+[Sources/ChromaEngineKit/Core/ChromaEngine.swift]\
+    \uc0\u9474   openVolume(at: URL) async throws -> VolumeHandle\
+    \uc0\u9474   delegates IO to VolumeLoader\
+    \uc0\u9660 \
+[Sources/ChromaEngineKit/IO/ITKVolumeLoader.swift]\
+    \uc0\u9474   decides single-file vs DICOM series directory\
+    \uc0\u9474   calls ITKImageIO.loadVolume(...) in ChromaImagingCore\
+    \uc0\u9660 \
+    \uc0\u9660 \
+ChromaImagingCore (thin ITK bridge)\
+\uc0\u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+[Sources/ChromaImagingCore/ITK/ITKImageIO.swift]\
+    \uc0\u9474   Swift fa\'e7ade: URL(s) \u8594  ITKImageDescriptor\
+    \uc0\u9660 \
+[Sources/ITKBridge/src/ITKBridge.mm]\
+[Sources/ITKBridge/include/ITKBridge.h]\
+    \uc0\u9474   C/ObjC++ bridge to ITK / GDCM / DCMTK\
+    \uc0\u9660 \
+ITK.xcframework (DICOM / NIfTI / NRRD IO + ITK processing)\
+    \uc0\u9660 \
+    \uc0\u9660 \
+Back into ChromaEngineKit\
+\uc0\u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+[ITKImageIO.swift] returns ITKImageDescriptor\
+    \uc0\u9660 \
+[ITKVolumeLoader.swift] converts descriptor \uc0\u8594  CImageVolume + CMetadata\
+    \uc0\u9660 \
+[ChromaEngine.swift] stores VolumeHandle \uc0\u8594  CImageVolume in registry\
+    \uc0\u9660 \
+[Backends/ITK/*Backend.swift] or [Backends/Native/*Backend.swift]\
+    \uc0\u9474   makeSlice(for: VolumeHandle, orientation:index:window:level:)\
+    \uc0\u9660 \
+[Models/CIImage2D.swift]  (engine slice representation)\
+    \uc0\u9660 \
+Back into NeuroMetrica App (rendering path)\
+\uc0\u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+[Core/Services/Imaging/ChromaEngineBridge.swift]\
+    \uc0\u9474   exposes makeSlice(...) async -> CIImage2D to ViewerViewModel\
+    \uc0\u9660 \
+[Core/Utils/Extensions/CIImage2D+Image.swift]\
+    \uc0\u9474   CIImage2D \u8594  CGImage / SwiftUI.Image\
+    \uc0\u9660 \
+[Core/Features/Viewer/ViewModels/ViewerViewModel.swift]\
+    \uc0\u9474   @Published var currentImage: Image\
+    \uc0\u9660 \
+[Core/Features/Viewer/Views/ViewerView.swift]\
+[Core/Features/Viewer/Views/ContentView.swift]\
+    \uc0\u9474   render SwiftUI.Image in multi-viewport canvas\
+    \uc0\u9660 \
+User sees DICOM / NIfTI / NRRD volume displayed on-screen\
+```\
+\
+---\
+\
+## 4. Dependency Rules and MVVM Guardrails\
+\
+To keep the project maintainable and aligned with Apple best practices:\
+\
+### 4.1 Allowed Dependencies\
+\
+- **ChromaImagingCore**\
+  - May depend on: Foundation and ITK (via C++/Obj-C++). It should not use Metal or Accelerate directly; all performance-critical native processing lives in ChromaEngineKit.\
+  - Must **not** depend on: SwiftUI, any NeuroMetrica app code, RedEngine.\
+\
+- **ChromaEngineKit**\
+  - May depend on: ChromaImagingCore, Foundation, Metal, Accelerate.\
+  - Must not depend on: SwiftUI, NeuroMetrica app.\
+\
+- **RedEngine**\
+  - May depend on: Foundation, CoreML or runtime-specific frameworks.\
+  - Must not depend on: SwiftUI, NeuroMetrica app, ChromaImagingCore.\
+\
+- **NeuroMetrica Core Services and Models**\
+  - May depend on: ChromaEngineKit (via `ChromaEngine`), RedEngine (via future ML bridge), Foundation.\
+  - Should avoid direct SwiftUI usage except for trivial extensions.\
+\
+- **NeuroMetrica ViewModels**\
+  - May depend on: Core services (`ChromaEngineBridge`, `FilePickerService`, `AppLogger`, `RecentFilesStore`), Foundation, Combine/Swift Concurrency, and SwiftUI for `ObservableObject` and `@Published`.\
+  - Must not depend on: ChromaImagingCore, ITKBridge, or direct RedEngine APIs.\
+\
+- **NeuroMetrica Views**\
+  - May depend on: SwiftUI, their own ViewModel types, and small UI helpers (`Color+NeuroMetrica`, `View+NeuroMetrica`).\
+  - Must not depend on: ChromaImagingCore, ChromaEngineKit, RedEngine, or app services directly.\
+\
+### 4.2 MVVM Rules (Short Version)\
+\
+- Views:\
+  - Own layout and styling.\
+  - Receive data via `@StateObject` / `@ObservedObject` ViewModels.\
+  - Trigger behavior only by calling ViewModel methods.\
+\
+- ViewModels:\
+  - Own app logic for each feature.\
+  - Use Core services and engine bridges.\
+  - Expose simple, UI-ready state (no Metal buffers, no raw C pointers).\
+\
+- Models + Services:\
+  - Are UI-agnostic.\
+  - Represent domain concepts (settings, viewer state, import sources) and operations.\
+\
+---\
+\
+## 5. HIG Alignment: High-Level UI Structure\
+\
+- Top-level layout should use `NavigationSplitView` (or platform-appropriate equivalent):\
+  - Sidebar: Import (open, recents).\
+  - Content: Viewer.\
+  - Optional: Inspector or DevTools as a third column or overlay.\
+\
+- Toolbar items should follow Apple HIG guidelines:\
+  - Primary actions: orientation, slice navigation, WW/WL presets.\
+  - Secondary actions: settings, dev tools.\
+\
+- Visual style:\
+  - Use system background colors (`Color.background`, `Color.secondarySystemBackground`) and semantic colors defined in `Color+NeuroMetrica`.\
+  - Typography uses standard SwiftUI `Font` styles (`title2`, `body`, `caption`).\
+\
+- Accessibility:\
+  - Key controls (orientation picker, slice slider, WW/WL sliders) should have `accessibilityLabel` and meaningful `accessibilityValue`.\
+\
+---\
+\
+This document reflects the **current architecture tree and layering decisions** for NeuroMetrica, ChromaImagingCore, ChromaEngineKit, and RedEngine. It is intended to be a reference for future work so that new features stay consistent with strict MVVM and Apple\'92s Human Interface Guidelines.}

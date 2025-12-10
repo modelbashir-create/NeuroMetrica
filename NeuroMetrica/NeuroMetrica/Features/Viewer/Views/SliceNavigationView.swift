@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 struct SliceNavigationView: View {
@@ -6,31 +5,44 @@ struct SliceNavigationView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Label: "Slice X / N"
-            HStack {
-                let sliceCount = viewModel.state.sliceCount
-                let index = viewModel.state.sliceIndex
+            // Snapshot values — avoid constructing controls that assert on empty ranges
+            let sliceCount = viewModel.state.sliceCount
+            let hasSlices = sliceCount > 0
+            let upper = hasSlices ? (sliceCount - 1) : 0
+            let currentIndex = hasSlices ? min(max(viewModel.state.sliceIndex, 0), upper) : 0
 
-                Text("Slice \(sliceCount == 0 ? 0 : index + 1) / \(sliceCount)")
+            // Label: "Slice X / N" or "No slices"
+            HStack {
+                Text(hasSlices ? "Slice \(currentIndex + 1) / \(sliceCount)" : "No slices")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-
                 Spacer()
             }
 
-            // Slider for slice index (absolute control)
-            Slider(
-                value: Binding(
-                    get: { Double(viewModel.state.sliceIndex) },
-                    set: { newValue in
-                        let intValue = Int(newValue.rounded())
-                        viewModel.setSliceIndex(intValue)
-                    }
-                ),
-                in: 0...Double(max(viewModel.state.sliceCount - 1, 0)),
-                step: 1.0
-            )
-            .disabled(viewModel.state.sliceCount == 0)
+            // Only construct a Slider when there are slices — some SwiftUI slider variants assert if the range/content is degenerate
+            if hasSlices {
+                Slider(
+                    value: Binding(
+                        get: { Double(currentIndex) },
+                        set: { newValue in
+                            let clamped = min(max(Int(newValue.rounded()), 0), upper)
+                            if clamped != viewModel.state.sliceIndex {
+                                viewModel.setSliceIndex(clamped)
+                            }
+                        }
+                    ),
+                    in: 0...Double(upper),
+                    step: 1
+                )
+                .accessibilityLabel("Slice")
+                .accessibilityValue("\(currentIndex + 1) of \(sliceCount)")
+            } else {
+                // Invisible spacer to keep layout consistent without creating a Slider when empty
+                Rectangle()
+                    .opacity(0)
+                    .frame(height: 24)
+                    .accessibilityHidden(true)
+            }
         }
     }
 }

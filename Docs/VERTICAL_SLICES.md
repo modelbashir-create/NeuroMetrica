@@ -212,6 +212,40 @@ These are intentionally **not** assigned to V1–V5 yet, but are part of the lon
 
 ---
 
+
+## Backend Strategy – ITK (with DCMTK) vs Native Engine
+
+Neurometrica uses two complementary “backsides” for all imaging work:
+
+- **ITK + DCMTK (via ChromaImagingCore)** – Portable, CPU-only, reference backend
+  - ITK is built as a C++ framework and exposed to Swift via an `ITKBridge`.
+  - ITK is compiled **with DCMTK enabled**, so ITK is responsible for **all IO**:
+    - DICOM (CT/MR brain and spine, other series) via DCMTK.
+    - Research formats such as **NIfTI**, **NRRD**, **MetaImage**, and **RAW** volumes through ITK’s IO stack.
+  - All file formats flow through this path; the app and higher-level engine never read medical image files directly.
+  - ITK runs on the **CPU** only in this setup – it does not target Metal or the Apple Neural Engine.
+
+- **Native Apple engine (ChromaImagingKit + RedEngine)** – Fast, Apple-optimized backend
+  - Written in Swift and Metal, using Accelerate/vDSP, MPS, and Core ML.
+  - Operates on neutral volume/slice models produced by the ITK IO layer (e.g. `CIImageVolume` / `CIImage2D`).
+  - Responsible for:
+    - Real-time WW/WL, slice scrolling, zoom/pan, and 2D rendering.
+    - 3D features (MIP, VR, cropping boxes).
+    - Filters and advanced volume operations implemented in Metal/MPS.
+    - AI/ML features (segmentation, smart suggestions) using Core ML / RedEngine.
+
+**Key rule:**  
+- **All IO for all file formats goes through ITK + DCMTK (ChromaImagingCore).**  
+- **All interactive viewing, 2D/3D rendering, and AI run through the native Apple engine.**
+
+From a version-planning perspective:
+
+- V1/V2 (2D viewer) always load volumes via ITK IO (DICOM + NIfTI + other formats), then hand the result to the native engine for WW/WL and rendering.
+- V3/V4 (3D MIP/VR and advanced tools) assume volumes are already in native engine memory; they depend on the same IO pipeline but do not talk to ITK directly.
+- V5 (AI, registration, smart workflows) can mix:
+  - ITK as a **reference CPU backend** for registration and some classic filters.
+  - Native engine + Core ML as the **fast path** for interactive and AI-heavy features.
+
 ## Packages – Implementation Status
 
 ### ChromaImagingKit (Engine Swift Package)
@@ -250,19 +284,36 @@ These are intentionally **not** assigned to V1–V5 yet, but are part of the lon
 - [ ] Simple protocol types for AI models (e.g. `VolumeSegmentationModel`, `SegmentationResult`).
 - [ ] Clear entry points for feeding `CIImageVolume` / `CIImage2D` through Core ML models without leaking engine internals into the app.
 
-### DCMTKLoader (DICOM Swift Package)
+### ChromaImagingCore (ITK + DCMTK IO Swift Package)
 
-#### V1 – Basic DICOM volume loading
+This package is the **ITK/IO bridge** and the single entry point for reading medical image files into the Neurometrica stack.
 
-- [x] DCMTKLoader Swift package added to the workspace.
-- [x] Basic bridging setup (`DicomBridge` header/implementation files) connecting Swift to DCMTK C++.
-- [ ] High-level Swift API to load a DICOM series into `CIImageVolume` + metadata.
-- [ ] Mapping DICOM metadata into shared engine types (spacing, orientation, study/series/study date).
-- [ ] Pixel data conversion from DCMTK (various pixel formats) into the engine's volume representation.
-- [ ] A clean boundary where DCMTKLoader returns neutral volume + metadata types that ChromaImagingKit can consume.
-- [ ] Simple wiring so that the app can choose between NIfTI and DICOM paths without knowing DCMTK internals.
-- [ ] Minimal tests or sample-series checks to confirm DICOM series can be loaded into volumes with correct dimensions and spacing.
-- [ ] Graceful handling of compressed DICOM where DCMTK is available/configured.
+#### V1 – Unified IO via ITK + DCMTK
+
+- [x] Integrate ITK as a C++ framework, exposed to Swift via `ITKBridge.h` / `ITKBridge.mm`.
+- [x] Build ITK **with DCMTK enabled**, so DICOM support is available inside ITK.
+- [x] Provide Swift-facing IO helpers that:
+  - Accept a URL or file path.
+  - Use ITK (and DCMTK for DICOM) to read the series/volume.
+  - Convert the result into neutral engine types (e.g. `CImageVolume` / `CIImageVolume` + metadata).
+- [x] Ensure that **all file formats** go through this package for IO:
+  - DICOM (via DCMTK inside ITK).
+  - NIfTI (`.nii`, `.nii.gz`).
+  - NRRD.
+  - MetaImage (`.mhd` / `.mha`).
+  - RAW volumes (with external dimension/spacing info).
+- [ ] Map ITK/DCMTK metadata (spacing, orientation, study/series info, patient/study date) into shared engine metadata models.
+- [ ] Provide clear error types and messages when IO fails (unsupported format, corrupt series, etc.).
+- [ ] Add basic tests using small DICOM/NIfTI/NRRD/MetaImage fixtures to confirm that dimensions and spacing round-trip correctly.
+
+#### V2+ – Optional ITK-based processing
+
+Although the primary role of ChromaImagingCore is IO, ITK can also serve as a **reference CPU backend** for some processing tasks:
+
+- [ ] Optional ITK-based filters (e.g. normalization, basic smoothing) exposed behind a strategy layer so they can be compared against native Metal/Accelerate implementations.
+- [ ] Optional ITK-based registration routines (rigid/affine) that can be used for correctness and debugging, while the native engine evolves GPU-accelerated registration for real-time use.
+
+In all cases, ITK remains **CPU-only** in this architecture. Any GPU/ANE-accelerated behavior is implemented in the native engine (`ChromaImagingKit` and `RedEngine`) after IO is complete.
 
 ## App Layer – V1
 

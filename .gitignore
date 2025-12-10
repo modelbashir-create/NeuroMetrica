@@ -29,3 +29,9 @@ xcuserdata/
 
 # === Crash / log files ===
 *.log
+
+# Local build output - DO NOT COMMIT
+Builds/
+
+# Local ITK xcframework - binary blob, keep only locally
+ChromaImagingCore/ThirdParty/ITK/ITK.xcframework/

@@ -1,75 +1,327 @@
+//
+//  ChromaEngineBridge.swift
+//  NeuroMetrica
+//
+//  Created 2025-12-03
+//
+//  Core imaging service that sits between the NeuroMetrica app (ViewModels)
+//  and the imaging engine packages (ChromaImagingKit / ChromaImagingCore).
+//
+//  Responsibilities:
+//  - Provide a single, VM-friendly API for loading volumes (NIfTI, NRRD, DICOM).
+//  - Hide ITK/DCMTK, Metal, and all low-level details.
+//  - Provide slice extraction with WW/WL applied.
+//  - Own an in-memory registry of loaded volumes, keyed by opaque handles.
+//
+
 import Foundation
 import ChromaImagingKit
+import ChromaImagingCore
 
-/// Thin wrapper around ChromaImagingKit for the app.
-/// Responsible for:
-/// - Loading volumes (e.g. NIfTI) via ChromaEngine.
-/// - Producing WW/WL-processed slices via ChromaEngine.
-final class ChromaEngineBridge {
+// MARK: - Public Types Exposed to ViewModels
 
-    enum BridgeError: Error {
-        case invalidSliceIndex
+/// Logical format of a loaded volume, as seen by the app.
+enum VolumeFormat: String {
+    case nifti
+    case nrrd
+    case dicomDirectory   // A directory of DICOM files (typical study/series on disk)
+    case dicomFile        // A single DICOM file (e.g., secondary capture)
+    case rawStack         // Future: PNG/JPEG stack, etc.
+    case unknown
+}
+
+/// Opaque handle that ViewModels hold onto instead of engine/ITK types.
+struct VolumeHandle: Hashable {
+    let id: UUID
+}
+
+/// High-level description of a loaded volume.
+struct VolumeDescriptor {
+    let handle: VolumeHandle
+    let url: URL
+    let format: VolumeFormat
+    
+    let sizeX: Int
+    let sizeY: Int
+    let sizeZ: Int
+    
+    /// Spacing in mm (or whatever ITK/Core reports).
+    let spacingX: Double
+    let spacingY: Double
+    let spacingZ: Double
+}
+
+/// Errors that the bridge can throw.
+enum ChromaEngineBridgeError: Error, LocalizedError {
+    case volumeNotFound
+    case unsupportedFormat(URL)
+    case notImplemented(String)
+    case underlyingEngineError(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .volumeNotFound:
+            return "The requested volume handle is no longer available."
+        case .unsupportedFormat(let url):
+            return "The file at \(url.lastPathComponent) is not a supported medical imaging format."
+        case .notImplemented(let feature):
+            return "\(feature) is not implemented yet."
+        case .underlyingEngineError(let message):
+            return message
+        }
     }
+}
 
+// MARK: - Configuration
+
+/// Controls how the bridge chooses backends for IO and processing.
+///
+/// Long-term goal:
+/// - IO → ITK/DCMTK
+/// - Processing → toggle between ITK CPU and native Swift/Metal.
+struct ChromaEngineBridgeConfig {
+    enum IOBackend {
+        case itkPreferred    // ITK/DCMTK-backed IO when available
+        case nativePreferred // Use ChromaImagingCore native loaders when available
+    }
+    
+    enum ProcessingBackend {
+        case itkCPU          // ITK filters on CPU
+        case nativeCPU       // ChromaImagingCore CPU (Accelerate/vDSP)
+        case nativeGPU       // Metal/MPS, when appropriate
+        
+        // Future: Apple Neural Engine, etc.
+    }
+    
+    var ioBackend: IOBackend
+    var processingBackend: ProcessingBackend
+    
+    static let `default` = ChromaEngineBridgeConfig(
+        ioBackend: .itkPreferred,
+        processingBackend: .nativeCPU
+    )
+}
+
+// MARK: - Internal Volume Record
+
+private struct VolumeRecord {
+    let handle: VolumeHandle
+    let url: URL
+    let format: VolumeFormat
+    
+    /// The actual engine volume object (from ChromaImagingCore).
+    let engineVolume: CImageVolume
+    
+    /// Metadata pulled from the engine.
+    let descriptor: VolumeDescriptor
+}
+
+// MARK: - Bridge Actor
+
+/// Actor to serialize access to the underlying engine and volume registry.
+actor ChromaEngineBridge {
+    
+    // MARK: - Properties
+    
+    private let config: ChromaEngineBridgeConfig
     private let engine: ChromaEngine
-
-    init(engine: ChromaEngine = ChromaEngine()) {
+    
+    private var volumes: [UUID: VolumeRecord] = [:]
+    
+    // MARK: - Init
+    
+    init(
+        config: ChromaEngineBridgeConfig = .default,
+        engine: ChromaEngine = ChromaEngine()
+    ) {
+        self.config = config
         self.engine = engine
     }
-
-    func updateBackend(_ backend: ChromaProcessingBackend) {
-        engine.backend = backend
+    
+    // MARK: - Public API (used by ViewModels)
+    
+    /// Heuristic loader that infers format from the URL and dispatches to the right loader.
+    ///
+    /// ViewModels can call this when they only have a `URL` from the file picker.
+    func loadVolume(from url: URL) async throws -> VolumeDescriptor {
+        let format = inferFormat(from: url)
+        
+        switch format {
+        case .nifti:
+            return try await loadNiftiVolume(from: url)
+        case .nrrd:
+            return try await loadNRRDVolume(from: url)
+        case .dicomDirectory, .dicomFile:
+            return try await loadDicom(from: url, format: format)
+        case .rawStack, .unknown:
+            throw ChromaEngineBridgeError.unsupportedFormat(url)
+        }
     }
-
-    /// Load a NIfTI (.nii or .nii.gz) file into a CIImageVolume using ChromaEngine.
-    ///
-    /// This is async to play nicely with async/await call sites, even though the current
-    /// implementation is synchronous under the hood. If we later move the work to a
-    /// background task, the signature here does not need to change.
-    func loadNIfTI(from url: URL) async throws -> CIImageVolume {
-        return try engine.loadNIfTI(at: url)
+    
+    /// Explicit NIfTI loader.
+    func loadNiftiVolume(from url: URL) async throws -> VolumeDescriptor {
+        do {
+            // For now, this uses the ChromaEngine API.
+            // Behind the scenes, ChromaImagingCore can use ITK or native IO.
+            let engineVolume = try await engine.loadNiftiVolume(from: url)
+            return registerVolume(engineVolume, url: url, format: .nifti)
+        } catch {
+            throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
+        }
     }
-
-    /// Extracts a slice from the given volume and applies window/level.
+    
+    /// Explicit NRRD loader.
+    func loadNRRDVolume(from url: URL) async throws -> VolumeDescriptor {
+        do {
+            let engineVolume = try await engine.loadNRRDVolume(from: url)
+            return registerVolume(engineVolume, url: url, format: .nrrd)
+        } catch {
+            throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
+        }
+    }
+    
+    /// Explicit DICOM loader. For now, this is a placeholder that defines the API and
+    /// makes it crystal clear where ITK/DCMTK-backed IO will plug in.
+    func loadDicom(from url: URL, format: VolumeFormat? = nil) async throws -> VolumeDescriptor {
+        let dicomFormat: VolumeFormat
+        if let explicit = format {
+            dicomFormat = explicit
+        } else {
+            dicomFormat = inferDicomFormat(from: url)
+        }
+        
+        // TODO: Wire this to ITK/DCMTK-based IO via ChromaImagingCore/ITKBridge.
+        // For now we throw a descriptive error so the calling VM can surface this cleanly.
+        throw ChromaEngineBridgeError.notImplemented("DICOM loading via ITK/DCMTK")
+        
+        // Example of what this will eventually look like:
+        /*
+        do {
+            let engineVolume = try await engine.loadDicomVolume(from: url, isDirectory: dicomFormat == .dicomDirectory)
+            return registerVolume(engineVolume, url: url, format: dicomFormat)
+        } catch {
+            throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
+        }
+        */
+    }
+    
+    /// Returns a CIImage2D slice for the given volume with WW/WL applied.
     ///
-    /// - Parameters:
-    ///   - volume: The 3D volume to slice.
-    ///   - orientation: Axial, coronal, or sagittal.
-    ///   - index: Slice index along the chosen orientation.
-    ///   - window: WW value.
-    ///   - level: WL value.
-    ///
-    /// - Returns: A CIImage2D with pixels normalized to [0, 1].
+    /// ViewModels call this, then convert CIImage2D → CGImage → SwiftUI.Image via `CIImage2D+Image`.
     func makeSlice(
-        volume: CIImageVolume,
+        from handle: VolumeHandle,
         orientation: SliceOrientation,
         index: Int,
         window: Float,
         level: Float
-    ) throws -> CIImage2D {
-
-        // Bounds check for the requested index at the app/bridge level
-        let maxIndex: Int
-        switch orientation {
-        case .axial:
-            maxIndex = volume.depth - 1
-        case .coronal:
-            maxIndex = volume.height - 1
-        case .sagittal:
-            maxIndex = volume.width - 1
+    ) async throws -> CIImage2D {
+        guard let record = volumes[handle.id] else {
+            throw ChromaEngineBridgeError.volumeNotFound
         }
-
-        guard index >= 0, index <= maxIndex else {
-            throw BridgeError.invalidSliceIndex
+        
+        do {
+            // In the future, this method can switch between:
+            // - ITK CPU WW/WL + reslice
+            // - Native CPU WW/WL (WindowLevelCPU)
+            // - Native GPU path (Metal/MPS)
+            let slice = try await engine.makeSlice(
+                from: record.engineVolume,
+                orientation: orientation,
+                index: index,
+                window: window,
+                level: level
+            )
+            return slice
+        } catch {
+            throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
         }
-
-        // Delegate the actual slice extraction + WW/WL to ChromaEngine.
-        return try engine.makeSlice(
-            from: volume,
-            orientation: orientation,
-            index: index,
-            window: window,
-            level: level
+    }
+    
+    /// Clean up a volume when a ViewModel is done with it.
+    func unloadVolume(_ handle: VolumeHandle) {
+        volumes.removeValue(forKey: handle.id)
+    }
+    
+    /// Optionally return the descriptor for an existing handle (for inspector/overlays).
+    func descriptor(for handle: VolumeHandle) -> VolumeDescriptor? {
+        volumes[handle.id]?.descriptor
+    }
+    
+    // MARK: - Private Helpers
+    
+    /// Registers a newly loaded volume in the internal registry and returns its descriptor.
+    private func registerVolume(
+        _ engineVolume: CImageVolume,
+        url: URL,
+        format: VolumeFormat
+    ) -> VolumeDescriptor {
+        let handle = VolumeHandle(id: UUID())
+        
+        // Extract basic metadata from the engine volume.
+        // Adjust these property names to whatever `CImageVolume` exposes.
+        let sizeX = engineVolume.sizeX
+        let sizeY = engineVolume.sizeY
+        let sizeZ = engineVolume.sizeZ
+        
+        let spacingX = engineVolume.spacingX
+        let spacingY = engineVolume.spacingY
+        let spacingZ = engineVolume.spacingZ
+        
+        let descriptor = VolumeDescriptor(
+            handle: handle,
+            url: url,
+            format: format,
+            sizeX: sizeX,
+            sizeY: sizeY,
+            sizeZ: sizeZ,
+            spacingX: spacingX,
+            spacingY: spacingY,
+            spacingZ: spacingZ
         )
+        
+        let record = VolumeRecord(
+            handle: handle,
+            url: url,
+            format: format,
+            engineVolume: engineVolume,
+            descriptor: descriptor
+        )
+        
+        volumes[handle.id] = record
+        return descriptor
+    }
+    
+    /// Very simple format inference from file extension.
+    /// The goal is to be predictable and transparent, not magical.
+    private func inferFormat(from url: URL) -> VolumeFormat {
+        let ext = url.pathExtension.lowercased()
+        
+        switch ext {
+        case "nii", "nii.gz":
+            return .nifti
+        case "nrrd":
+            return .nrrd
+        case "dcm":
+            return .dicomFile
+        default:
+            // Heuristic: a directory with DICOM files will be treated as `.dicomDirectory`
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+               isDirectory.boolValue {
+                return .dicomDirectory
+            }
+            return .unknown
+        }
+    }
+    
+    /// Used when caller specifically wants DICOM, but we need to distinguish file vs dir.
+    private func inferDicomFormat(from url: URL) -> VolumeFormat {
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+           isDirectory.boolValue {
+            return .dicomDirectory
+        } else {
+            return .dicomFile
+        }
     }
 }

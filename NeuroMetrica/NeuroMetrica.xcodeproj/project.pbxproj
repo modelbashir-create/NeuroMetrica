@@ -8,11 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		FF7A019E2EC7EDB900CD988F /* CIImage2D+Image.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7A019D2EC7EDB600CD988F /* CIImage2D+Image.swift */; };
-		FF93BE4D2ED56D4A00A9F042 /* RedEngine  in Frameworks */ = {isa = PBXBuildFile; productRef = FF93BE4C2ED56D4A00A9F042 /* RedEngine  */; };
-		FF93BE502ED56D6800A9F042 /* DCMTKLoader in Frameworks */ = {isa = PBXBuildFile; productRef = FF93BE4F2ED56D6800A9F042 /* DCMTKLoader */; };
-		FF93BE532ED56E0700A9F042 /* ChromaImagingKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF93BE522ED56E0700A9F042 /* ChromaImagingKit */; };
-		FF9BB72F2EC6D326000F271C /* DCMTKLoader in Frameworks */ = {isa = PBXBuildFile; productRef = FF9BB72E2EC6D326000F271C /* DCMTKLoader */; };
-		FF9BB7322EC6D415000F271C /* ChromaImagingKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF9BB7312EC6D415000F271C /* ChromaImagingKit */; };
+		FF7BB3842EE2422700643382 /* ChromaEngineKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF7BB3832EE2422700643382 /* ChromaEngineKit */; };
+		FF7BB3872EE244CE00643382 /* ChromaEngineKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF7BB3862EE244CE00643382 /* ChromaEngineKit */; };
+		FF86459E2EE130CE0052074C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF86459D2EE130CE0052074C /* ContentView.swift */; };
 		FF9BB7332EC6D8FA000F271C /* NeuroMetricaUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F82EC6C90A00315F9C /* NeuroMetricaUITestsLaunchTests.swift */; };
 		FF9BB7342EC6D8FA000F271C /* NeuroMetricaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F72EC6C90A00315F9C /* NeuroMetricaUITests.swift */; };
 		FF9BB7352EC6D903000F271C /* NeuroMetricaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F52EC6C90A00315F9C /* NeuroMetricaTests.swift */; };
@@ -41,11 +39,6 @@
 		FF9BB77F2EC7199D000F271C /* ImportViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7522EC7199D000F271C /* ImportViewModel.swift */; };
 		FF9BB7802EC7199D000F271C /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7412EC7199D000F271C /* AppLogger.swift */; };
 		FF9BB7812EC7199D000F271C /* FilePickerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73C2EC7199D000F271C /* FilePickerService.swift */; };
-		FF9E7BC72ED571BB00C890AD /* ChromaImagingKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF9E7BC62ED571BB00C890AD /* ChromaImagingKit */; };
-		FF9E7BCA2ED5727400C890AD /* ChromaImagingKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF9E7BC92ED5727400C890AD /* ChromaImagingKit */; };
-		FF9E7BCD2ED572C500C890AD /* RedEngine  in Frameworks */ = {isa = PBXBuildFile; productRef = FF9E7BCC2ED572C500C890AD /* RedEngine  */; };
-		FFA92CE12ECA1169003844C4 /* DCMTKLoader in Frameworks */ = {isa = PBXBuildFile; productRef = FFA92CE02ECA1169003844C4 /* DCMTKLoader */; };
-		FFAD3C072ED5463500B5631E /* DCMTKLoader in Frameworks */ = {isa = PBXBuildFile; productRef = FFAD3C062ED5463500B5631E /* DCMTKLoader */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +60,7 @@
 
 /* Begin PBXFileReference section */
 		FF7A019D2EC7EDB600CD988F /* CIImage2D+Image.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CIImage2D+Image.swift"; sourceTree = "<group>"; };
+		FF86459D2EE130CE0052074C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		FF9BB7362EC7199D000F271C /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
 		FF9BB7372EC7199D000F271C /* NeuroMetricaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeuroMetricaApp.swift; sourceTree = "<group>"; };
 		FF9BB7392EC7199D000F271C /* AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppError.swift; sourceTree = "<group>"; };
@@ -105,16 +99,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FFA92CE12ECA1169003844C4 /* DCMTKLoader in Frameworks */,
-				FFAD3C072ED5463500B5631E /* DCMTKLoader in Frameworks */,
-				FF9BB7322EC6D415000F271C /* ChromaImagingKit in Frameworks */,
-				FF9E7BCD2ED572C500C890AD /* RedEngine  in Frameworks */,
-				FF93BE502ED56D6800A9F042 /* DCMTKLoader in Frameworks */,
-				FF93BE4D2ED56D4A00A9F042 /* RedEngine  in Frameworks */,
-				FF9BB72F2EC6D326000F271C /* DCMTKLoader in Frameworks */,
-				FF9E7BC72ED571BB00C890AD /* ChromaImagingKit in Frameworks */,
-				FF93BE532ED56E0700A9F042 /* ChromaImagingKit in Frameworks */,
-				FF9E7BCA2ED5727400C890AD /* ChromaImagingKit in Frameworks */,
+				FF7BB3872EE244CE00643382 /* ChromaEngineKit in Frameworks */,
+				FF7BB3842EE2422700643382 /* ChromaEngineKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -328,6 +314,7 @@
 		FF9BB7642EC7199D000F271C /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				FF86459D2EE130CE0052074C /* ContentView.swift */,
 				FF9BB7602EC7199D000F271C /* OrientationControlView.swift */,
 				FF9BB7612EC7199D000F271C /* SliceNavigationView.swift */,
 				FF9BB7622EC7199D000F271C /* ViewerView.swift */,
@@ -431,16 +418,8 @@
 			);
 			name = NeuroMetrica;
 			packageProductDependencies = (
-				FF9BB72E2EC6D326000F271C /* DCMTKLoader */,
-				FF9BB7312EC6D415000F271C /* ChromaImagingKit */,
-				FFA92CE02ECA1169003844C4 /* DCMTKLoader */,
-				FFAD3C062ED5463500B5631E /* DCMTKLoader */,
-				FF93BE4C2ED56D4A00A9F042 /* RedEngine  */,
-				FF93BE4F2ED56D6800A9F042 /* DCMTKLoader */,
-				FF93BE522ED56E0700A9F042 /* ChromaImagingKit */,
-				FF9E7BC62ED571BB00C890AD /* ChromaImagingKit */,
-				FF9E7BC92ED5727400C890AD /* ChromaImagingKit */,
-				FF9E7BCC2ED572C500C890AD /* RedEngine  */,
+				FF7BB3832EE2422700643382 /* ChromaEngineKit */,
+				FF7BB3862EE244CE00643382 /* ChromaEngineKit */,
 			);
 			productName = NeuroMetrica;
 			productReference = FFB3E2142EC54F1600EBFFE6 /* NeuroMetrica.app */;
@@ -494,7 +473,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2600;
-				LastUpgradeCheck = 2600;
+				LastUpgradeCheck = 2610;
 				TargetAttributes = {
 					FFB3E2132EC54F1600EBFFE6 = {
 						CreatedOnToolsVersion = 26.0.1;
@@ -520,9 +499,8 @@
 			mainGroup = FFB3E20B2EC54F1600EBFFE6;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				FF93BE4E2ED56D6800A9F042 /* XCLocalSwiftPackageReference "../DCMTKLoader" */,
-				FF9E7BC82ED5727400C890AD /* XCLocalSwiftPackageReference "../ChromaImagingKit" */,
-				FF9E7BCB2ED572C500C890AD /* XCLocalSwiftPackageReference "../RedEngine" */,
+				FF7BB3732EE1FCEE00643382 /* XCLocalSwiftPackageReference "../ChromaImagingCore" */,
+				FF7BB3852EE244CE00643382 /* XCLocalSwiftPackageReference "../ChromaEnginekit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FFB3E2152EC54F1600EBFFE6 /* Products */;
@@ -576,6 +554,7 @@
 				FF9BB7712EC7199D000F271C /* ImportSource.swift in Sources */,
 				FF9BB7722EC7199D000F271C /* NeuroMetricaApp.swift in Sources */,
 				FF9BB7732EC7199D000F271C /* WWLControlsView.swift in Sources */,
+				FF86459E2EE130CE0052074C /* ContentView.swift in Sources */,
 				FF9BB7742EC7199D000F271C /* ViewerState.swift in Sources */,
 				FF9BB7752EC7199D000F271C /* OrientationControlView.swift in Sources */,
 				FF9BB7762EC7199D000F271C /* AppError.swift in Sources */,
@@ -661,6 +640,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 3NCZ52UVDW;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -684,6 +664,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -723,6 +704,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 3NCZ52UVDW;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -739,6 +721,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -751,6 +734,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 3NCZ52UVDW;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -797,6 +781,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 3NCZ52UVDW;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -840,6 +825,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 3NCZ52UVDW;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -866,6 +852,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 3NCZ52UVDW;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -891,6 +878,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 3NCZ52UVDW;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -916,6 +904,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 3NCZ52UVDW;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -978,60 +967,24 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		FF93BE4E2ED56D6800A9F042 /* XCLocalSwiftPackageReference "../DCMTKLoader" */ = {
+		FF7BB3732EE1FCEE00643382 /* XCLocalSwiftPackageReference "../ChromaImagingCore" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../DCMTKLoader;
+			relativePath = ../ChromaImagingCore;
 		};
-		FF9E7BC82ED5727400C890AD /* XCLocalSwiftPackageReference "../ChromaImagingKit" */ = {
+		FF7BB3852EE244CE00643382 /* XCLocalSwiftPackageReference "../ChromaEnginekit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../ChromaImagingKit;
-		};
-		FF9E7BCB2ED572C500C890AD /* XCLocalSwiftPackageReference "../RedEngine" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../RedEngine;
+			relativePath = ../ChromaEnginekit;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		FF93BE4C2ED56D4A00A9F042 /* RedEngine  */ = {
+		FF7BB3832EE2422700643382 /* ChromaEngineKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = "RedEngine ";
+			productName = ChromaEngineKit;
 		};
-		FF93BE4F2ED56D6800A9F042 /* DCMTKLoader */ = {
+		FF7BB3862EE244CE00643382 /* ChromaEngineKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = DCMTKLoader;
-		};
-		FF93BE522ED56E0700A9F042 /* ChromaImagingKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ChromaImagingKit;
-		};
-		FF9BB72E2EC6D326000F271C /* DCMTKLoader */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = DCMTKLoader;
-		};
-		FF9BB7312EC6D415000F271C /* ChromaImagingKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ChromaImagingKit;
-		};
-		FF9E7BC62ED571BB00C890AD /* ChromaImagingKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ChromaImagingKit;
-		};
-		FF9E7BC92ED5727400C890AD /* ChromaImagingKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ChromaImagingKit;
-		};
-		FF9E7BCC2ED572C500C890AD /* RedEngine  */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = "RedEngine ";
-		};
-		FFA92CE02ECA1169003844C4 /* DCMTKLoader */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = DCMTKLoader;
-		};
-		FFAD3C062ED5463500B5631E /* DCMTKLoader */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = DCMTKLoader;
+			productName = ChromaEngineKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

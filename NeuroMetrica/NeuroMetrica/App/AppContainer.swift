@@ -1,28 +1,18 @@
-import Foundation
-import Combine
-import ChromaImagingKit
+import SwiftUI
 
-final class AppContainer: ObservableObject {
-    let appSettings: AppSettings
-    let engineBridge: ChromaEngineBridge
-    let viewerViewModel: ViewerViewModel
-    private var cancellables = Set<AnyCancellable>()
+/// AppContainer = composition root for the UI shell.
+/// Right now it just hosts the new ContentView and owns the inspector visibility.
+/// Later we’ll let this create and inject shared services + view models.
+struct AppContainer: View {
+    @State private var inspectorPresented: Bool = true
 
-    init(appSettings: AppSettings = AppSettings()) {
-        self.appSettings = appSettings
-
-        let engine = ChromaEngine(backend: appSettings.processingBackend.chromaBackend)
-        let engineBridge = ChromaEngineBridge(engine: engine)
-        self.engineBridge = engineBridge
-
-        self.viewerViewModel = ViewerViewModel(
-            engineBridge: engineBridge
-        )
-
-        appSettings.$processingBackend
-            .sink { [weak engineBridge] backend in
-                engineBridge?.updateBackend(backend.chromaBackend)
-            }
-            .store(in: &cancellables)
+    var body: some View {
+        ContentView(inspectorPresented: $inspectorPresented)
     }
+}
+
+// MARK: - Preview
+
+#Preview("AppContainer") {
+    AppContainer()
 }
