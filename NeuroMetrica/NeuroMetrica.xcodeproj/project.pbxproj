@@ -39,6 +39,7 @@
 		FF9BB77F2EC7199D000F271C /* ImportViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7522EC7199D000F271C /* ImportViewModel.swift */; };
 		FF9BB7802EC7199D000F271C /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7412EC7199D000F271C /* AppLogger.swift */; };
 		FF9BB7812EC7199D000F271C /* FilePickerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73C2EC7199D000F271C /* FilePickerService.swift */; };
+		FFA9EFF52EF663290073AA65 /* OrientationAliases.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA9EFF42EF6631F0073AA65 /* OrientationAliases.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -86,6 +87,7 @@
 		FF9BB7622EC7199D000F271C /* ViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerView.swift; sourceTree = "<group>"; };
 		FF9BB7632EC7199D000F271C /* WWLControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WWLControlsView.swift; sourceTree = "<group>"; };
 		FF9BB7672EC7199D000F271C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FFA9EFF42EF6631F0073AA65 /* OrientationAliases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationAliases.swift; sourceTree = "<group>"; };
 		FFB3E2142EC54F1600EBFFE6 /* NeuroMetrica.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NeuroMetrica.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFB3E2212EC54F1900EBFFE6 /* NeuroMetricaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NeuroMetricaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFB3E22B2EC54F1900EBFFE6 /* NeuroMetricaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NeuroMetricaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -298,6 +300,7 @@
 		FF9BB75D2EC7199D000F271C /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				FFA9EFF42EF6631F0073AA65 /* OrientationAliases.swift */,
 				FF9BB75C2EC7199D000F271C /* ViewerState.swift */,
 			);
 			path = Models;
@@ -547,6 +550,7 @@
 				FF9BB76A2EC7199D000F271C /* SliceNavigationView.swift in Sources */,
 				FF9BB76B2EC7199D000F271C /* SettingsView.swift in Sources */,
 				FF9BB76C2EC7199D000F271C /* DebugOverlayViewModel.swift in Sources */,
+				FFA9EFF52EF663290073AA65 /* OrientationAliases.swift in Sources */,
 				FF9BB76D2EC7199D000F271C /* ImportView.swift in Sources */,
 				FF9BB76E2EC7199D000F271C /* AppSettings.swift in Sources */,
 				FF9BB76F2EC7199D000F271C /* ViewerView.swift in Sources */,

@@ -6,10 +6,12 @@ struct SliceNavigationView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Snapshot values — avoid constructing controls that assert on empty ranges
-            let sliceCount = viewModel.state.sliceCount
+            let sliceCount = viewModel.sliceCount
             let hasSlices = sliceCount > 0
             let upper = hasSlices ? (sliceCount - 1) : 0
-            let currentIndex = hasSlices ? min(max(viewModel.state.sliceIndex, 0), upper) : 0
+            let currentIndex = hasSlices
+                ? min(max(viewModel.sliceIndex, 0), upper)
+                : 0
 
             // Label: "Slice X / N" or "No slices"
             HStack {
@@ -19,14 +21,18 @@ struct SliceNavigationView: View {
                 Spacer()
             }
 
-            // Only construct a Slider when there are slices — some SwiftUI slider variants assert if the range/content is degenerate
+            // Only construct a Slider when there are slices — some SwiftUI slider variants
+            // assert if the range/content is degenerate.
             if hasSlices {
                 Slider(
                     value: Binding(
                         get: { Double(currentIndex) },
                         set: { newValue in
-                            let clamped = min(max(Int(newValue.rounded()), 0), upper)
-                            if clamped != viewModel.state.sliceIndex {
+                            let clamped = min(
+                                max(Int(newValue.rounded()), 0),
+                                upper
+                            )
+                            if clamped != viewModel.sliceIndex {
                                 viewModel.setSliceIndex(clamped)
                             }
                         }

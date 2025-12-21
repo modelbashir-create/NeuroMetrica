@@ -176,8 +176,9 @@ NeuroMetrica/\
 - This is the final bridge from the imaging engine to the UI.\
 \
 **Extensions/Color+NeuroMetrica.swift**\
-- Defines the color palette for the app.\
-- Uses system colors and custom named colors in `Assets.xcassets` to stay HIG-compliant.\
+- Defines the semantic color palette for the app (e.g. canvas background, accent colors, PACS-style overlays).\
+- Hosts the `HeritagePACSTheme` grouping used by the multi-viewport viewer (`CanvasView` / `ViewportView`) so all diagnostic-black and overlay tints live in one place.\
+- Can be backed by system colors and custom named colors in `Assets.xcassets` to stay HIG-compliant and support light/dark mode.\
 \
 **Extensions/View+NeuroMetrica.swift**\
 - Shared SwiftUI view extensions and modifiers.\
@@ -192,27 +193,31 @@ Each feature has **Models**, **ViewModels**, and **Views**. ViewModels own logic
 \
 #### 2.5.1 Viewer Feature\
 \
-```text\
-Core/Features/Viewer/\
-    Models/\
-        ViewerState.swift\
-    ViewModels/\
-        ViewerViewModel.swift\
-    Views/\
-        ContentView.swift\
-        OrientationControlView.swift\
-        SliceNavigationView.swift\
-        ViewerView.swift\
-        WWLControlsView.swift\
-```\
+```text
+Core/Features/Viewer/
+    Models/
+        ViewerState.swift
+        OrientationAliases.swift
+    ViewModels/
+        ViewerViewModel.swift
+    Views/
+        ContentView.swift
+        OrientationControlView.swift
+        SliceNavigationView.swift
+        ViewerView.swift
+        WWLControlsView.swift
+```
 \
 **ViewerState.swift**\
-- Pure data struct for the viewer:\
-  - Current volume handle or identifier\
-  - Orientation (`axial`, `coronal`, `sagittal`)\
-  - Current slice index and slice count\
-  - Window/level\
-  - Loading/error flags\
+- Observable viewer state class that owns **both** the viewer shell UI layout and the imaging state:\
+  - Layout + mode: `layoutMode`, `viewerMode`, `threeDMode`, `activeViewportIndex`, `activeTool`\
+  - Shell UI flags: `showExportSheet`, `showSettingsSheet`\
+  - Imaging state: `volumeHandle`, `orientation`, `sliceIndex`, `sliceCount`, `window`, `level`, `isLoading`, `lastError`\
+- Exposed as an `@Observable` `@MainActor` type so that the viewer shell (`ContentView`, `CanvasView`, `ViewportView`, `InspectorView`) and the `ViewerViewModel` can share the same source of truth without the views ever talking to the engine directly.\
+\
+**OrientationAliases.swift**\
+- Small helper file that re-exports or typealiases engine-level orientation types (for example, `ChromaEngineKit.SliceOrientation`) into the app namespace.\
+- Lets the Viewer feature talk about orientations in a stable, app-local way while still staying perfectly in sync with the engine’s definition of axial / coronal / sagittal.\
 \
 **ViewerViewModel.swift**\
 - `ObservableObject` that owns all viewer behavior:\
@@ -240,8 +245,9 @@ Core/Features/Viewer/\
 - Can be reused inside previews or specialized flows, but the main app shell is provided by `ContentView.swift`.\
 \
 **OrientationControlView.swift**\
-- Provides a segmented control (e.g., AX / COR / SAG) to choose orientation.\
-- Calls into `ViewerViewModel.setOrientation(_:)`.\
+- Provides the axial / coronal / sagittal orientation picker for the active viewport.\
+- Binds directly to `ViewerState.orientation` (via `ViewerViewModel`) and uses the shared `SliceOrientation` enum from `ChromaEngineKit`, so the UI and engine always agree on orientation semantics.\
+- Calls into `ViewerViewModel.setOrientation(_:)` to trigger slice re-generation through `ChromaEngineBridge` and `ChromaEngine` whenever the user changes the orientation.\
 \
 **SliceNavigationView.swift**\
 - Provides a slider and optional stepper/buttons to move between slices.\

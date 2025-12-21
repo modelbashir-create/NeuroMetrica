@@ -1,5 +1,4 @@
 import SwiftUI
-import ChromaImagingKit
 import UniformTypeIdentifiers
 
 struct ViewerView: View {
@@ -40,8 +39,9 @@ struct ViewerView: View {
                         .padding()
                 }
             }
+
             // Simple status readout for current slice
-            Text("Slice \(viewModel.state.sliceIndex + 1) of \(max(viewModel.state.sliceCount, 1))")
+            Text("Slice \(currentSliceIndex + 1) of \(max(currentSliceCount, 1))")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
@@ -92,8 +92,8 @@ struct ViewerView: View {
                 }) else { return }
 
                 Task {
-                    // For sandboxed macOS/iOS apps, URLs from fileImporter are security-scoped.
-                    // We must startAccessingSecurityScopedResource() before using them in C APIs.
+                    // TODO: Wire this to ImportViewModel / ViewerViewModel once
+                    // the import pipeline is finalized.
                     let didStartAccess = url.startAccessingSecurityScopedResource()
                     defer {
                         if didStartAccess {
@@ -101,12 +101,23 @@ struct ViewerView: View {
                         }
                     }
 
-                    await viewModel.loadNIfTIVolume(from: url)
+                    print("Selected NIfTI volume URL: \(url)")
                 }
             case .failure(let error):
                 print("File import failed: \(error)")
             }
         }
+    }
+
+    // MARK: - Plain value accessors (no $ / dynamicMember)
+
+    /// Use the ViewModel’s public read-only accessors
+    private var currentSliceIndex: Int {
+        viewModel.sliceIndex
+    }
+
+    private var currentSliceCount: Int {
+        viewModel.sliceCount
     }
 
     // MARK: - Gestures
@@ -115,7 +126,7 @@ struct ViewerView: View {
     private var sliceDragGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
-                guard viewModel.state.sliceCount > 0 else { return }
+                guard currentSliceCount > 0 else { return }
 
                 // Tune this to adjust how "sensitive" the drag is.
                 let pointsPerSlice: CGFloat = 8
@@ -139,7 +150,7 @@ struct ViewerView: View {
     private var scrollWheelOverlay: some View {
         #if os(macOS)
         ScrollWheelCatcherView { deltaY in
-            guard viewModel.state.sliceCount > 0 else { return }
+            guard currentSliceCount > 0 else { return }
 
             // On macOS, positive deltaY is typically a scroll up (toward user)
             let step = deltaY > 0 ? 1 : -1
@@ -150,6 +161,8 @@ struct ViewerView: View {
         EmptyView()
         #endif
     }
+
+    // MARK: - Backend picker
 
     private var backendPicker: some View {
         VStack(alignment: .leading, spacing: 4) {

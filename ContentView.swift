@@ -1,16 +1,145 @@
-
-
 import SwiftUI
 import Observation
 
-// MARK: - Root ContentView (Viewer Shell)
+// MARK: - Shared Enums
+
+enum LayoutMode: String, CaseIterable, Identifiable {
+    case oneUp   = "1-up"
+    case twoUp   = "2-up"
+    case threeUp = "3-up"
+    case fourUp  = "4-up"
+
+    var id: String { rawValue }
+    
+    var next: LayoutMode {
+        switch self {
+        case .oneUp:   return .twoUp
+        case .twoUp:   return .threeUp
+        case .threeUp: return .fourUp
+        case .fourUp:  return .oneUp
+        }
+    }
+    
+    var maxViewportIndex: Int {
+        switch self {
+        case .oneUp:   return 0
+        case .twoUp:   return 1
+        case .threeUp: return 2
+        case .fourUp:  return 3
+        }
+    }
+}
+
+enum ViewerMode: String, CaseIterable, Identifiable {
+    case twoD   = "2D"
+    case threeD = "3D"
+
+    var id: String { rawValue }
+}
+
+enum ThreeDSubMode: String, CaseIterable, Identifiable {
+    case mpr = "MPR"
+    case vr  = "VR"
+    case mip = "MIP"
+
+    var id: String { rawValue }
+}
+
+enum ViewerTool: String, CaseIterable, Identifiable {
+    case windowLevel = "Window/Level"
+    case pan = "Pan"
+    case zoom = "Zoom"
+    case measure = "Measure"
+    case cine = "Cine"
+    
+    var id: String { rawValue }
+    
+    var icon: String {
+        switch self {
+        case .windowLevel: return "slider.horizontal.3"
+        case .pan: return "hand.draw"
+        case .zoom: return "plus.magnifyingglass"
+        case .measure: return "ruler"
+        case .cine: return "play.fill"
+        }
+    }
+}
+
+
+// MARK: - Observable Viewer State
+
+@Observable
+@MainActor
+final class ViewerState {
+    var layoutMode: LayoutMode = .oneUp
+    var viewerMode: ViewerMode = .twoD
+    var threeDMode: ThreeDSubMode = .mpr
+    var activeViewportIndex: Int = 0
+    var activeTool: ViewerTool = .windowLevel
+    
+    // Sheet presentation states
+    var showExportSheet = false
+    var showSettingsSheet = false
+    
+    var clampedActiveIndex: Int {
+        min(max(activeViewportIndex, 0), layoutMode.maxViewportIndex)
+    }
+    
+    func cycleLayout() {
+        layoutMode = layoutMode.next
+        if activeViewportIndex > layoutMode.maxViewportIndex {
+            activeViewportIndex = 0
+        }
+    }
+    
+    func toggleViewerMode() {
+        viewerMode = (viewerMode == .twoD) ? .threeD : .twoD
+    }
+    
+    func setLayout(_ mode: LayoutMode) {
+        layoutMode = mode
+        if activeViewportIndex > layoutMode.maxViewportIndex {
+            activeViewportIndex = 0
+        }
+    }
+}
+
+
+// MARK: - Heritage PACS Theme (Diagnostic Black Preserved)
+
+struct HeritagePACSTheme {
+    // Core surfaces - heritage black for medical imaging (clinically required)
+    static let canvasBackground   = Color.black
+    static let viewportBackground = Color(red: 0.02, green: 0.02, blue: 0.04)
+    
+    // Active viewport accent
+    static let activeViewportBorder = Color(red: 0.30, green: 0.80, blue: 0.40)
+    
+    // Overlay text
+    static let overlayTextPrimary   = Color.white
+    static let overlayTextSecondary = Color(white: 0.7)
+    
+    // PHI highlight
+    static let phiHighlightYellow = Color(red: 1.0, green: 0.86, blue: 0.45)
+    
+    // Annotations
+    static let crosshairColor   = Color(red: 0.65, green: 0.90, blue: 1.0)
+    static let measurementColor = Color(red: 0.10, green: 0.78, blue: 0.88)
+    
+    // Status indicators
+    static let statusOK      = Color(red: 0.30, green: 0.80, blue: 0.40)
+    static let statusWarning = Color(red: 1.00, green: 0.75, blue: 0.30)
+    static let statusError   = Color(red: 1.00, green: 0.35, blue: 0.35)
+}
+
+
+// MARK: - Root ContentView
 
 struct ContentView: View {
-    // Shared viewer state is created in AppContainer and injected via `.environment(viewerState)`
-    @Environment(ViewerState.self) private var viewerState
+    @State private var viewerState = ViewerState()
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Binding var inspectorPresented: Bool
-
+    
     // iOS 26: Namespaces for morphing sheet transitions
     @Namespace private var exportTransition
     @Namespace private var settingsTransition
@@ -25,7 +154,7 @@ struct ContentView: View {
                 .toolbar(.hidden, for: .navigationBar)
                 #endif
         }
-        // Inspector column (third pane)
+        .environment(viewerState)
         .inspector(isPresented: $inspectorPresented) {
             InspectorView()
                 .environment(viewerState)
@@ -34,34 +163,28 @@ struct ContentView: View {
         .toolbar { toolbarContent }
         .toolbarRole(.editor)
         // iOS 26: Morphing sheet presentations
-        .sheet(isPresented: .init(
-            get: { viewerState.showExportSheet },
-            set: { viewerState.showExportSheet = $0 }
-        )) {
+        .sheet(isPresented: $viewerState.showExportSheet) {
             ExportSheetView()
                 .presentationDetents([.medium, .large])
                 .applyMorphingTransition(id: "export", in: exportTransition)
         }
-        .sheet(isPresented: .init(
-            get: { viewerState.showSettingsSheet },
-            set: { viewerState.showSettingsSheet = $0 }
-        )) {
+        .sheet(isPresented: $viewerState.showSettingsSheet) {
             SettingsSheetView()
                 .environment(viewerState)
                 .presentationDetents([.medium, .large])
                 .applyMorphingTransition(id: "settings", in: settingsTransition)
         }
     }
-
+    
     // MARK: - Toolbar Content
-
+    
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) {
             viewModeMenu
             layoutMenu
         }
-
+        
         // iOS 26: Flexible spacing with ToolbarSpacer
         ToolbarItemGroup(placement: .principal) {
             #if swift(>=6.0)
@@ -69,25 +192,23 @@ struct ContentView: View {
                 ToolbarSpacer(.flexible)
             }
             #endif
-
+            
             viewerToolsGroup
-
+            
             #if swift(>=6.0)
             if #available(iOS 26, macOS 26, *) {
                 ToolbarSpacer(.flexible)
             }
             #endif
         }
-
+        
         ToolbarItemGroup(placement: .primaryAction) {
             settingsButton
             inspectorToggle
             exportButton
         }
     }
-
-    // MARK: - View Mode Menu
-
+    
     private var viewModeMenu: some View {
         Menu {
             Button {
@@ -95,20 +216,15 @@ struct ContentView: View {
             } label: {
                 Label("2D", systemImage: viewerState.viewerMode == .twoD ? "checkmark" : "square")
             }
-
+            
             Divider()
-
+            
             ForEach(ThreeDSubMode.allCases) { mode in
                 Button {
                     viewerState.viewerMode = .threeD
                     viewerState.threeDMode = mode
                 } label: {
-                    Label(
-                        mode.rawValue,
-                        systemImage: viewerState.viewerMode == .threeD && viewerState.threeDMode == mode
-                            ? "checkmark"
-                            : "square"
-                    )
+                    Label(mode.rawValue, systemImage: viewerState.viewerMode == .threeD && viewerState.threeDMode == mode ? "checkmark" : "square")
                 }
             }
         } label: {
@@ -118,9 +234,7 @@ struct ContentView: View {
         }
         .help("Toggle 2D/3D")
     }
-
-    // MARK: - Layout Menu
-
+    
     private var layoutMenu: some View {
         Menu {
             ForEach(LayoutMode.allCases) { mode in
@@ -141,7 +255,7 @@ struct ContentView: View {
         }
         .help("Cycle layout")
     }
-
+    
     @ViewBuilder
     private var layoutIconView: some View {
         Group {
@@ -158,7 +272,7 @@ struct ContentView: View {
         }
         .contentTransition(.symbolEffect(.automatic))
     }
-
+    
     private func layoutIcon(for mode: LayoutMode) -> String {
         switch mode {
         case .oneUp:   return "rectangle"
@@ -167,9 +281,7 @@ struct ContentView: View {
         case .fourUp:  return "rectangle.split.2x2"
         }
     }
-
-    // MARK: - Viewer Tools Group
-
+    
     private var viewerToolsGroup: some View {
         ControlGroup {
             ForEach(ViewerTool.allCases) { tool in
@@ -183,9 +295,7 @@ struct ContentView: View {
         }
         .controlGroupStyle(.navigation)
     }
-
-    // MARK: - Primary Actions
-
+    
     private var settingsButton: some View {
         Button {
             viewerState.showSettingsSheet = true
@@ -195,7 +305,7 @@ struct ContentView: View {
         .help("Settings")
         .applyTransitionSource(id: "settings", in: settingsTransition)
     }
-
+    
     private var inspectorToggle: some View {
         Button {
             withAnimation(.smooth) {
@@ -206,7 +316,7 @@ struct ContentView: View {
         }
         .help("Toggle Inspector")
     }
-
+    
     private var exportButton: some View {
         Button {
             viewerState.showExportSheet = true
@@ -217,6 +327,7 @@ struct ContentView: View {
         .applyTransitionSource(id: "export", in: exportTransition)
     }
 }
+
 
 // MARK: - iOS 26 Transition Helpers
 
@@ -233,7 +344,7 @@ extension View {
         self
         #endif
     }
-
+    
     @ViewBuilder
     func applyMorphingTransition(id: String, in namespace: Namespace.ID) -> some View {
         #if swift(>=6.0)
@@ -248,6 +359,7 @@ extension View {
     }
 }
 
+
 // MARK: - Sidebar Data Model
 
 struct Study: Identifiable, Hashable {
@@ -257,37 +369,37 @@ struct Study: Identifiable, Hashable {
     let date: Date
     let patient: String
     let seriesCount: Int
-
+    
     var dateFormatted: String {
         date.formatted(date: .abbreviated, time: .omitted)
     }
-
+    
     var isToday: Bool {
         Calendar.current.isDateInToday(date)
     }
-
+    
     var isThisWeek: Bool {
         Calendar.current.isDate(date, equalTo: .now, toGranularity: .weekOfYear)
     }
 }
 
+
 // MARK: - Sidebar View
 
 struct SidebarView: View {
     @SceneStorage("selectedStudyID") private var selectedStudyID: String?
-
-    // Demo data for now; ImportView/RecentFiles will eventually drive this.
+    
     private let studies: [Study] = [
         Study(id: "1", title: "MR Brain w/o Contrast", modality: "MR", date: .now, patient: "DOE, JOHN", seriesCount: 12),
         Study(id: "2", title: "CT Head w/ Contrast", modality: "CT", date: .now.addingTimeInterval(-86400), patient: "DOE, JOHN", seriesCount: 3),
         Study(id: "3", title: "MR Spine Cervical", modality: "MR", date: .now.addingTimeInterval(-86400 * 3), patient: "DOE, JOHN", seriesCount: 8),
         Study(id: "4", title: "CT Chest", modality: "CT", date: .now.addingTimeInterval(-86400 * 10), patient: "DOE, JOHN", seriesCount: 2),
     ]
-
+    
     private var todayStudies: [Study] { studies.filter { $0.isToday } }
     private var thisWeekStudies: [Study] { studies.filter { !$0.isToday && $0.isThisWeek } }
     private var olderStudies: [Study] { studies.filter { !$0.isThisWeek } }
-
+    
     var body: some View {
         List(selection: $selectedStudyID) {
             if !todayStudies.isEmpty {
@@ -298,7 +410,7 @@ struct SidebarView: View {
                     }
                 }
             }
-
+            
             if !thisWeekStudies.isEmpty {
                 Section("This Week") {
                     ForEach(thisWeekStudies) { study in
@@ -307,7 +419,7 @@ struct SidebarView: View {
                     }
                 }
             }
-
+            
             if !olderStudies.isEmpty {
                 Section("Earlier") {
                     ForEach(olderStudies) { study in
@@ -327,7 +439,7 @@ struct SidebarView: View {
 
 struct StudyRow: View {
     let study: Study
-
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -335,9 +447,9 @@ struct StudyRow: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .lineLimit(1)
-
+                
                 Spacer()
-
+                
                 Text(study.modality)
                     .font(.caption2)
                     .fontWeight(.semibold)
@@ -345,7 +457,7 @@ struct StudyRow: View {
                     .padding(.vertical, 2)
                     .background(.quaternary, in: Capsule())
             }
-
+            
             HStack {
                 Text(study.patient)
                 Text("•")
@@ -361,6 +473,7 @@ struct StudyRow: View {
     }
 }
 
+
 // MARK: - Canvas View
 
 struct CanvasView: View {
@@ -375,7 +488,7 @@ struct CanvasView: View {
             viewportLayout
         }
     }
-
+    
     @ViewBuilder
     private var viewportLayout: some View {
         switch viewerState.layoutMode {
@@ -395,7 +508,7 @@ struct CanvasView: View {
                 VStack(spacing: 2) {
                     ViewportView(index: 0)
                         .frame(height: proxy.size.height * 0.6)
-
+                    
                     HStack(spacing: 2) {
                         ViewportView(index: 1)
                         ViewportView(index: 2)
@@ -420,20 +533,21 @@ struct CanvasView: View {
     }
 }
 
+
 // MARK: - Individual Viewport (iOS 26 Liquid Glass)
 
 struct ViewportView: View {
     @Environment(ViewerState.self) private var viewerState
     let index: Int
-
+    
     private var isActive: Bool {
         index == viewerState.clampedActiveIndex
     }
-
+    
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
-
+            
             ZStack {
                 // Base viewport
                 RoundedRectangle(cornerRadius: 8)
@@ -445,13 +559,13 @@ struct ViewportView: View {
                                 lineWidth: isActive ? 2.5 : 0
                             )
                     )
-
+                
                 // Crosshairs
                 CrosshairOverlay(size: size)
-
+                
                 // Measurement annotation
                 MeasurementOverlay(size: size)
-
+                
                 // iOS 26: Liquid Glass overlays
                 viewportOverlays(size: size)
             }
@@ -464,7 +578,7 @@ struct ViewportView: View {
         .accessibilityLabel("Viewport \(index + 1)")
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }
-
+    
     @ViewBuilder
     private func viewportOverlays(size: CGSize) -> some View {
         // iOS 26: Use GlassEffectContainer for grouped glass elements
@@ -480,16 +594,16 @@ struct ViewportView: View {
         overlayContent(size: size)
         #endif
     }
-
+    
     @ViewBuilder
     private func overlayContent(size: CGSize) -> some View {
         // Center mode indicator
         modeIndicator
-
+        
         // Corner overlays
         cornerOverlays
     }
-
+    
     private var modeIndicator: some View {
         Group {
             if viewerState.viewerMode == .twoD {
@@ -509,7 +623,7 @@ struct ViewportView: View {
         .padding(.vertical, 6)
         .applyGlassEffect(tint: .black.opacity(0.4))
     }
-
+    
     private var cornerOverlays: some View {
         ZStack {
             // Top-left: Series info
@@ -525,7 +639,7 @@ struct ViewportView: View {
             .applyGlassEffect(tint: .black.opacity(0.3))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(8)
-
+            
             // Top-right: Patient info
             VStack(alignment: .trailing, spacing: 2) {
                 Text("DOE^JOHN")
@@ -542,7 +656,7 @@ struct ViewportView: View {
             .applyGlassEffect(tint: .black.opacity(0.3))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .padding(8)
-
+            
             // Bottom-left: Window/Level
             VStack(alignment: .leading, spacing: 2) {
                 Text("W 350  L 40")
@@ -555,7 +669,7 @@ struct ViewportView: View {
             .applyGlassEffect(tint: .black.opacity(0.3))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             .padding(8)
-
+            
             // Bottom-right: Status
             HStack(spacing: 6) {
                 Circle()
@@ -589,22 +703,20 @@ extension View {
     }
 }
 
-// MARK: - Overlays (Crosshair + Measurement)
-
 struct CrosshairOverlay: View {
     let size: CGSize
-
+    
     var body: some View {
         Canvas { context, _ in
             let midX = size.width / 2
             let midY = size.height / 2
-
+            
             var path = Path()
             path.move(to: CGPoint(x: midX, y: 0))
             path.addLine(to: CGPoint(x: midX, y: size.height))
             path.move(to: CGPoint(x: 0, y: midY))
             path.addLine(to: CGPoint(x: size.width, y: midY))
-
+            
             context.stroke(
                 path,
                 with: .color(HeritagePACSTheme.crosshairColor.opacity(0.5)),
@@ -616,13 +728,13 @@ struct CrosshairOverlay: View {
 
 struct MeasurementOverlay: View {
     let size: CGSize
-
+    
     var body: some View {
         Canvas { context, _ in
             var path = Path()
             path.move(to: CGPoint(x: size.width * 0.2, y: size.height * 0.75))
             path.addLine(to: CGPoint(x: size.width * 0.7, y: size.height * 0.35))
-
+            
             context.stroke(
                 path,
                 with: .color(HeritagePACSTheme.measurementColor),
@@ -632,18 +744,19 @@ struct MeasurementOverlay: View {
     }
 }
 
+
 // MARK: - Inspector View (iOS 26 Design)
 
 struct InspectorView: View {
     @Environment(ViewerState.self) private var viewerState
     @State private var selectedTab: InspectorTab = .display
-
+    
     enum InspectorTab: String, CaseIterable {
         case display = "Display"
         case measurements = "Measurements"
         case analysis = "Analysis"
     }
-
+    
     var body: some View {
         VStack(spacing: 0) {
             // iOS 26: Segmented control adopts glass automatically
@@ -657,9 +770,9 @@ struct InspectorView: View {
             .pickerStyle(.segmented)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-
+            
             Divider()
-
+            
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     switch selectedTab {
@@ -675,14 +788,13 @@ struct InspectorView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        // iOS 26: Let system apply glass to inspector background
         #if os(iOS)
         .navigationTitle("Inspector")
         .navigationBarTitleDisplayMode(.inline)
         #endif
     }
 }
-
-// MARK: - Inspector Tabs
 
 struct DisplayTabContent: View {
     @Environment(ViewerState.self) private var viewerState
@@ -692,7 +804,7 @@ struct DisplayTabContent: View {
     @State private var showPatientInfo = true
     @State private var windowValue: Double = 350
     @State private var levelValue: Double = 40
-
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Layout section
@@ -702,12 +814,12 @@ struct DisplayTabContent: View {
                         Text(viewerState.layoutMode.rawValue)
                             .foregroundStyle(.secondary)
                     }
-
+                    
                     Toggle("Link Viewports", isOn: $linkViewports)
                     Toggle("Lock Zoom", isOn: $lockZoom)
                 }
             }
-
+            
             // Window/Level section
             GroupBox("Window / Level") {
                 VStack(alignment: .leading, spacing: 12) {
@@ -719,7 +831,7 @@ struct DisplayTabContent: View {
                             Button("Bone (W 2500 / L 500)") { windowValue = 2500; levelValue = 500 }
                         }
                     }
-
+                    
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("Window")
@@ -730,7 +842,7 @@ struct DisplayTabContent: View {
                         }
                         Slider(value: $windowValue, in: 1...4096)
                     }
-
+                    
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("Level")
@@ -743,7 +855,7 @@ struct DisplayTabContent: View {
                     }
                 }
             }
-
+            
             // Overlays section
             GroupBox("Overlays") {
                 VStack(alignment: .leading, spacing: 12) {
@@ -761,11 +873,11 @@ struct MeasurementsTabContent: View {
     @State private var distanceTool = true
     @State private var angleTool = false
     @State private var areaTool = false
-
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Toggle("Show Measurements", isOn: $showMeasurements)
-
+            
             GroupBox("Measurement Style") {
                 Picker("Units", selection: $measurementUnits) {
                     Text("mm").tag("mm")
@@ -773,7 +885,7 @@ struct MeasurementsTabContent: View {
                     Text("in").tag("in")
                 }
             }
-
+            
             GroupBox("Tools") {
                 VStack(alignment: .leading, spacing: 12) {
                     Toggle("Distance", isOn: $distanceTool)
@@ -781,7 +893,7 @@ struct MeasurementsTabContent: View {
                     Toggle("Area", isOn: $areaTool)
                 }
             }
-
+            
             GroupBox("Recorded") {
                 Text("No measurements recorded")
                     .foregroundStyle(.secondary)
@@ -798,7 +910,7 @@ struct AnalysisTabContent: View {
     @State private var showClippingPlanes = false
     @State private var aiModel = "segmentation"
     @State private var aiOverlay = false
-
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             // 3D Mode section
@@ -811,14 +923,14 @@ struct AnalysisTabContent: View {
                     }
                     .pickerStyle(.segmented)
                     .disabled(viewerState.viewerMode == .twoD)
-
+                    
                     Toggle("Enable Shading", isOn: $enableShading)
                         .disabled(viewerState.viewerMode == .twoD)
                     Toggle("Clipping Planes", isOn: $showClippingPlanes)
                         .disabled(viewerState.viewerMode == .twoD)
                 }
             }
-
+            
             // Export section
             GroupBox("Export") {
                 VStack(spacing: 10) {
@@ -829,7 +941,7 @@ struct AnalysisTabContent: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.bordered)
-
+                    
                     Button {
                         // Export action
                     } label: {
@@ -839,7 +951,7 @@ struct AnalysisTabContent: View {
                     .buttonStyle(.bordered)
                 }
             }
-
+            
             // AI section
             GroupBox("AI Features") {
                 VStack(alignment: .leading, spacing: 12) {
@@ -848,13 +960,14 @@ struct AnalysisTabContent: View {
                         Text("Detection").tag("detection")
                         Text("Classification").tag("classification")
                     }
-
+                    
                     Toggle("AI Overlay", isOn: $aiOverlay)
                 }
             }
         }
     }
 }
+
 
 // MARK: - Export Sheet (iOS 26 Liquid Glass)
 
@@ -863,7 +976,7 @@ struct ExportSheetView: View {
     @State private var exportFormat = "DICOM"
     @State private var anonymize = true
     @State private var includeAnnotations = true
-
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -875,12 +988,12 @@ struct ExportSheetView: View {
                         Text("TIFF").tag("TIFF")
                     }
                 }
-
+                
                 Section("Options") {
                     Toggle("Anonymize Patient Data", isOn: $anonymize)
                     Toggle("Include Annotations", isOn: $includeAnnotations)
                 }
-
+                
                 Section {
                     Button {
                         // Export action
@@ -905,6 +1018,7 @@ struct ExportSheetView: View {
     }
 }
 
+
 // MARK: - Settings Sheet (iOS 26 Liquid Glass)
 
 struct SettingsSheetView: View {
@@ -913,7 +1027,7 @@ struct SettingsSheetView: View {
     @State private var defaultLayout: LayoutMode = .oneUp
     @State private var autoPlayCine = false
     @State private var cineFrameRate: Double = 15
-
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -924,10 +1038,10 @@ struct SettingsSheetView: View {
                         }
                     }
                 }
-
+                
                 Section("Cine") {
                     Toggle("Auto-play on Load", isOn: $autoPlayCine)
-
+                    
                     VStack(alignment: .leading) {
                         HStack {
                             Text("Frame Rate")
@@ -938,7 +1052,7 @@ struct SettingsSheetView: View {
                         Slider(value: $cineFrameRate, in: 1...60, step: 1)
                     }
                 }
-
+                
                 Section("About") {
                     LabeledContent("Version", value: "1.0.0")
                     LabeledContent("Build", value: "2025.11")
@@ -956,3 +1070,4 @@ struct SettingsSheetView: View {
         }
     }
 }
+

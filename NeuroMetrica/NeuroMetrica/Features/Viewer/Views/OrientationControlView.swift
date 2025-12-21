@@ -1,5 +1,5 @@
 import SwiftUI
-import ChromaImagingKit
+import ChromaEngineKit   // for SliceOrientation
 
 struct OrientationControlView: View {
     @ObservedObject var viewModel: ViewerViewModel
@@ -10,12 +10,15 @@ struct OrientationControlView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
 
-            Picker("Orientation", selection: Binding(
-                get: { viewModel.state.orientation },
-                set: { newValue in
-                    viewModel.setOrientation(newValue)
-                }
-            )) {
+            Picker(
+                "Orientation",
+                selection: Binding<SliceOrientation>(
+                    get: { viewModel.orientation },
+                    set: { newValue in
+                        viewModel.setOrientation(newValue)
+                    }
+                )
+            ) {
                 Text("AX").tag(SliceOrientation.axial)
                 Text("COR").tag(SliceOrientation.coronal)
                 Text("SAG").tag(SliceOrientation.sagittal)

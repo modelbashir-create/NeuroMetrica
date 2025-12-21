@@ -5,7 +5,7 @@
 //  Created 2025-12-03
 //
 //  Core imaging service that sits between the NeuroMetrica app (ViewModels)
-//  and the imaging engine packages (ChromaImagingKit / ChromaImagingCore).
+//  and the imaging engine packages (ChromaEngineKit / ChromaImagingCore).
 //
 //  Responsibilities:
 //  - Provide a single, VM-friendly API for loading volumes (NIfTI, NRRD, DICOM).
@@ -15,8 +15,8 @@
 //
 
 import Foundation
-import ChromaImagingKit
-import ChromaImagingCore
+import ChromaImagingCore     // CImageVolume, CIImage2D, SliceOrientation
+import ChromaEngineKit       // ChromaEngine
 
 // MARK: - Public Types Exposed to ViewModels
 
@@ -96,7 +96,7 @@ struct ChromaEngineBridgeConfig {
     var ioBackend: IOBackend
     var processingBackend: ProcessingBackend
     
-    static let `default` = ChromaEngineBridgeConfig(
+    static let standard = ChromaEngineBridgeConfig(
         ioBackend: .itkPreferred,
         processingBackend: .nativeCPU
     )
@@ -131,7 +131,7 @@ actor ChromaEngineBridge {
     // MARK: - Init
     
     init(
-        config: ChromaEngineBridgeConfig = .default,
+        config: ChromaEngineBridgeConfig,
         engine: ChromaEngine = ChromaEngine()
     ) {
         self.config = config
@@ -164,7 +164,7 @@ actor ChromaEngineBridge {
             // For now, this uses the ChromaEngine API.
             // Behind the scenes, ChromaImagingCore can use ITK or native IO.
             let engineVolume = try await engine.loadNiftiVolume(from: url)
-            return registerVolume(engineVolume, url: url, format: .nifti)
+            return registerVolume(engineVolume, url: url, format: VolumeFormat.nifti)
         } catch {
             throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
         }
@@ -174,7 +174,7 @@ actor ChromaEngineBridge {
     func loadNRRDVolume(from url: URL) async throws -> VolumeDescriptor {
         do {
             let engineVolume = try await engine.loadNRRDVolume(from: url)
-            return registerVolume(engineVolume, url: url, format: .nrrd)
+            return registerVolume(engineVolume, url: url, format: VolumeFormat.nrrd)
         } catch {
             throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
         }
@@ -192,12 +192,15 @@ actor ChromaEngineBridge {
         
         // TODO: Wire this to ITK/DCMTK-based IO via ChromaImagingCore/ITKBridge.
         // For now we throw a descriptive error so the calling VM can surface this cleanly.
-        throw ChromaEngineBridgeError.notImplemented("DICOM loading via ITK/DCMTK")
+        throw ChromaEngineBridgeError.notImplemented("DICOM loading via ITK/DCMTK for format: \(dicomFormat.rawValue)")
         
         // Example of what this will eventually look like:
         /*
         do {
-            let engineVolume = try await engine.loadDicomVolume(from: url, isDirectory: dicomFormat == .dicomDirectory)
+            let engineVolume = try await engine.loadDicomVolume(
+                from: url,
+                isDirectory: dicomFormat == .dicomDirectory
+            )
             return registerVolume(engineVolume, url: url, format: dicomFormat)
         } catch {
             throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
