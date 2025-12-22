@@ -68,38 +68,39 @@ NeuroMetrica/\
             Helpers/\
                 MainThreadExecutor.swift\
 \
-        Features/\
-            DevTools/\
-                ViewModels/\
-                    DebugOverlayViewModel.swift\
-                Views/\
-                    DebugOverlayView.swift\
+    Features/\
+        DevTools/\
+            ViewModels/\
+                DebugOverlayViewModel.swift\
+            Views/\
+                DebugOverlayView.swift\
 \
-            Import/\
-                Models/\
-                    ImportSource.swift\
-                ViewModels/\
-                    ImportViewModel.swift\
-                Views/\
-                    ImportView.swift\
+        Import/\
+            Models/\
+                ImportSource.swift\
+            ViewModels/\
+                ImportViewModel.swift\
+            Views/\
+                ImportView.swift\
 \
-            Settings/\
-                ViewModels/\
-                    SettingsViewModel.swift\
-                Views/\
-                    SettingsView.swift\
+        Settings/\
+            ViewModels/\
+                SettingsViewModel.swift\
+            Views/\
+                SettingsView.swift\
 \
-            Viewer/\
-                Models/\
-                    ViewerState.swift\
-                ViewModels/\
-                    ViewerViewModel.swift\
-                Views/\
-                    ContentView.swift\
-                    OrientationControlView.swift\
-                    SliceNavigationView.swift\
-                    ViewerView.swift\
-                    WWLControlsView.swift\
+        Viewer/\
+            Models/\
+                OrientationAliases.swift\
+                ViewerState.swift\
+            ViewModels/\
+                ViewerViewModel.swift\
+            Views/\
+                ContentView.swift\
+                OrientationControlView.swift\
+                SliceNavigationView.swift\
+                ViewerView.swift\
+                WWLControlsView.swift\
 \
     Assets/\
         Assets.xcassets\
@@ -121,11 +122,11 @@ NeuroMetrica/\
 - Creates the SwiftUI scene and installs `AppContainer` as the root view.\
 \
 **AppContainer.swift**\
-- The **composition root** for the entire app:\
-  - Creates shared services: `ChromaEngineBridge`, `FilePickerService`, `RecentFilesStore`, `AppLogger`.\
-  - Creates feature ViewModels: `ViewerViewModel`, `ImportViewModel`, `SettingsViewModel`, `DebugOverlayViewModel`.\
-  - Injects dependencies into feature views.\
-- Hosts the HIG-aligned top-level layout (e.g. `NavigationSplitView` on macOS/iPadOS).\
+- The **composition root** for the UI shell.\
+- Creates shared state and services: `ViewerState`, `AppSettings`, `ChromaEngineBridge`, `RecentFilesStore`, `FilePickerService`.\
+- Wires feature ViewModels: `ViewerViewModel` (viewer + imaging orchestration) and `ImportViewModel` (file picking + recents).\
+- Owns shell UI toggles (e.g. `inspectorPresented`) and passes them into `ContentView`.\
+- Injects `ViewerState` via `@Environment` and `AppSettings` via `@EnvironmentObject` so viewer views stay MVVM-clean.\
 \
 ### 2.2 Core Models (`Core/Models`)\
 \
@@ -194,7 +195,7 @@ Each feature has **Models**, **ViewModels**, and **Views**. ViewModels own logic
 #### 2.5.1 Viewer Feature\
 \
 ```text
-Core/Features/Viewer/
+Features/Viewer/
     Models/
         ViewerState.swift
         OrientationAliases.swift
@@ -262,7 +263,7 @@ Core/Features/Viewer/
 #### 2.5.2 Import Feature\
 \
 ```text\
-Core/Features/Import/\
+Features/Import/\
     Models/\
         ImportSource.swift\
     ViewModels/\
@@ -292,7 +293,7 @@ Core/Features/Import/\
 #### 2.5.3 Settings Feature\
 \
 ```text\
-Core/Features/Settings/\
+Features/Settings/\
     ViewModels/\
         SettingsViewModel.swift\
     Views/\
@@ -310,7 +311,7 @@ Core/Features/Settings/\
 #### 2.5.4 DevTools Feature\
 \
 ```text\
-Core/Features/DevTools/\
+Features/DevTools/\
     ViewModels/\
         DebugOverlayViewModel.swift\
     Views/\
@@ -683,16 +684,16 @@ User taps "Open Volume\'85" in ImportView\
     \uc0\u9660 \
 NeuroMetrica App (SwiftUI + MVVM)\
 \uc0\u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
-[Core/Features/Import/Views/ImportView.swift]\
+[Features/Import/Views/ImportView.swift]\
     \uc0\u9474   (button / UI entry point)\
     \uc0\u9660 \
-[Core/Features/Import/ViewModels/ImportViewModel.swift]\
+[Features/Import/ViewModels/ImportViewModel.swift]\
     \uc0\u9474   calls FilePickerService.open()\
     \uc0\u9660 \
 [Core/Services/FileSystem/FilePickerService.swift]\
     \uc0\u9474   returns URL(s) wrapped as ImportSource\
     \uc0\u9660 \
-[Core/Features/Viewer/ViewModels/ViewerViewModel.swift]\
+[Features/Viewer/ViewModels/ViewerViewModel.swift]\
     \uc0\u9474   calls ChromaEngineBridge.loadVolume(from: ImportSource)\
     \uc0\u9660 \
 [Core/Services/Imaging/ChromaEngineBridge.swift]\
@@ -743,11 +744,11 @@ Back into NeuroMetrica App (rendering path)\
 [Core/Utils/Extensions/CIImage2D+Image.swift]\
     \uc0\u9474   CIImage2D \u8594  CGImage / SwiftUI.Image\
     \uc0\u9660 \
-[Core/Features/Viewer/ViewModels/ViewerViewModel.swift]\
+[Features/Viewer/ViewModels/ViewerViewModel.swift]\
     \uc0\u9474   @Published var currentImage: Image\
     \uc0\u9660 \
-[Core/Features/Viewer/Views/ViewerView.swift]\
-[Core/Features/Viewer/Views/ContentView.swift]\
+[Features/Viewer/Views/ViewerView.swift]\
+[Features/Viewer/Views/ContentView.swift]\
     \uc0\u9474   render SwiftUI.Image in multi-viewport canvas\
     \uc0\u9660 \
 User sees DICOM / NIfTI / NRRD volume displayed on-screen\

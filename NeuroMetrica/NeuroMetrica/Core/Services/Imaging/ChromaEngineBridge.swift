@@ -15,8 +15,7 @@
 //
 
 import Foundation
-import ChromaImagingCore     // CImageVolume, CIImage2D, SliceOrientation
-import ChromaEngineKit       // ChromaEngine
+import ChromaEngineKit       // ChromaEngine + CImageVolume + CIImage2D
 
 // MARK: - Public Types Exposed to ViewModels
 
@@ -30,16 +29,12 @@ enum VolumeFormat: String {
     case unknown
 }
 
-/// Opaque handle that ViewModels hold onto instead of engine/ITK types.
-struct VolumeHandle: Hashable {
-    let id: UUID
-}
-
 /// High-level description of a loaded volume.
 struct VolumeDescriptor {
     let handle: VolumeHandle
     let url: URL
     let format: VolumeFormat
+    let metadata: CIMetadata
     
     let sizeX: Int
     let sizeY: Int
@@ -75,29 +70,18 @@ enum ChromaEngineBridgeError: Error, LocalizedError {
 // MARK: - Configuration
 
 /// Controls how the bridge chooses backends for IO and processing.
-///
-/// Long-term goal:
-/// - IO → ITK/DCMTK
-/// - Processing → toggle between ITK CPU and native Swift/Metal.
 struct ChromaEngineBridgeConfig {
-    enum IOBackend {
-        case itkPreferred    // ITK/DCMTK-backed IO when available
-        case nativePreferred // Use ChromaImagingCore native loaders when available
-    }
-    
     enum ProcessingBackend {
         case itkCPU          // ITK filters on CPU
-        case nativeCPU       // ChromaImagingCore CPU (Accelerate/vDSP)
+        case nativeCPU       // Native CPU (Accelerate/vDSP)
         case nativeGPU       // Metal/MPS, when appropriate
-        
-        // Future: Apple Neural Engine, etc.
     }
-    
-    var ioBackend: IOBackend
+
+    var dicomBackend: DicomBackend
     var processingBackend: ProcessingBackend
-    
+
     static let standard = ChromaEngineBridgeConfig(
-        ioBackend: .itkPreferred,
+        dicomBackend: .dcmtkPreferred,
         processingBackend: .nativeCPU
     )
 }
@@ -108,8 +92,9 @@ private struct VolumeRecord {
     let handle: VolumeHandle
     let url: URL
     let format: VolumeFormat
+    let metadata: CIMetadata
     
-    /// The actual engine volume object (from ChromaImagingCore).
+    /// The actual engine volume object (from ChromaEngineKit).
     let engineVolume: CImageVolume
     
     /// Metadata pulled from the engine.
@@ -123,8 +108,8 @@ actor ChromaEngineBridge {
     
     // MARK: - Properties
     
-    private let config: ChromaEngineBridgeConfig
-    private let engine: ChromaEngine
+    private var config: ChromaEngineBridgeConfig
+    private var engine: ChromaEngine
     
     private var volumes: [UUID: VolumeRecord] = [:]
     
@@ -136,6 +121,24 @@ actor ChromaEngineBridge {
     ) {
         self.config = config
         self.engine = engine
+        self.engine.config = ChromaEngineConfig(dicomBackend: config.dicomBackend)
+    }
+
+    func updateDicomBackend(_ backend: DicomBackend) {
+        config.dicomBackend = backend
+        engine.config = ChromaEngineConfig(dicomBackend: backend)
+    }
+
+    func updateDicomBackendPreference(_ preference: DicomBackendPreference) {
+        let backend: DicomBackend
+        switch preference {
+        case .dcmtk:
+            backend = .dcmtkPreferred
+        case .gdcm:
+            backend = .gdcm
+        }
+
+        updateDicomBackend(backend)
     }
     
     // MARK: - Public API (used by ViewModels)
@@ -163,8 +166,12 @@ actor ChromaEngineBridge {
         do {
             // For now, this uses the ChromaEngine API.
             // Behind the scenes, ChromaImagingCore can use ITK or native IO.
-            let engineVolume = try await engine.loadNiftiVolume(from: url)
-            return registerVolume(engineVolume, url: url, format: VolumeFormat.nifti)
+            let engineDescriptor = try await engine.loadNiftiVolume(from: url)
+            return registerVolume(
+                engineDescriptor,
+                url: url,
+                format: VolumeFormat.nifti
+            )
         } catch {
             throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
         }
@@ -173,15 +180,17 @@ actor ChromaEngineBridge {
     /// Explicit NRRD loader.
     func loadNRRDVolume(from url: URL) async throws -> VolumeDescriptor {
         do {
-            let engineVolume = try await engine.loadNRRDVolume(from: url)
-            return registerVolume(engineVolume, url: url, format: VolumeFormat.nrrd)
+            let engineDescriptor = try await engine.loadNRRDVolume(from: url)
+            return registerVolume(
+                engineDescriptor,
+                url: url,
+                format: VolumeFormat.nrrd
+            )
         } catch {
             throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
         }
     }
     
-    /// Explicit DICOM loader. For now, this is a placeholder that defines the API and
-    /// makes it crystal clear where ITK/DCMTK-backed IO will plug in.
     func loadDicom(from url: URL, format: VolumeFormat? = nil) async throws -> VolumeDescriptor {
         let dicomFormat: VolumeFormat
         if let explicit = format {
@@ -189,23 +198,26 @@ actor ChromaEngineBridge {
         } else {
             dicomFormat = inferDicomFormat(from: url)
         }
-        
-        // TODO: Wire this to ITK/DCMTK-based IO via ChromaImagingCore/ITKBridge.
-        // For now we throw a descriptive error so the calling VM can surface this cleanly.
-        throw ChromaEngineBridgeError.notImplemented("DICOM loading via ITK/DCMTK for format: \(dicomFormat.rawValue)")
-        
-        // Example of what this will eventually look like:
-        /*
+
         do {
-            let engineVolume = try await engine.loadDicomVolume(
-                from: url,
-                isDirectory: dicomFormat == .dicomDirectory
+            let engineDescriptor: EngineVolumeDescriptor
+            switch dicomFormat {
+            case .dicomDirectory:
+                engineDescriptor = try await engine.loadDicomSeries(from: url)
+            case .dicomFile:
+                engineDescriptor = try await engine.loadDicomFile(from: url)
+            default:
+                throw ChromaEngineBridgeError.unsupportedFormat(url)
+            }
+
+            return registerVolume(
+                engineDescriptor,
+                url: url,
+                format: dicomFormat
             )
-            return registerVolume(engineVolume, url: url, format: dicomFormat)
         } catch {
             throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
         }
-        */
     }
     
     /// Returns a CIImage2D slice for the given volume with WW/WL applied.
@@ -254,11 +266,13 @@ actor ChromaEngineBridge {
     
     /// Registers a newly loaded volume in the internal registry and returns its descriptor.
     private func registerVolume(
-        _ engineVolume: CImageVolume,
+        _ engineDescriptor: EngineVolumeDescriptor,
         url: URL,
         format: VolumeFormat
     ) -> VolumeDescriptor {
-        let handle = VolumeHandle(id: UUID())
+        let handle = VolumeHandle()
+
+        let engineVolume = engineDescriptor.volume
         
         // Extract basic metadata from the engine volume.
         // Adjust these property names to whatever `CImageVolume` exposes.
@@ -274,6 +288,7 @@ actor ChromaEngineBridge {
             handle: handle,
             url: url,
             format: format,
+            metadata: engineDescriptor.metadata,
             sizeX: sizeX,
             sizeY: sizeY,
             sizeZ: sizeZ,
@@ -286,6 +301,7 @@ actor ChromaEngineBridge {
             handle: handle,
             url: url,
             format: format,
+            metadata: engineDescriptor.metadata,
             engineVolume: engineVolume,
             descriptor: descriptor
         )
@@ -298,15 +314,19 @@ actor ChromaEngineBridge {
     /// The goal is to be predictable and transparent, not magical.
     private func inferFormat(from url: URL) -> VolumeFormat {
         let ext = url.pathExtension.lowercased()
+        let name = url.lastPathComponent.lowercased()
         
         switch ext {
-        case "nii", "nii.gz":
+        case "nii":
             return .nifti
         case "nrrd":
             return .nrrd
         case "dcm":
             return .dicomFile
         default:
+            if name.hasSuffix(".nii.gz") {
+                return .nifti
+            }
             // Heuristic: a directory with DICOM files will be treated as `.dicomDirectory`
             var isDirectory: ObjCBool = false
             if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),

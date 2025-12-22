@@ -17,6 +17,18 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
+
+            Section(header: Text("DICOM")) {
+                Picker("DICOM Backend", selection: $appSettings.dicomBackendPreference) {
+                    ForEach(DicomBackendPreference.allCases) { backend in
+                        Text(backend.displayName).tag(backend)
+                    }
+                }
+
+                Text("DCMTK is preferred when available; GDCM is the fallback.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
         }
         .navigationTitle("Settings")
     }

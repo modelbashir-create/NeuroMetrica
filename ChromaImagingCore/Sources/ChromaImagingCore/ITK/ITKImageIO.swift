@@ -24,6 +24,16 @@ public enum ITKVolumeFormatHint {
     case singleFile
 }
 
+/// DICOM backend preference for ITK.
+public enum ITKDicomBackend {
+    /// Prefer DCMTK, fall back to GDCM if unavailable.
+    case dcmtk
+    /// Force GDCM.
+    case gdcm
+    /// Auto-select (DCMTK when available).
+    case automatic
+}
+
 // MARK: - Errors
 
 /// Errors specific to ITKImageIO. These will usually be wrapped
@@ -69,7 +79,8 @@ public enum ITKImageIO {
     /// - Returns: An `ITKImageDescriptor` describing the loaded volume.
     public static func loadVolume(
         at url: URL,
-        formatHint: ITKVolumeFormatHint = .auto
+        formatHint: ITKVolumeFormatHint = .auto,
+        dicomBackend: ITKDicomBackend = .automatic
     ) throws -> ITKImageDescriptor {
 
         let fm = FileManager.default
@@ -91,7 +102,7 @@ public enum ITKImageIO {
 
         switch resolvedFormat {
         case .dicomSeries:
-            return try loadDicomSeries(at: url)
+            return try loadDicomSeries(at: url, backend: dicomBackend)
         case .singleFile:
             return try loadSingleFileVolume(at: url)
         case .auto:
@@ -103,14 +114,19 @@ public enum ITKImageIO {
     // MARK: - Private helpers
 
     /// Load a DICOM series volume from a directory via ITKBridge.
-    private static func loadDicomSeries(at url: URL) throws -> ITKImageDescriptor {
+    private static func loadDicomSeries(
+        at url: URL,
+        backend: ITKDicomBackend
+    ) throws -> ITKImageDescriptor {
         var cDescriptor = ITKImageDescriptorC()
         var errorBuffer = [CChar](repeating: 0, count: 1024)
 
+        let resolvedBackend = resolveBackend(backend)
         let success = pathString(for: url).withCString { cPath in
             errorBuffer.withUnsafeMutableBufferPointer { errPtr in
-                ITKLoadDicomSeries(
+                ITKLoadDicomSeriesWithBackend(
                     cPath,
+                    resolvedBackend,
                     &cDescriptor,
                     errPtr.baseAddress,
                     Int32(errPtr.count)   // <- Int → Int32
@@ -159,5 +175,16 @@ public enum ITKImageIO {
         // If you later want to support security-scoped bookmarks, sandboxing,
         // etc., this is where you adapt the URL before calling into C.
         return url.path
+    }
+
+    private static func resolveBackend(_ backend: ITKDicomBackend) -> ITKDicomBackendC {
+        switch backend {
+        case .dcmtk:
+            return ITKBridgeSupportsDCMTK() ? ITKDicomBackend_DCMTK : ITKDicomBackend_GDCM
+        case .gdcm:
+            return ITKDicomBackend_GDCM
+        case .automatic:
+            return ITKBridgeSupportsDCMTK() ? ITKDicomBackend_DCMTK : ITKDicomBackend_GDCM
+        }
     }
 }

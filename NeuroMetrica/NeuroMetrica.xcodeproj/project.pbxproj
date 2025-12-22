@@ -10,7 +10,6 @@
 		FF7A019E2EC7EDB900CD988F /* CIImage2D+Image.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7A019D2EC7EDB600CD988F /* CIImage2D+Image.swift */; };
 		FF7BB3842EE2422700643382 /* ChromaEngineKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF7BB3832EE2422700643382 /* ChromaEngineKit */; };
 		FF7BB3872EE244CE00643382 /* ChromaEngineKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF7BB3862EE244CE00643382 /* ChromaEngineKit */; };
-		FF86459E2EE130CE0052074C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF86459D2EE130CE0052074C /* ContentView.swift */; };
 		FF9BB7332EC6D8FA000F271C /* NeuroMetricaUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F82EC6C90A00315F9C /* NeuroMetricaUITestsLaunchTests.swift */; };
 		FF9BB7342EC6D8FA000F271C /* NeuroMetricaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F72EC6C90A00315F9C /* NeuroMetricaUITests.swift */; };
 		FF9BB7352EC6D903000F271C /* NeuroMetricaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F52EC6C90A00315F9C /* NeuroMetricaTests.swift */; };
@@ -20,6 +19,8 @@
 		FF9BB76C2EC7199D000F271C /* DebugOverlayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB74B2EC7199D000F271C /* DebugOverlayViewModel.swift */; };
 		FF9BB76D2EC7199D000F271C /* ImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7542EC7199D000F271C /* ImportView.swift */; };
 		FF9BB76E2EC7199D000F271C /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73A2EC7199D000F271C /* AppSettings.swift */; };
+		FFCCB0012F00000100000001 /* Study.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFCCB0012F00000100000002 /* Study.swift */; };
+		FFCCB0032F00000100000003 /* StudySeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFCCB0032F00000100000004 /* StudySeries.swift */; };
 		FF9BB76F2EC7199D000F271C /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7622EC7199D000F271C /* ViewerView.swift */; };
 		FF9BB7702EC7199D000F271C /* ChromaEngineBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73F2EC7199D000F271C /* ChromaEngineBridge.swift */; };
 		FF9BB7712EC7199D000F271C /* ImportSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7502EC7199D000F271C /* ImportSource.swift */; };
@@ -30,6 +31,7 @@
 		FF9BB7762EC7199D000F271C /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7392EC7199D000F271C /* AppError.swift */; };
 		FF9BB7772EC7199D000F271C /* AppContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7362EC7199D000F271C /* AppContainer.swift */; };
 		FF9BB7782EC7199D000F271C /* Color+NeuroMetrica.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7442EC7199D000F271C /* Color+NeuroMetrica.swift */; };
+		FFCCB0102F00000100000010 /* ViewerErrorPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFCCB0112F00000100000011 /* ViewerErrorPresenter.swift */; };
 		FF9BB7792EC7199D000F271C /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7572EC7199D000F271C /* SettingsViewModel.swift */; };
 		FF9BB77A2EC7199D000F271C /* View+NeuroMetrica.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7452EC7199D000F271C /* View+NeuroMetrica.swift */; };
 		FF9BB77B2EC7199D000F271C /* MainThreadExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7472EC7199D000F271C /* MainThreadExecutor.swift */; };
@@ -61,11 +63,12 @@
 
 /* Begin PBXFileReference section */
 		FF7A019D2EC7EDB600CD988F /* CIImage2D+Image.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CIImage2D+Image.swift"; sourceTree = "<group>"; };
-		FF86459D2EE130CE0052074C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		FF9BB7362EC7199D000F271C /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
 		FF9BB7372EC7199D000F271C /* NeuroMetricaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeuroMetricaApp.swift; sourceTree = "<group>"; };
 		FF9BB7392EC7199D000F271C /* AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppError.swift; sourceTree = "<group>"; };
 		FF9BB73A2EC7199D000F271C /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		FFCCB0012F00000100000002 /* Study.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Study.swift; sourceTree = "<group>"; };
+		FFCCB0032F00000100000004 /* StudySeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySeries.swift; sourceTree = "<group>"; };
 		FF9BB73C2EC7199D000F271C /* FilePickerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePickerService.swift; sourceTree = "<group>"; };
 		FF9BB73D2EC7199D000F271C /* RecentFilesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesStore.swift; sourceTree = "<group>"; };
 		FF9BB73F2EC7199D000F271C /* ChromaEngineBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromaEngineBridge.swift; sourceTree = "<group>"; };
@@ -73,6 +76,7 @@
 		FF9BB7442EC7199D000F271C /* Color+NeuroMetrica.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+NeuroMetrica.swift"; sourceTree = "<group>"; };
 		FF9BB7452EC7199D000F271C /* View+NeuroMetrica.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+NeuroMetrica.swift"; sourceTree = "<group>"; };
 		FF9BB7472EC7199D000F271C /* MainThreadExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainThreadExecutor.swift; sourceTree = "<group>"; };
+		FFCCB0112F00000100000011 /* ViewerErrorPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerErrorPresenter.swift; sourceTree = "<group>"; };
 		FF9BB74B2EC7199D000F271C /* DebugOverlayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlayViewModel.swift; sourceTree = "<group>"; };
 		FF9BB74D2EC7199D000F271C /* DebugOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlayView.swift; sourceTree = "<group>"; };
 		FF9BB7502EC7199D000F271C /* ImportSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportSource.swift; sourceTree = "<group>"; };
@@ -137,6 +141,8 @@
 			children = (
 				FF9BB7392EC7199D000F271C /* AppError.swift */,
 				FF9BB73A2EC7199D000F271C /* AppSettings.swift */,
+				FFCCB0012F00000100000002 /* Study.swift */,
+				FFCCB0032F00000100000004 /* StudySeries.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -190,6 +196,7 @@
 			isa = PBXGroup;
 			children = (
 				FF9BB7472EC7199D000F271C /* MainThreadExecutor.swift */,
+				FFCCB0112F00000100000011 /* ViewerErrorPresenter.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -317,7 +324,6 @@
 		FF9BB7642EC7199D000F271C /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				FF86459D2EE130CE0052074C /* ContentView.swift */,
 				FF9BB7602EC7199D000F271C /* OrientationControlView.swift */,
 				FF9BB7612EC7199D000F271C /* SliceNavigationView.swift */,
 				FF9BB7622EC7199D000F271C /* ViewerView.swift */,
@@ -553,17 +559,19 @@
 				FFA9EFF52EF663290073AA65 /* OrientationAliases.swift in Sources */,
 				FF9BB76D2EC7199D000F271C /* ImportView.swift in Sources */,
 				FF9BB76E2EC7199D000F271C /* AppSettings.swift in Sources */,
+				FFCCB0012F00000100000001 /* Study.swift in Sources */,
+				FFCCB0032F00000100000003 /* StudySeries.swift in Sources */,
 				FF9BB76F2EC7199D000F271C /* ViewerView.swift in Sources */,
 				FF9BB7702EC7199D000F271C /* ChromaEngineBridge.swift in Sources */,
 				FF9BB7712EC7199D000F271C /* ImportSource.swift in Sources */,
 				FF9BB7722EC7199D000F271C /* NeuroMetricaApp.swift in Sources */,
 				FF9BB7732EC7199D000F271C /* WWLControlsView.swift in Sources */,
-				FF86459E2EE130CE0052074C /* ContentView.swift in Sources */,
 				FF9BB7742EC7199D000F271C /* ViewerState.swift in Sources */,
 				FF9BB7752EC7199D000F271C /* OrientationControlView.swift in Sources */,
 				FF9BB7762EC7199D000F271C /* AppError.swift in Sources */,
 				FF9BB7772EC7199D000F271C /* AppContainer.swift in Sources */,
 				FF9BB7782EC7199D000F271C /* Color+NeuroMetrica.swift in Sources */,
+				FFCCB0102F00000100000010 /* ViewerErrorPresenter.swift in Sources */,
 				FF9BB7792EC7199D000F271C /* SettingsViewModel.swift in Sources */,
 				FF9BB77A2EC7199D000F271C /* View+NeuroMetrica.swift in Sources */,
 				FF9BB77B2EC7199D000F271C /* MainThreadExecutor.swift in Sources */,

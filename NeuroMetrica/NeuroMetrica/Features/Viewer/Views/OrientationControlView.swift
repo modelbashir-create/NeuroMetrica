@@ -1,7 +1,7 @@
 import SwiftUI
-import ChromaEngineKit   // for SliceOrientation
 
 struct OrientationControlView: View {
+    @Environment(ViewerState.self) private var viewerState
     @ObservedObject var viewModel: ViewerViewModel
 
     var body: some View {
@@ -13,7 +13,7 @@ struct OrientationControlView: View {
             Picker(
                 "Orientation",
                 selection: Binding<SliceOrientation>(
-                    get: { viewModel.orientation },
+                    get: { viewerState.orientation },
                     set: { newValue in
                         viewModel.setOrientation(newValue)
                     }
@@ -25,5 +25,6 @@ struct OrientationControlView: View {
             }
             .pickerStyle(.segmented)
         }
+        .disabled(!viewerState.isImagingViewport(viewerState.clampedActiveIndex))
     }
 }
