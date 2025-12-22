@@ -9,17 +9,20 @@ struct ContentView: View {
     // Shared viewer state is created in AppContainer and injected via `.environment(viewerState)`
     @Environment(ViewerState.self) private var viewerState
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @ObservedObject var viewModel: ViewerViewModel
+    @ObservedObject var importViewModel: ImportViewModel
     @Binding var inspectorPresented: Bool
 
     // iOS 26: Namespaces for morphing sheet transitions
     @Namespace private var exportTransition
     @Namespace private var settingsTransition
 
+
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            SidebarView()
+            SidebarView(viewModel: importViewModel)
         } detail: {
-            CanvasView()
+            CanvasView(viewModel: viewModel, importViewModel: importViewModel)
                 .navigationTitle("")
                 #if os(iOS)
                 .toolbar(.hidden, for: .navigationBar)
@@ -27,7 +30,7 @@ struct ContentView: View {
         }
         // Inspector column (third pane)
         .inspector(isPresented: $inspectorPresented) {
-            InspectorView()
+            InspectorView(viewModel: viewModel)
                 .environment(viewerState)
                 .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
         }
@@ -36,7 +39,7 @@ struct ContentView: View {
         // iOS 26: Morphing sheet presentations
         .sheet(isPresented: .init(
             get: { viewerState.showExportSheet },
-            set: { viewerState.showExportSheet = $0 }
+            set: { viewModel.setExportSheetPresented($0) }
         )) {
             ExportSheetView()
                 .presentationDetents([.medium, .large])
@@ -44,12 +47,51 @@ struct ContentView: View {
         }
         .sheet(isPresented: .init(
             get: { viewerState.showSettingsSheet },
-            set: { viewerState.showSettingsSheet = $0 }
+            set: { viewModel.setSettingsSheetPresented($0) }
         )) {
-            SettingsSheetView()
+            NavigationStack {
+                SettingsView()
+            }
                 .environment(viewerState)
                 .presentationDetents([.medium, .large])
                 .applyMorphingTransition(id: "settings", in: settingsTransition)
+        }
+        .focusable()
+        .onKeyPress(.space) {
+            viewModel.toggleCine(for: viewerState.clampedActiveIndex)
+            return .handled
+        }
+        .onKeyPress(.upArrow) {
+            viewModel.stepSlice(by: 1)
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            viewModel.stepSlice(by: -1)
+            return .handled
+        }
+        .onKeyPress(.pageUp) {
+            viewModel.stepSlice(by: 5)
+            return .handled
+        }
+        .onKeyPress(.pageDown) {
+            viewModel.stepSlice(by: -5)
+            return .handled
+        }
+        .onKeyPress(.home) {
+            viewModel.jumpToFirstSlice()
+            return .handled
+        }
+        .onKeyPress(.end) {
+            viewModel.jumpToLastSlice()
+            return .handled
+        }
+        .onKeyPress(.leftArrow) {
+            viewModel.adjustCineFPS(by: -1, for: viewerState.clampedActiveIndex)
+            return .handled
+        }
+        .onKeyPress(.rightArrow) {
+            viewModel.adjustCineFPS(by: 1, for: viewerState.clampedActiveIndex)
+            return .handled
         }
     }
 
@@ -91,7 +133,7 @@ struct ContentView: View {
     private var viewModeMenu: some View {
         Menu {
             Button {
-                viewerState.viewerMode = .twoD
+                viewModel.setViewerMode(.twoD)
             } label: {
                 Label("2D", systemImage: viewerState.viewerMode == .twoD ? "checkmark" : "square")
             }
@@ -100,8 +142,8 @@ struct ContentView: View {
 
             ForEach(ThreeDSubMode.allCases) { mode in
                 Button {
-                    viewerState.viewerMode = .threeD
-                    viewerState.threeDMode = mode
+                    viewModel.setViewerMode(.threeD)
+                    viewModel.setThreeDMode(mode)
                 } label: {
                     Label(
                         mode.rawValue,
@@ -114,7 +156,7 @@ struct ContentView: View {
         } label: {
             Image(systemName: viewerState.viewerMode == .twoD ? "cube" : "cube.fill")
         } primaryAction: {
-            viewerState.toggleViewerMode()
+            viewModel.toggleViewerMode()
         }
         .help("Toggle 2D/3D")
     }
@@ -126,7 +168,7 @@ struct ContentView: View {
             ForEach(LayoutMode.allCases) { mode in
                 Button {
                     withAnimation(.smooth) {
-                        viewerState.setLayout(mode)
+                        viewModel.setLayout(mode)
                     }
                 } label: {
                     Label(mode.rawValue, systemImage: layoutIcon(for: mode))
@@ -136,7 +178,7 @@ struct ContentView: View {
             layoutIconView
         } primaryAction: {
             withAnimation(.smooth) {
-                viewerState.cycleLayout()
+                viewModel.cycleLayout()
             }
         }
         .help("Cycle layout")
@@ -174,7 +216,7 @@ struct ContentView: View {
         ControlGroup {
             ForEach(ViewerTool.allCases) { tool in
                 Button {
-                    viewerState.activeTool = tool
+                    viewModel.setActiveTool(tool)
                 } label: {
                     Image(systemName: tool.icon)
                 }
@@ -182,19 +224,21 @@ struct ContentView: View {
             }
         }
         .controlGroupStyle(.navigation)
+        .disabled(viewerState.isLoadingVolume)
     }
 
     // MARK: - Primary Actions
 
     private var settingsButton: some View {
         Button {
-            viewerState.showSettingsSheet = true
+            viewModel.setSettingsSheetPresented(true)
         } label: {
             Image(systemName: "gearshape")
         }
         .help("Settings")
         .applyTransitionSource(id: "settings", in: settingsTransition)
     }
+
 
     private var inspectorToggle: some View {
         Button {
@@ -209,7 +253,7 @@ struct ContentView: View {
 
     private var exportButton: some View {
         Button {
-            viewerState.showExportSheet = true
+            viewModel.setExportSheetPresented(true)
         } label: {
             Image(systemName: "square.and.arrow.up")
         }
@@ -248,85 +292,136 @@ extension View {
     }
 }
 
-// MARK: - Sidebar Data Model
-
-struct Study: Identifiable, Hashable {
-    let id: String
-    let title: String
-    let modality: String
-    let date: Date
-    let patient: String
-    let seriesCount: Int
-
-    var dateFormatted: String {
-        date.formatted(date: .abbreviated, time: .omitted)
-    }
-
-    var isToday: Bool {
-        Calendar.current.isDateInToday(date)
-    }
-
-    var isThisWeek: Bool {
-        Calendar.current.isDate(date, equalTo: .now, toGranularity: .weekOfYear)
-    }
-}
-
 // MARK: - Sidebar View
 
 struct SidebarView: View {
     @SceneStorage("selectedStudyID") private var selectedStudyID: String?
-
-    // Demo data for now; ImportView/RecentFiles will eventually drive this.
-    private let studies: [Study] = [
-        Study(id: "1", title: "MR Brain w/o Contrast", modality: "MR", date: .now, patient: "DOE, JOHN", seriesCount: 12),
-        Study(id: "2", title: "CT Head w/ Contrast", modality: "CT", date: .now.addingTimeInterval(-86400), patient: "DOE, JOHN", seriesCount: 3),
-        Study(id: "3", title: "MR Spine Cervical", modality: "MR", date: .now.addingTimeInterval(-86400 * 3), patient: "DOE, JOHN", seriesCount: 8),
-        Study(id: "4", title: "CT Chest", modality: "CT", date: .now.addingTimeInterval(-86400 * 10), patient: "DOE, JOHN", seriesCount: 2),
-    ]
-
-    private var todayStudies: [Study] { studies.filter { $0.isToday } }
-    private var thisWeekStudies: [Study] { studies.filter { !$0.isToday && $0.isThisWeek } }
-    private var olderStudies: [Study] { studies.filter { !$0.isThisWeek } }
+    @SceneStorage("selectedSeriesID") private var selectedSeriesID: String?
+    @State private var expandedStudyIDs: Set<String> = []
+    @Environment(ViewerState.self) private var viewerState
+    @ObservedObject var viewModel: ImportViewModel
 
     var body: some View {
-        List(selection: $selectedStudyID) {
-            if !todayStudies.isEmpty {
-                Section("Today") {
-                    ForEach(todayStudies) { study in
-                        StudyRow(study: study)
-                            .tag(study.id)
-                    }
-                }
-            }
+        VStack(spacing: 0) {
+            sidebarHeader
 
-            if !thisWeekStudies.isEmpty {
-                Section("This Week") {
-                    ForEach(thisWeekStudies) { study in
-                        StudyRow(study: study)
-                            .tag(study.id)
+            List(selection: $selectedSeriesID) {
+                if !viewModel.todayStudies.isEmpty {
+                    Section("Today") {
+                        ForEach(viewModel.todayStudies) { study in
+                            studySection(for: study)
+                        }
                     }
                 }
-            }
 
-            if !olderStudies.isEmpty {
-                Section("Earlier") {
-                    ForEach(olderStudies) { study in
-                        StudyRow(study: study)
-                            .tag(study.id)
+                if !viewModel.thisWeekStudies.isEmpty {
+                    Section("This Week") {
+                        ForEach(viewModel.thisWeekStudies) { study in
+                            studySection(for: study)
+                        }
+                    }
+                }
+
+                if !viewModel.olderStudies.isEmpty {
+                    Section("Earlier") {
+                        ForEach(viewModel.olderStudies) { study in
+                            studySection(for: study)
+                        }
                     }
                 }
             }
+            .listStyle(.sidebar)
+            .navigationTitle("Studies")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.large)
+            #endif
         }
-        .listStyle(.sidebar)
-        .navigationTitle("Studies")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
-        #endif
+        .fileImporter(
+            isPresented: $viewModel.isFileImporterPresented,
+            allowedContentTypes: FilePickerService.allowedContentTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            viewModel.handleFileImport(result: result)
+        }
+        .onChange(of: selectedSeriesID) { _, newValue in
+            guard let seriesID = newValue else { return }
+            let series = viewModel.studies
+                .flatMap(\.series)
+                .first(where: { $0.id == seriesID })
+            guard let series else { return }
+            let study = viewModel.studies.first(where: { $0.series.contains(series) })
+            viewModel.openSeries(series, study: study)
+        }
+    }
+
+    private var sidebarHeader: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search studies", text: $viewModel.searchText)
+                    .textFieldStyle(.plain)
+            }
+            .padding(8)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+
+            Button {
+                viewModel.openImporter()
+            } label: {
+                Label("Open Volume…", systemImage: "folder")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding([.horizontal, .top], 12)
+        .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
+    private func studySection(for study: Study) -> some View {
+        let isExpanded = expandedStudyIDs.contains(study.id)
+        DisclosureGroup(
+            isExpanded: Binding(
+                get: { isExpanded },
+                set: { expanded in
+                    if expanded {
+                        expandedStudyIDs.insert(study.id)
+                    } else {
+                        expandedStudyIDs.remove(study.id)
+                    }
+                }
+            )
+        ) {
+            ForEach(study.series) { series in
+                SeriesRow(
+                    series: series,
+                    isLoading: viewerState.loadingSeriesID == series.id,
+                    showsError: viewerState.errorSeriesID == series.id,
+                    errorMessage: viewerState.lastError?.message
+                )
+                    .tag(series.id)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedStudyID = study.id
+                        selectedSeriesID = series.id
+                    }
+            }
+        } label: {
+            StudyRow(
+                study: study,
+                isLoading: viewerState.loadingStudyID == study.id,
+                showsError: viewerState.errorStudyID == study.id,
+                errorMessage: viewerState.lastError?.message
+            )
+        }
     }
 }
 
 struct StudyRow: View {
     let study: Study
+    let isLoading: Bool
+    let showsError: Bool
+    let errorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -338,6 +433,17 @@ struct StudyRow: View {
 
                 Spacer()
 
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                }
+
+                if showsError {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .help(errorMessage ?? "Unable to open study.")
+                }
+
                 Text(study.modality)
                     .font(.caption2)
                     .fontWeight(.semibold)
@@ -347,11 +453,11 @@ struct StudyRow: View {
             }
 
             HStack {
-                Text(study.patient)
+                Text(study.patientName)
                 Text("•")
                 Text(study.dateFormatted)
                 Text("•")
-                Text("\(study.seriesCount) series")
+                Text("\(study.series.count) series")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -361,10 +467,54 @@ struct StudyRow: View {
     }
 }
 
+struct SeriesRow: View {
+    let series: StudySeries
+    let isLoading: Bool
+    let showsError: Bool
+    let errorMessage: String?
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(series.seriesDescription)
+                    .font(.subheadline)
+                    .lineLimit(1)
+                Text(isLoading ? "Loading…" : "SER \(series.seriesNumber) • \(series.imagesCount) images")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if isLoading {
+                ProgressView()
+                    .scaleEffect(0.7)
+            }
+
+            if showsError {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .help(errorMessage ?? "Unable to open series.")
+            }
+
+            Text(series.modality)
+                .font(.caption2)
+                .fontWeight(.semibold)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.quaternary, in: Capsule())
+        }
+        .padding(.vertical, 2)
+        .padding(.leading, 8)
+    }
+}
+
 // MARK: - Canvas View
 
 struct CanvasView: View {
     @Environment(ViewerState.self) private var viewerState
+    @ObservedObject var viewModel: ViewerViewModel
+    @ObservedObject var importViewModel: ImportViewModel
 
     var body: some View {
         ZStack {
@@ -380,25 +530,25 @@ struct CanvasView: View {
     private var viewportLayout: some View {
         switch viewerState.layoutMode {
         case .oneUp:
-            ViewportView(index: 0)
+            ViewportView(index: 0, viewModel: viewModel, importViewModel: importViewModel)
                 .padding(4)
 
         case .twoUp:
             HStack(spacing: 2) {
-                ViewportView(index: 0)
-                ViewportView(index: 1)
+                ViewportView(index: 0, viewModel: viewModel, importViewModel: importViewModel)
+                ViewportView(index: 1, viewModel: viewModel, importViewModel: importViewModel)
             }
             .padding(4)
 
         case .threeUp:
             GeometryReader { proxy in
                 VStack(spacing: 2) {
-                    ViewportView(index: 0)
+                    ViewportView(index: 0, viewModel: viewModel, importViewModel: importViewModel)
                         .frame(height: proxy.size.height * 0.6)
 
                     HStack(spacing: 2) {
-                        ViewportView(index: 1)
-                        ViewportView(index: 2)
+                        ViewportView(index: 1, viewModel: viewModel, importViewModel: importViewModel)
+                        ViewportView(index: 2, viewModel: viewModel, importViewModel: importViewModel)
                     }
                 }
             }
@@ -407,12 +557,12 @@ struct CanvasView: View {
         case .fourUp:
             VStack(spacing: 2) {
                 HStack(spacing: 2) {
-                    ViewportView(index: 0)
-                    ViewportView(index: 1)
+                    ViewportView(index: 0, viewModel: viewModel, importViewModel: importViewModel)
+                    ViewportView(index: 1, viewModel: viewModel, importViewModel: importViewModel)
                 }
                 HStack(spacing: 2) {
-                    ViewportView(index: 2)
-                    ViewportView(index: 3)
+                    ViewportView(index: 2, viewModel: viewModel, importViewModel: importViewModel)
+                    ViewportView(index: 3, viewModel: viewModel, importViewModel: importViewModel)
                 }
             }
             .padding(4)
@@ -425,6 +575,8 @@ struct CanvasView: View {
 struct ViewportView: View {
     @Environment(ViewerState.self) private var viewerState
     let index: Int
+    @ObservedObject var viewModel: ViewerViewModel
+    @ObservedObject var importViewModel: ImportViewModel
 
     private var isActive: Bool {
         index == viewerState.clampedActiveIndex
@@ -446,6 +598,17 @@ struct ViewportView: View {
                             )
                     )
 
+                if viewerState.isImagingViewport(index) {
+                    ViewerView(
+                        viewModel: viewModel,
+                        image: viewModel.image(for: index),
+                        isLoading: viewerState.isLoadingVolume,
+                        isActive: index == viewerState.clampedActiveIndex
+                    )
+                } else {
+                    Placeholder3DView()
+                }
+
                 // Crosshairs
                 CrosshairOverlay(size: size)
 
@@ -454,15 +617,38 @@ struct ViewportView: View {
 
                 // iOS 26: Liquid Glass overlays
                 viewportOverlays(size: size)
+
+                if viewerState.isImagingViewport(index) {
+                    viewportStateOverlays
+                }
             }
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            viewerState.activeViewportIndex = index
+            viewModel.setActiveViewportIndex(index)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Viewport \(index + 1)")
         .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private var viewportStateOverlays: some View {
+        if viewerState.isLoadingVolume {
+            LoadingOverlayView(title: viewerState.loadingTitle, detail: viewerState.loadingDetail)
+        } else if let error = viewerState.lastError {
+            ErrorOverlayView(
+                title: error.title,
+                message: error.message,
+                canRetry: viewModel.canRetryLastLoad,
+                onRetry: {
+                    Task { await viewModel.retryLastLoad() }
+                },
+                onChooseAnother: {
+                    importViewModel.openImporter()
+                }
+            )
+        }
     }
 
     @ViewBuilder
@@ -514,10 +700,10 @@ struct ViewportView: View {
         ZStack {
             // Top-left: Series info
             VStack(alignment: .leading, spacing: 2) {
-                Text("AX T2 FLAIR")
+                Text(viewerState.seriesTitle)
                     .font(.caption)
                     .foregroundStyle(HeritagePACSTheme.overlayTextPrimary)
-                Text("SER 3  IMG \(index + 1)")
+                Text(viewerState.seriesSubtitle)
                     .font(.caption2)
                     .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
             }
@@ -528,13 +714,13 @@ struct ViewportView: View {
 
             // Top-right: Patient info
             VStack(alignment: .trailing, spacing: 2) {
-                Text("DOE^JOHN")
+                Text(viewerState.patientDisplayName)
                     .font(.caption.bold())
                     .foregroundStyle(HeritagePACSTheme.phiHighlightYellow)
-                Text("ID 12345678 • M/45")
+                Text(viewerState.patientDetails)
                     .font(.caption2)
                     .foregroundStyle(HeritagePACSTheme.overlayTextPrimary)
-                Text("2025-05-23 14:32")
+                Text(viewerState.acquisitionDateTimeDisplay)
                     .font(.caption2)
                     .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
             }
@@ -545,9 +731,9 @@ struct ViewportView: View {
 
             // Bottom-left: Window/Level
             VStack(alignment: .leading, spacing: 2) {
-                Text("W 350  L 40")
+                Text("W \(Int(viewerState.window))  L \(Int(viewerState.level))")
                     .font(.caption2.monospaced())
-                Text("SLICE \(String(format: "%02d", index + 1))/48")
+                Text("SLICE \(String(format: "%02d", viewerState.clampedSliceIndex + 1))/\(viewerState.seriesImagesDisplay)")
                     .font(.caption2.monospaced())
             }
             .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
@@ -561,7 +747,7 @@ struct ViewportView: View {
                 Circle()
                     .fill(HeritagePACSTheme.statusOK)
                     .frame(width: 6, height: 6)
-                Text("ONLINE")
+                Text(viewerState.hasVolume ? "ONLINE" : "NO DATA")
                     .font(.caption2)
                     .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
             }
@@ -571,6 +757,7 @@ struct ViewportView: View {
             .padding(8)
         }
     }
+
 }
 
 // iOS 26 Glass Effect Extension
@@ -632,11 +819,91 @@ struct MeasurementOverlay: View {
     }
 }
 
+struct Placeholder3DView: View {
+    var body: some View {
+        VStack(spacing: 6) {
+            Text("3D view not available yet")
+                .font(.caption.bold())
+                .foregroundStyle(.white)
+            Text("Coming soon")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.8))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct LoadingOverlayView: View {
+    let title: String
+    let detail: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ProgressView()
+                .progressViewStyle(.circular)
+            Text(title)
+                .font(.callout.bold())
+                .foregroundStyle(.white)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.8))
+                .lineLimit(2)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(.white.opacity(0.1), lineWidth: 1)
+        )
+    }
+}
+
+struct ErrorOverlayView: View {
+    let title: String
+    let message: String
+    let canRetry: Bool
+    let onRetry: () -> Void
+    let onChooseAnother: () -> Void
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Text(title)
+                .font(.callout.bold())
+                .foregroundStyle(.white)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.85))
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+
+            HStack(spacing: 8) {
+                Button("Try again", action: onRetry)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!canRetry)
+
+                Button("Choose another file…", action: onChooseAnother)
+                    .buttonStyle(.bordered)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(.white.opacity(0.15), lineWidth: 1)
+        )
+    }
+}
+
 // MARK: - Inspector View (iOS 26 Design)
 
 struct InspectorView: View {
     @Environment(ViewerState.self) private var viewerState
     @State private var selectedTab: InspectorTab = .display
+    @ObservedObject var viewModel: ViewerViewModel
 
     enum InspectorTab: String, CaseIterable {
         case display = "Display"
@@ -664,11 +931,11 @@ struct InspectorView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     switch selectedTab {
                     case .display:
-                        DisplayTabContent()
+                        DisplayTabContent(viewModel: viewModel)
                     case .measurements:
                         MeasurementsTabContent()
                     case .analysis:
-                        AnalysisTabContent()
+                        AnalysisTabContent(viewModel: viewModel)
                     }
                 }
                 .padding()
@@ -686,12 +953,11 @@ struct InspectorView: View {
 
 struct DisplayTabContent: View {
     @Environment(ViewerState.self) private var viewerState
+    @ObservedObject var viewModel: ViewerViewModel
     @State private var linkViewports = true
     @State private var lockZoom = false
     @State private var showCrosshair = true
     @State private var showPatientInfo = true
-    @State private var windowValue: Double = 350
-    @State private var levelValue: Double = 40
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -708,41 +974,18 @@ struct DisplayTabContent: View {
                 }
             }
 
-            // Window/Level section
-            GroupBox("Window / Level") {
-                VStack(alignment: .leading, spacing: 12) {
-                    LabeledContent("Preset") {
-                        Menu("Brain") {
-                            Button("Brain (W 80 / L 40)") { windowValue = 80; levelValue = 40 }
-                            Button("Subdural (W 200 / L 80)") { windowValue = 200; levelValue = 80 }
-                            Button("Stroke (W 40 / L 40)") { windowValue = 40; levelValue = 40 }
-                            Button("Bone (W 2500 / L 500)") { windowValue = 2500; levelValue = 500 }
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Window")
-                            Spacer()
-                            Text("\(Int(windowValue))")
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                        Slider(value: $windowValue, in: 1...4096)
-                    }
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Level")
-                            Spacer()
-                            Text("\(Int(levelValue))")
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                        Slider(value: $levelValue, in: -1024...3072)
-                    }
-                }
+            GroupBox("Orientation") {
+                OrientationControlView(viewModel: viewModel)
+                    .disabled(viewerState.isLoadingVolume)
             }
+
+            GroupBox("Slice Navigation") {
+                SliceNavigationView(viewModel: viewModel)
+                    .disabled(viewerState.isLoadingVolume)
+            }
+
+            WWLControlsView(viewModel: viewModel)
+                .disabled(viewerState.isLoadingVolume)
 
             // Overlays section
             GroupBox("Overlays") {
@@ -794,6 +1037,7 @@ struct MeasurementsTabContent: View {
 
 struct AnalysisTabContent: View {
     @Environment(ViewerState.self) private var viewerState
+    @ObservedObject var viewModel: ViewerViewModel
     @State private var enableShading = true
     @State private var showClippingPlanes = false
     @State private var aiModel = "segmentation"
@@ -804,7 +1048,13 @@ struct AnalysisTabContent: View {
             // 3D Mode section
             GroupBox("3D Rendering") {
                 VStack(alignment: .leading, spacing: 12) {
-                    Picker("Mode", selection: Bindable(viewerState).threeDMode) {
+                    Picker(
+                        "Mode",
+                        selection: Binding(
+                            get: { viewerState.threeDMode },
+                            set: { viewModel.setThreeDMode($0) }
+                        )
+                    ) {
                         ForEach(ThreeDSubMode.allCases) { mode in
                             Text(mode.rawValue).tag(mode)
                         }
@@ -899,58 +1149,6 @@ struct ExportSheetView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Settings Sheet (iOS 26 Liquid Glass)
-
-struct SettingsSheetView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(ViewerState.self) private var viewerState
-    @State private var defaultLayout: LayoutMode = .oneUp
-    @State private var autoPlayCine = false
-    @State private var cineFrameRate: Double = 15
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Defaults") {
-                    Picker("Default Layout", selection: $defaultLayout) {
-                        ForEach(LayoutMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                }
-
-                Section("Cine") {
-                    Toggle("Auto-play on Load", isOn: $autoPlayCine)
-
-                    VStack(alignment: .leading) {
-                        HStack {
-                            Text("Frame Rate")
-                            Spacer()
-                            Text("\(Int(cineFrameRate)) fps")
-                                .foregroundStyle(.secondary)
-                        }
-                        Slider(value: $cineFrameRate, in: 1...60, step: 1)
-                    }
-                }
-
-                Section("About") {
-                    LabeledContent("Version", value: "1.0.0")
-                    LabeledContent("Build", value: "2025.11")
-                }
-            }
-            .navigationTitle("Settings")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
                 }
             }
         }

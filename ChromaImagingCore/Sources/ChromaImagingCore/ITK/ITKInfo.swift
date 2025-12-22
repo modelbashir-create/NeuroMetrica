@@ -41,4 +41,9 @@ public enum ITKInfo {
         let v = versionString().trimmingCharacters(in: .whitespacesAndNewlines)
         return !v.isEmpty && !v.contains("unknown")
     }
+
+    /// Whether the ITK build has DCMTK support enabled.
+    public static var supportsDCMTK: Bool {
+        ITKBridgeSupportsDCMTK()
+    }
 }

@@ -31,6 +31,26 @@ public enum ProcessingBackend: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+/// Preferred DICOM IO backend.
+///
+/// - dcmtk: Prefer DCMTK; fall back to GDCM if unavailable.
+/// - gdcm: Force GDCM for DICOM series loading.
+public enum DicomBackendPreference: String, CaseIterable, Identifiable, Codable {
+    case dcmtk
+    case gdcm
+
+    public var id: String { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .dcmtk:
+            return "DCMTK (Preferred)"
+        case .gdcm:
+            return "GDCM"
+        }
+    }
+}
+
 /// Global UI + viewer preferences for NeuroMetrica.
 ///
 /// This type is an observable reference type so it can be injected via
@@ -80,6 +100,9 @@ final class AppSettings: ObservableObject {
 
     /// Which processing backend the viewer should use.
     @Published var processingBackend: ProcessingBackend = .native
+
+    /// Preferred DICOM IO backend.
+    @Published var dicomBackendPreference: DicomBackendPreference = .dcmtk
 
 
     // MARK: - Init

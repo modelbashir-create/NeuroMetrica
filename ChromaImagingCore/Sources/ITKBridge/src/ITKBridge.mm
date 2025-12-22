@@ -10,7 +10,14 @@
 #include "itkImageSeriesReader.h"
 #include "itkGDCMImageIO.h"
 #include "itkGDCMSeriesFileNames.h"
+#if __has_include("itkDCMTKImageIO.h")
+#include "itkDCMTKImageIO.h"
+#define ITKBRIDGE_HAS_DCMTK 1
+#else
+#define ITKBRIDGE_HAS_DCMTK 0
+#endif
 #include "itkImageIOBase.h"
+#include "itkMetaDataObject.h"
 #include "itkVersion.h"
 
 using Float3DImage = itk::Image<float, 3>;
@@ -52,14 +59,105 @@ void zeroDescriptor(ITKImageDescriptorC *desc) {
     std::memset(desc, 0, sizeof(*desc));
 }
 
-// Load a 3D float volume from a DICOM series directory using GDCM.
-Float3DImage::Pointer loadDicomSeries(const char *directoryPath) {
+bool supportsDCMTK() {
+#if ITKBRIDGE_HAS_DCMTK
+    return true;
+#else
+    return false;
+#endif
+}
+
+itk::ImageIOBase::Pointer makeDicomIO(ITKDicomBackendC backend) {
+    const bool wantsDCMTK = (backend == ITKDicomBackend_DCMTK);
+    const bool wantsGDCM = (backend == ITKDicomBackend_GDCM);
+
+#if ITKBRIDGE_HAS_DCMTK
+    if (wantsDCMTK || (!wantsGDCM && backend == ITKDicomBackend_Auto)) {
+        return itk::DCMTKImageIO::New();
+    }
+#endif
+
+    return itk::GDCMImageIO::New();
+}
+
+std::string escapeJSON(const std::string &input) {
+    std::string output;
+    output.reserve(input.size());
+    for (char c : input) {
+        switch (c) {
+        case '\"': output += "\\\""; break;
+        case '\\': output += "\\\\"; break;
+        case '\n': output += "\\n"; break;
+        case '\r': output += "\\r"; break;
+        case '\t': output += "\\t"; break;
+        default: output += c; break;
+        }
+    }
+    return output;
+}
+
+std::string metadataDictionaryToJSON(const itk::MetaDataDictionary &dict) {
+    std::string json = "{";
+    bool first = true;
+
+    for (auto it = dict.Begin(); it != dict.End(); ++it) {
+        const std::string &key = it->first;
+        std::string value;
+        if (!itk::ExposeMetaData<std::string>(dict, key, value)) {
+            continue;
+        }
+
+        if (!first) {
+            json += ",";
+        }
+        first = false;
+        json += "\"";
+        json += escapeJSON(key);
+        json += "\":\"";
+        json += escapeJSON(value);
+        json += "\"";
+    }
+
+    json += "}";
+    return json;
+}
+
+void attachMetadataJSON(ITKImageDescriptorC *outDescriptor,
+                        const std::string &metadataJSON) {
+    if (!outDescriptor) { return; }
+    if (metadataJSON.empty()) {
+        outDescriptor->metadataJSON = nullptr;
+        outDescriptor->metadataJSONLength = 0;
+        return;
+    }
+
+    const size_t length = metadataJSON.size();
+    char *buffer = static_cast<char *>(std::malloc(length + 1));
+    if (!buffer) {
+        outDescriptor->metadataJSON = nullptr;
+        outDescriptor->metadataJSONLength = 0;
+        return;
+    }
+
+    std::memcpy(buffer, metadataJSON.c_str(), length);
+    buffer[length] = '\0';
+    outDescriptor->metadataJSON = buffer;
+    outDescriptor->metadataJSONLength = static_cast<int32_t>(length);
+}
+
+struct VolumeLoadResult {
+    Float3DImage::Pointer image;
+    std::string metadataJSON;
+};
+
+// Load a 3D float volume from a DICOM series directory using a selected backend.
+VolumeLoadResult loadDicomSeries(const char *directoryPath,
+                                 ITKDicomBackendC backend) {
     using ImageType   = Float3DImage;
     using ReaderType  = itk::ImageSeriesReader<ImageType>;
-    using ImageIOType = itk::GDCMImageIO;
-    using NameGenType = itk::GDCMSeriesFileNames;
+    using GDCMNameGenType = itk::GDCMSeriesFileNames;
 
-    NameGenType::Pointer nameGen = NameGenType::New();
+    GDCMNameGenType::Pointer nameGen = GDCMNameGenType::New();
     nameGen->SetUseSeriesDetails(true);
     nameGen->AddSeriesRestriction("0008|0021"); // Series Date.
     nameGen->SetDirectory(directoryPath);
@@ -82,21 +180,27 @@ Float3DImage::Pointer loadDicomSeries(const char *directoryPath) {
     }
 
     ReaderType::Pointer reader = ReaderType::New();
-    ImageIOType::Pointer dicomIO = ImageIOType::New();
+    itk::ImageIOBase::Pointer dicomIO = makeDicomIO(backend);
     reader->SetImageIO(dicomIO);
     reader->SetFileNames(fileNames);
     reader->Update();
 
-    return reader->GetOutput();
+    VolumeLoadResult result;
+    result.image = reader->GetOutput();
+    result.metadataJSON = metadataDictionaryToJSON(reader->GetImageIO()->GetMetaDataDictionary());
+    return result;
 }
 
 // Load a 3D float volume from a single volume file (NIfTI, NRRD, etc).
-Float3DImage::Pointer loadSingleFileVolume(const char *filePath) {
+VolumeLoadResult loadSingleFileVolume(const char *filePath) {
     using ReaderType = itk::ImageFileReader<Float3DImage>;
     ReaderType::Pointer reader = ReaderType::New();
     reader->SetFileName(std::string(filePath));
     reader->Update();
-    return reader->GetOutput();
+    VolumeLoadResult result;
+    result.image = reader->GetOutput();
+    result.metadataJSON = metadataDictionaryToJSON(reader->GetImageIO()->GetMetaDataDictionary());
+    return result;
 }
 
 // Fill an ITKImageDescriptorC from a Float3DImage and a copied buffer.
@@ -174,10 +278,28 @@ extern "C" bool ITKBridgeGetVersionString(char *buffer, int bufferLength) {
     return true;
 }
 
+extern "C" bool ITKBridgeSupportsDCMTK(void) {
+    return supportsDCMTK();
+}
+
 extern "C" bool ITKLoadDicomSeries(const char *directoryPath,
                                    ITKImageDescriptorC *outDescriptor,
                                    char *errorBuffer,
                                    int errorBufferLength) {
+    return ITKLoadDicomSeriesWithBackend(
+        directoryPath,
+        ITKDicomBackend_Auto,
+        outDescriptor,
+        errorBuffer,
+        errorBufferLength
+    );
+}
+
+extern "C" bool ITKLoadDicomSeriesWithBackend(const char *directoryPath,
+                                              ITKDicomBackendC backend,
+                                              ITKImageDescriptorC *outDescriptor,
+                                              char *errorBuffer,
+                                              int errorBufferLength) {
     zeroDescriptor(outDescriptor);
 
     if (!directoryPath || !outDescriptor) {
@@ -193,15 +315,22 @@ extern "C" bool ITKLoadDicomSeries(const char *directoryPath,
     }
 
     try {
-        Float3DImage::Pointer image = loadDicomSeries(directoryPath);
-        if (!image) {
+        ITKDicomBackendC resolvedBackend = backend;
+#if !ITKBRIDGE_HAS_DCMTK
+        if (resolvedBackend == ITKDicomBackend_DCMTK || resolvedBackend == ITKDicomBackend_Auto) {
+            resolvedBackend = ITKDicomBackend_GDCM;
+        }
+#endif
+
+        VolumeLoadResult result = loadDicomSeries(directoryPath, resolvedBackend);
+        if (!result.image) {
             writeError(errorBuffer, errorBufferLength,
                        "ITKLoadDicomSeries: reader returned null image");
             return false;
         }
 
         // Compute value count and allocate buffer.
-        const auto &size = image->GetLargestPossibleRegion().GetSize();
+        const auto &size = result.image->GetLargestPossibleRegion().GetSize();
         const uint64_t voxelCount =
             static_cast<uint64_t>(size[0]) *
             static_cast<uint64_t>(size[1]) *
@@ -217,11 +346,12 @@ extern "C" bool ITKLoadDicomSeries(const char *directoryPath,
             return false;
         }
 
-        const float *src = image->GetBufferPointer();
+        const float *src = result.image->GetBufferPointer();
         std::memcpy(buffer, src, static_cast<size_t>(byteCount));
 
         // Fill descriptor.
-        fillDescriptorFromImage(image, buffer, valueCount, outDescriptor);
+        fillDescriptorFromImage(result.image, buffer, valueCount, outDescriptor);
+        attachMetadataJSON(outDescriptor, result.metadataJSON);
         return true;
     }
     catch (const itk::ExceptionObject &ex) {
@@ -248,14 +378,14 @@ extern "C" bool ITKLoadSingleFileVolume(const char *filePath,
     }
 
     try {
-        Float3DImage::Pointer image = loadSingleFileVolume(filePath);
-        if (!image) {
+        VolumeLoadResult result = loadSingleFileVolume(filePath);
+        if (!result.image) {
             writeError(errorBuffer, errorBufferLength,
                        "ITKLoadSingleFileVolume: reader returned null image");
             return false;
         }
 
-        const auto &size = image->GetLargestPossibleRegion().GetSize();
+        const auto &size = result.image->GetLargestPossibleRegion().GetSize();
         const uint64_t voxelCount =
             static_cast<uint64_t>(size[0]) *
             static_cast<uint64_t>(size[1]) *
@@ -271,10 +401,11 @@ extern "C" bool ITKLoadSingleFileVolume(const char *filePath,
             return false;
         }
 
-        const float *src = image->GetBufferPointer();
+        const float *src = result.image->GetBufferPointer();
         std::memcpy(buffer, src, static_cast<size_t>(byteCount));
 
-        fillDescriptorFromImage(image, buffer, valueCount, outDescriptor);
+        fillDescriptorFromImage(result.image, buffer, valueCount, outDescriptor);
+        attachMetadataJSON(outDescriptor, result.metadataJSON);
         return true;
     }
     catch (const itk::ExceptionObject &ex) {
@@ -293,6 +424,10 @@ extern "C" void ITKFreeImageDescriptor(ITKImageDescriptorC *descriptor) {
 
     if (descriptor->bufferHandle != nullptr) {
         void *ptr = const_cast<void *>(descriptor->bufferHandle);
+        std::free(ptr);
+    }
+    if (descriptor->metadataJSON != nullptr) {
+        void *ptr = const_cast<char *>(descriptor->metadataJSON);
         std::free(ptr);
     }
     // Put descriptor into a safe, zeroed state.

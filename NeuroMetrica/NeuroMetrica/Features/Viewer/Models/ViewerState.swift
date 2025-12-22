@@ -116,6 +116,7 @@ final class ViewerState {
         if activeViewportIndex > layoutMode.maxViewportIndex {
             activeViewportIndex = 0
         }
+        applyDefaultOrientations(for: layoutMode)
     }
 
     /// Toggle between 2D and 3D modes
@@ -129,6 +130,7 @@ final class ViewerState {
         if activeViewportIndex > layoutMode.maxViewportIndex {
             activeViewportIndex = 0
         }
+        applyDefaultOrientations(for: layoutMode)
     }
 
 
@@ -137,39 +139,20 @@ final class ViewerState {
     /// Handle returned by ChromaEngine after loading a volume
     var volumeHandle: VolumeHandle? = nil
 
-    /// Internal tracked index for orientation:
-    /// 0 = axial, 1 = coronal, 2 = sagittal.
-    ///
-    /// This is what the Observation macro actually tracks, so the
-    /// default value is just an Int (no dependency on .axial in
-    /// generated macro files).
-    private var orientationIndex: Int = 0
+    /// Canonical metadata for the loaded volume.
+    var metadata: CIMetadata? = nil
 
-    /// Public orthogonal orientation (axial / coronal / sagittal).
-    ///
-    /// This is a computed façade over orientationIndex so that UI
-    /// and engine code work with SliceOrientation while the Observation
-    /// system only sees an Int default.
+    /// Active series metadata from the Study browser.
+    var activeSeries: StudySeries? = nil
+
+    /// Internal tracked index for orientation:
+    /// Stored per-viewport orientations keyed by viewport index.
+    private var viewportOrientations: [Int: SliceOrientation] = [:]
+
+    /// Orientation for the currently active viewport.
     var orientation: SliceOrientation {
-        get {
-            switch orientationIndex {
-            case 1: return .coronal
-            case 2: return .sagittal
-            default: return .axial
-            }
-        }
-        set {
-            switch newValue {
-            case .axial:
-                orientationIndex = 0
-            case .coronal:
-                orientationIndex = 1
-            case .sagittal:
-                orientationIndex = 2
-            @unknown default:
-                orientationIndex = 0
-            }
-        }
+        get { orientation(for: clampedActiveIndex) }
+        set { setOrientation(newValue, for: clampedActiveIndex) }
     }
 
     /// Zero-based slice index within the current orientation
@@ -183,10 +166,30 @@ final class ViewerState {
     var level: Float = 40
 
     /// Indicates an async load / reslice is in progress
-    var isLoading: Bool = false
+    var isLoadingVolume: Bool = false
 
     /// Last user-visible error message, if any
-    var lastError: String? = nil
+    var lastError: ViewerErrorPresentation? = nil
+    var lastErrorContext: ViewerErrorContext? = nil
+
+    /// Current loading labels for PACS-style overlays
+    var currentStudyLabel: String? = nil
+    var currentSeriesLabel: String? = nil
+
+    /// Loading/error context for sidebar indicators
+    var loadingStudyID: String? = nil
+    var loadingSeriesID: String? = nil
+    var errorStudyID: String? = nil
+    var errorSeriesID: String? = nil
+
+    // MARK: Cine state
+
+    struct ViewportCineState: Equatable {
+        var isPlaying: Bool
+        var fps: Double
+    }
+
+    private var cineStates: [Int: ViewportCineState] = [:]
 
     /// Whether a volume is currently loaded
     var hasVolume: Bool {
@@ -199,16 +202,78 @@ final class ViewerState {
         return max(0, min(sliceIndex, sliceCount - 1))
     }
 
+    // MARK: - Overlay display helpers
+
+    var seriesTitle: String {
+        if let series = activeSeries, !series.seriesDescription.isEmpty {
+            return series.seriesDescription
+        }
+        if let description = metadata?.seriesDescription, !description.isEmpty {
+            return description
+        }
+        if let study = metadata?.studyDescription, !study.isEmpty {
+            return study
+        }
+        return metadata?.modality ?? "Series"
+    }
+
+    var seriesSubtitle: String {
+        if let series = activeSeries {
+            return "SER \(series.seriesNumber)  \(series.modality)"
+        }
+        let modality = metadata?.modality ?? "—"
+        let seriesNumber = metadata?.additionalTags["0020,0011"] ?? "—"
+        return "SER \(seriesNumber)  \(modality)"
+    }
+
+    var seriesImagesDisplay: String {
+        if let series = activeSeries {
+            return "\(series.imagesCount)"
+        }
+        if let total = metadata?.additionalTags["0020,1209"], !total.isEmpty {
+            return total
+        }
+        return "\(max(sliceCount, 1))"
+    }
+
+    var patientDisplayName: String {
+        guard let name = metadata?.patientName, !name.isEmpty else {
+            return "UNKNOWN"
+        }
+        return name
+    }
+
+    var patientDetails: String {
+        let id = metadata?.patientID?.isEmpty == false ? metadata?.patientID ?? "—" : "—"
+        let sex = metadata?.patientSex?.isEmpty == false ? metadata?.patientSex ?? "—" : "—"
+        let age = metadata?.patientAge?.isEmpty == false ? metadata?.patientAge ?? "—" : "—"
+        return "ID \(id) • \(sex)/\(age)"
+    }
+
+    var acquisitionDateTimeDisplay: String {
+        metadata?.acquisitionDateTime ?? "—"
+    }
+
     /// Reset only the imaging-related state (used when closing a study)
     func resetVolumeState() {
         volumeHandle = nil
-        orientationIndex = 0   // back to axial
+        metadata = nil
+        activeSeries = nil
+        viewportOrientations = [:]
         sliceIndex = 0
         sliceCount = 0
         window = 350
         level = 40
-        isLoading = false
+        isLoadingVolume = false
         lastError = nil
+        lastErrorContext = nil
+        currentStudyLabel = nil
+        currentSeriesLabel = nil
+        loadingStudyID = nil
+        loadingSeriesID = nil
+        errorStudyID = nil
+        errorSeriesID = nil
+        cineStates = [:]
     }
 
     /// Designated initializer.
@@ -217,5 +282,91 @@ final class ViewerState {
     /// storing .axial directly, to keep the Observation macro’s
     /// generated code free of enum case defaults that require an
     /// extra module import.
-    init() {}
+    init() {
+        applyDefaultOrientations(for: layoutMode)
+    }
+
+    // MARK: - Layout defaults
+
+    static func defaultOrientation(for layout: LayoutMode, index: Int) -> SliceOrientation {
+        switch layout {
+        case .oneUp:
+            return .axial
+        case .twoUp:
+            return index == 1 ? .sagittal : .axial
+        case .threeUp:
+            switch index {
+            case 1: return .sagittal
+            case 2: return .coronal
+            default: return .axial
+            }
+        case .fourUp:
+            switch index {
+            case 1: return .sagittal
+            case 2: return .coronal
+            default: return .axial
+            }
+        }
+    }
+
+    func applyDefaultOrientations(for layout: LayoutMode) {
+        var defaults: [Int: SliceOrientation] = [:]
+        for index in 0...layout.maxViewportIndex {
+            defaults[index] = Self.defaultOrientation(for: layout, index: index)
+        }
+        viewportOrientations = defaults
+    }
+
+    func orientation(for index: Int) -> SliceOrientation {
+        viewportOrientations[index] ?? Self.defaultOrientation(for: layoutMode, index: index)
+    }
+
+    func setOrientation(_ orientation: SliceOrientation, for index: Int) {
+        viewportOrientations[index] = orientation
+    }
+
+    func isImagingViewport(_ index: Int) -> Bool {
+        !(layoutMode == .fourUp && index == 3)
+    }
+
+    var loadingTitle: String {
+        if currentSeriesLabel != nil {
+            return "Loading series…"
+        }
+        return "Loading study…"
+    }
+
+    var loadingDetail: String {
+        if let seriesLabel = currentSeriesLabel, !seriesLabel.isEmpty {
+            return seriesLabel
+        }
+        if let studyLabel = currentStudyLabel, !studyLabel.isEmpty {
+            return studyLabel
+        }
+        return "Preparing volume…"
+    }
+
+    var activeViewportIndices: [Int] {
+        Array(0...layoutMode.maxViewportIndex)
+    }
+
+    func cineState(for index: Int) -> ViewportCineState {
+        cineStates[index] ?? ViewportCineState(isPlaying: false, fps: 15)
+    }
+
+    func setCineState(_ state: ViewportCineState, for index: Int) {
+        cineStates[index] = state
+    }
+
+    func setCinePlaying(_ playing: Bool, for index: Int) {
+        var state = cineState(for: index)
+        state.isPlaying = playing
+        cineStates[index] = state
+    }
+
+    func setCineFPS(_ fps: Double, for index: Int) {
+        var state = cineState(for: index)
+        state.fps = fps
+        cineStates[index] = state
+    }
 }

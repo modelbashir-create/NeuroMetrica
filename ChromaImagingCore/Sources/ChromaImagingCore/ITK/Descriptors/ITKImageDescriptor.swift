@@ -100,6 +100,11 @@ public struct ITKImageDescriptor {
     /// Optional human-readable description for logging / debugging.
     public let debugDescription: String?
 
+    /// Raw metadata JSON emitted by the bridge (string map).
+    public let metadataJSON: String?
+
+    private let metadataPointer: UnsafePointer<CChar>?
+
     // MARK: Designated init
 
     public init(
@@ -114,7 +119,9 @@ public struct ITKImageDescriptor {
         componentBytes: Int,
         isSigned: Bool,
         bufferPointer: UnsafeRawPointer?,
-        debugDescription: String? = nil
+        debugDescription: String? = nil,
+        metadataJSON: String? = nil,
+        metadataPointer: UnsafePointer<CChar>? = nil
     ) {
         self.dimension = dimension
         self.size = size
@@ -128,6 +135,8 @@ public struct ITKImageDescriptor {
         self.isSigned = isSigned
         self.bufferPointer = bufferPointer
         self.debugDescription = debugDescription
+        self.metadataJSON = metadataJSON
+        self.metadataPointer = metadataPointer
     }
 }
 
@@ -199,6 +208,8 @@ public extension ITKImageDescriptor {
         let isSigned = (desc.isSigned != 0)
 
         let ptr = UnsafeRawPointer(desc.bufferHandle)
+        let metadataPointer = UnsafePointer<CChar>(desc.metadataJSON)
+        let metadataJSON = metadataPointer != nil ? String(cString: metadataPointer!) : nil
 
         let debug = """
         dim=\(clampedDim), size=\(sizeArray), spacing=\(spacingArray), \
@@ -220,7 +231,33 @@ public extension ITKImageDescriptor {
             componentBytes: componentBytes,
             isSigned: isSigned,
             bufferPointer: ptr,
-            debugDescription: debug
+            debugDescription: debug,
+            metadataJSON: metadataJSON,
+            metadataPointer: metadataPointer
         )
+    }
+
+    /// Free the bridge-owned resources (voxel buffer + metadata string).
+    func freeBridgeResources() {
+        guard bufferPointer != nil || metadataPointer != nil else { return }
+
+        var cDescriptor = ITKImageDescriptorC()
+        cDescriptor.bufferHandle = bufferPointer
+        cDescriptor.valueCount = UInt64(valueCount)
+        cDescriptor.metadataJSON = metadataPointer
+        cDescriptor.metadataJSONLength = Int32(metadataJSON?.utf8.count ?? 0)
+        ITKFreeImageDescriptor(&cDescriptor)
+    }
+
+    /// Free the bridge-owned voxel buffer.
+    ///
+    /// Call this after copying `bufferPointer` into your own storage.
+    func freeBridgeBuffer() {
+        guard bufferPointer != nil else { return }
+
+        var cDescriptor = ITKImageDescriptorC()
+        cDescriptor.bufferHandle = bufferPointer
+        cDescriptor.valueCount = UInt64(valueCount)
+        ITKFreeImageDescriptor(&cDescriptor)
     }
 }

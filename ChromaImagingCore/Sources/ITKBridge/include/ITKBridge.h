@@ -37,6 +37,16 @@ typedef enum ITKPixelTypeC : int32_t {
     ITKPixelType_Complex = 5
 } ITKPixelTypeC;
 
+/// Preferred DICOM backend for ITK series loading.
+typedef enum ITKDicomBackendC : int32_t {
+    /// Auto-select (prefer DCMTK when available, else GDCM).
+    ITKDicomBackend_Auto  = 0,
+    /// Force DCMTK.
+    ITKDicomBackend_DCMTK = 1,
+    /// Force GDCM.
+    ITKDicomBackend_GDCM  = 2
+} ITKDicomBackendC;
+
 /// C descriptor for an ITK volume image.
 ///
 /// All numeric fields are filled by the bridge based on the underlying
@@ -81,6 +91,12 @@ typedef struct ITKImageDescriptorC {
     /// Non-zero if the scalar component type is signed (e.g. int16, float),
     /// zero if unsigned (e.g. uint16).
     int32_t   isSigned;
+
+    /// Optional JSON metadata string (UTF-8) with tag/value pairs.
+    const char *metadataJSON;
+
+    /// Length in bytes of metadataJSON (excluding null terminator).
+    int32_t metadataJSONLength;
 } ITKImageDescriptorC;
 
 
@@ -89,6 +105,9 @@ typedef struct ITKImageDescriptorC {
 /// Returns true on success. The string is always null-terminated
 /// as long as bufferLength > 0.
 bool ITKBridgeGetVersionString(char *buffer, int bufferLength);
+
+/// Returns true if the ITK build has DCMTK support enabled.
+bool ITKBridgeSupportsDCMTK(void);
 
 
 /// Load a DICOM series from a directory.
@@ -110,6 +129,13 @@ bool ITKLoadDicomSeries(const char *directoryPath,
                         ITKImageDescriptorC *outDescriptor,
                         char *errorBuffer,
                         int errorBufferLength);
+
+/// Load a DICOM series from a directory, forcing a specific backend.
+bool ITKLoadDicomSeriesWithBackend(const char *directoryPath,
+                                   ITKDicomBackendC backend,
+                                   ITKImageDescriptorC *outDescriptor,
+                                   char *errorBuffer,
+                                   int errorBufferLength);
 
 
 /// Load a single-file volume (NIfTI, NRRD, MetaImage, etc.).

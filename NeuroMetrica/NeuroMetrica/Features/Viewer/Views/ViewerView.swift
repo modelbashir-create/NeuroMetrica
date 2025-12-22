@@ -1,144 +1,49 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct ViewerView: View {
+    @Environment(ViewerState.self) private var viewerState
     @ObservedObject var viewModel: ViewerViewModel
-    @EnvironmentObject var appSettings: AppSettings
+    let image: Image?
+    let isLoading: Bool
+    let isActive: Bool
 
     // For drag-based scrubbing
     @State private var accumulatedDrag: CGFloat = 0
 
-    // For keyboard focus (macOS / iPad with hardware keyboard)
-    @FocusState private var isFocused: Bool
-
-    // For the system file importer
-    @State private var isImporterPresented = false
-
     var body: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                // Background
-                Rectangle()
-                    .fill(Color.black)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.gray.opacity(0.4), lineWidth: 1)
-                    )
-
-                if let image = viewModel.currentImage {
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .padding()
-                        .gesture(sliceDragGesture)        // drag to scrub slices
-                        .overlay(scrollWheelOverlay)      // scroll wheel / trackpad on macOS
-                } else {
-                    Text("No volume loaded")
-                        .foregroundColor(.secondary)
-                        .padding()
-                }
-            }
-
-            // Simple status readout for current slice
-            Text("Slice \(currentSliceIndex + 1) of \(max(currentSliceCount, 1))")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            // Open button
-            HStack {
-                Button("Open Volume…") {
-                    isImporterPresented = true
-                }
-                .buttonStyle(.borderedProminent)
-
-                Spacer()
-            }
-
-            // Controls
-            OrientationControlView(viewModel: viewModel)
-            SliceNavigationView(viewModel: viewModel)
-            WWLControlsView(viewModel: viewModel)
-            backendPicker
-        }
-        .padding()
-        // Keyboard focus and arrow-key navigation
-        .focusable()
-        .focused($isFocused)
-        .onAppear {
-            isFocused = true
-        }
-        .onKeyPress(.upArrow) {
-            viewModel.stepSlice(by: 1)
-            return .handled
-        }
-        .onKeyPress(.downArrow) {
-            viewModel.stepSlice(by: -1)
-            return .handled
-        }
-        .fileImporter(
-            isPresented: $isImporterPresented,
-            allowedContentTypes: [
-                UTType(filenameExtension: "nii")!,
-                UTType(filenameExtension: "gz")!
-            ],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard let url = urls.first(where: {
-                    let name = $0.lastPathComponent.lowercased()
-                    return name.hasSuffix(".nii") || name.hasSuffix(".nii.gz")
-                }) else { return }
-
-                Task {
-                    // TODO: Wire this to ImportViewModel / ViewerViewModel once
-                    // the import pipeline is finalized.
-                    let didStartAccess = url.startAccessingSecurityScopedResource()
-                    defer {
-                        if didStartAccess {
-                            url.stopAccessingSecurityScopedResource()
-                        }
-                    }
-
-                    print("Selected NIfTI volume URL: \(url)")
-                }
-            case .failure(let error):
-                print("File import failed: \(error)")
+        ZStack {
+            if let image {
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .padding(8)
+                    .gesture(isActive ? sliceDragGesture : nil)
+                    .overlay(scrollWheelOverlay)
+            } else {
+                Text(isLoading ? "Loading…" : "No volume loaded")
+                    .foregroundColor(.secondary)
+                    .padding()
             }
         }
-    }
-
-    // MARK: - Plain value accessors (no $ / dynamicMember)
-
-    /// Use the ViewModel’s public read-only accessors
-    private var currentSliceIndex: Int {
-        viewModel.sliceIndex
-    }
-
-    private var currentSliceCount: Int {
-        viewModel.sliceCount
     }
 
     // MARK: - Gestures
 
-    /// Drag up/down over the image to scrub through slices.
     private var sliceDragGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
-                guard currentSliceCount > 0 else { return }
+                guard viewerState.sliceCount > 0 else { return }
 
-                // Tune this to adjust how "sensitive" the drag is.
                 let pointsPerSlice: CGFloat = 8
-
                 let total = value.translation.height + accumulatedDrag
                 let steps = Int(-total / pointsPerSlice)
 
                 if steps != 0 {
-                    viewModel.stepSlice(by: steps)
-                    accumulatedDrag += CGFloat(steps) * pointsPerSlice
-                }
+                guard isActive else { return }
+                viewModel.stepSlice(by: steps)
+                accumulatedDrag += CGFloat(steps) * pointsPerSlice
             }
+        }
             .onEnded { _ in
                 accumulatedDrag = 0
             }
@@ -149,33 +54,18 @@ struct ViewerView: View {
     @ViewBuilder
     private var scrollWheelOverlay: some View {
         #if os(macOS)
-        ScrollWheelCatcherView { deltaY in
-            guard currentSliceCount > 0 else { return }
+        ScrollWheelCatcherView { deltaY, modifiers in
+            guard viewerState.sliceCount > 0 else { return }
+            guard isActive else { return }
 
-            // On macOS, positive deltaY is typically a scroll up (toward user)
-            let step = deltaY > 0 ? 1 : -1
+            let isFast = modifiers.contains(.shift)
+            let step = deltaY > 0 ? (isFast ? 5 : 1) : (isFast ? -5 : -1)
             viewModel.stepSlice(by: step)
         }
         .allowsHitTesting(false)
         #else
         EmptyView()
         #endif
-    }
-
-    // MARK: - Backend picker
-
-    private var backendPicker: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Processing Backend")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            Picker("Processing Backend", selection: $appSettings.processingBackend) {
-                ForEach(ProcessingBackend.allCases) { backend in
-                    Text(backend.displayName).tag(backend)
-                }
-            }
-            .pickerStyle(.segmented)
-        }
     }
 }
 
@@ -184,16 +74,16 @@ import AppKit
 
 /// Bridges macOS scroll wheel / trackpad events into SwiftUI.
 struct ScrollWheelCatcherView: NSViewRepresentable {
-    var onScroll: (CGFloat) -> Void
+    var onScroll: (CGFloat, NSEvent.ModifierFlags) -> Void
 
     final class RepresentedView: NSView {
-        var onScroll: ((CGFloat) -> Void)?
+        var onScroll: ((CGFloat, NSEvent.ModifierFlags) -> Void)?
 
         override var acceptsFirstResponder: Bool { true }
 
         override func scrollWheel(with event: NSEvent) {
             super.scrollWheel(with: event)
-            onScroll?(event.scrollingDeltaY)
+            onScroll?(event.scrollingDeltaY, event.modifierFlags)
         }
     }
 

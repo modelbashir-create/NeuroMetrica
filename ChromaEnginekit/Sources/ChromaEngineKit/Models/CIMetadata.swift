@@ -53,6 +53,7 @@ public struct CIMetadata: Sendable, Equatable {
     public var patientName: String?
     public var patientSex: String?
     public var patientBirthDate: String?   // Raw DICOM or normalized string
+    public var patientAge: String?
 
     // MARK: - Study / Series
 
@@ -132,6 +133,7 @@ public struct CIMetadata: Sendable, Equatable {
         patientName: String? = nil,
         patientSex: String? = nil,
         patientBirthDate: String? = nil,
+        patientAge: String? = nil,
         studyInstanceUID: String? = nil,
         seriesInstanceUID: String? = nil,
         frameOfReferenceUID: String? = nil,
@@ -159,6 +161,7 @@ public struct CIMetadata: Sendable, Equatable {
         self.patientName = patientName
         self.patientSex = patientSex
         self.patientBirthDate = patientBirthDate
+        self.patientAge = patientAge
         self.studyInstanceUID = studyInstanceUID
         self.seriesInstanceUID = seriesInstanceUID
         self.frameOfReferenceUID = frameOfReferenceUID
