@@ -7,20 +7,32 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		FF7A019E2EC7EDB900CD988F /* CIImage2D+Image.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7A019D2EC7EDB600CD988F /* CIImage2D+Image.swift */; };
+		13A48E68A14A4034A93349C2 /* ErrorOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC479D57ADC4A0A83AC1191 /* ErrorOverlayView.swift */; };
+		2E3A1F5EFCEB4D61BEE0A287 /* ViewViewerTransitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6619C6ADAF6F48B29CAF6AC1 /* ViewViewerTransitions.swift */; };
+		3DDB3321273E42159E379CCC /* ViewViewerGlassEffect.swift in Sources */ = {isa = PBXBuildFile; fileRef = C34F7F1AC3094DCD8D5046DD /* ViewViewerGlassEffect.swift */; };
+		5772E5C57E714FF9BF708A4F /* Placeholder3DView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986815EC54BD4283AD1D12F3 /* Placeholder3DView.swift */; };
+		70988EF6CDAD42E29ACD3393 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829A90921FF94718ABC0F784 /* SidebarView.swift */; };
+		C4DE3750A595481883581D5C /* CrosshairOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D8B3C3979B7413EA9E9FB40 /* CrosshairOverlay.swift */; };
+		C50D94C06D704467883AEAE7 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 577345CA560B4506B83EF171 /* InspectorView.swift */; };
+		D37FDDF0DA3C4B6E8B944957 /* LoadingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A43C29D672D413AB30D92FB /* LoadingOverlayView.swift */; };
+		D917FFCACA4A43C9A3B6B1A7 /* ExportSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65AA36EE534B437F82D1DB5C /* ExportSheetView.swift */; };
+		FA0DAD5D1809411D9AF1A1DD /* ViewportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50E993A984B4B1E92CBB700 /* ViewportView.swift */; };
+		FBEDEF8A7BD94ACE91518B32 /* MeasurementOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AFC40FE1F0B4C0081C7DFB7 /* MeasurementOverlay.swift */; };
+		FF303CE52EFB290000CD8E2B /* NeurometricaIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = FF303CE42EFB290000CD8E2B /* NeurometricaIcon.icon */; };
+		FF3DD3C62EF8DDAA00AF5665 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3DD3C52EF8DDA400AF5665 /* ContentView.swift */; };
+		FF7A019E2EC7EDB900CD988F /* CIImage2DImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7A019D2EC7EDB600CD988F /* CIImage2DImage.swift */; };
 		FF7BB3842EE2422700643382 /* ChromaEngineKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF7BB3832EE2422700643382 /* ChromaEngineKit */; };
 		FF7BB3872EE244CE00643382 /* ChromaEngineKit in Frameworks */ = {isa = PBXBuildFile; productRef = FF7BB3862EE244CE00643382 /* ChromaEngineKit */; };
 		FF9BB7332EC6D8FA000F271C /* NeuroMetricaUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F82EC6C90A00315F9C /* NeuroMetricaUITestsLaunchTests.swift */; };
 		FF9BB7342EC6D8FA000F271C /* NeuroMetricaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F72EC6C90A00315F9C /* NeuroMetricaUITests.swift */; };
 		FF9BB7352EC6D903000F271C /* NeuroMetricaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC408F52EC6C90A00315F9C /* NeuroMetricaTests.swift */; };
+		B0DF5D00C8C84573BB476030 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1033F69326094C25AFF6C615 /* LaunchScreen.storyboard */; platformFilter = ios; };
 		FF9BB7692EC7199D000F271C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FF9BB7672EC7199D000F271C /* Assets.xcassets */; };
 		FF9BB76A2EC7199D000F271C /* SliceNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7612EC7199D000F271C /* SliceNavigationView.swift */; };
 		FF9BB76B2EC7199D000F271C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7592EC7199D000F271C /* SettingsView.swift */; };
 		FF9BB76C2EC7199D000F271C /* DebugOverlayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB74B2EC7199D000F271C /* DebugOverlayViewModel.swift */; };
 		FF9BB76D2EC7199D000F271C /* ImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7542EC7199D000F271C /* ImportView.swift */; };
 		FF9BB76E2EC7199D000F271C /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73A2EC7199D000F271C /* AppSettings.swift */; };
-		FFCCB0012F00000100000001 /* Study.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFCCB0012F00000100000002 /* Study.swift */; };
-		FFCCB0032F00000100000003 /* StudySeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFCCB0032F00000100000004 /* StudySeries.swift */; };
 		FF9BB76F2EC7199D000F271C /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7622EC7199D000F271C /* ViewerView.swift */; };
 		FF9BB7702EC7199D000F271C /* ChromaEngineBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73F2EC7199D000F271C /* ChromaEngineBridge.swift */; };
 		FF9BB7712EC7199D000F271C /* ImportSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7502EC7199D000F271C /* ImportSource.swift */; };
@@ -30,10 +42,9 @@
 		FF9BB7752EC7199D000F271C /* OrientationControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7602EC7199D000F271C /* OrientationControlView.swift */; };
 		FF9BB7762EC7199D000F271C /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7392EC7199D000F271C /* AppError.swift */; };
 		FF9BB7772EC7199D000F271C /* AppContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7362EC7199D000F271C /* AppContainer.swift */; };
-		FF9BB7782EC7199D000F271C /* Color+NeuroMetrica.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7442EC7199D000F271C /* Color+NeuroMetrica.swift */; };
-		FFCCB0102F00000100000010 /* ViewerErrorPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFCCB0112F00000100000011 /* ViewerErrorPresenter.swift */; };
+		FF9BB7782EC7199D000F271C /* HeritagePACSTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7442EC7199D000F271C /* HeritagePACSTheme.swift */; };
 		FF9BB7792EC7199D000F271C /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7572EC7199D000F271C /* SettingsViewModel.swift */; };
-		FF9BB77A2EC7199D000F271C /* View+NeuroMetrica.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7452EC7199D000F271C /* View+NeuroMetrica.swift */; };
+		FF9BB77A2EC7199D000F271C /* ViewNeuroMetrica.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7452EC7199D000F271C /* ViewNeuroMetrica.swift */; };
 		FF9BB77B2EC7199D000F271C /* MainThreadExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7472EC7199D000F271C /* MainThreadExecutor.swift */; };
 		FF9BB77C2EC7199D000F271C /* RecentFilesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73D2EC7199D000F271C /* RecentFilesStore.swift */; };
 		FF9BB77D2EC7199D000F271C /* ViewerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB75E2EC7199D000F271C /* ViewerViewModel.swift */; };
@@ -42,6 +53,13 @@
 		FF9BB7802EC7199D000F271C /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7412EC7199D000F271C /* AppLogger.swift */; };
 		FF9BB7812EC7199D000F271C /* FilePickerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73C2EC7199D000F271C /* FilePickerService.swift */; };
 		FFA9EFF52EF663290073AA65 /* OrientationAliases.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA9EFF42EF6631F0073AA65 /* OrientationAliases.swift */; };
+		FFAB12032F5A0001 /* LoadingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFAB12012F5A0001 /* LoadingViewModel.swift */; };
+		FFAB12042F5A0001 /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFAB12022F5A0001 /* LoadingView.swift */; };
+		FFB120052F5B0001 /* VolumeOpenRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB120042F5B0001 /* VolumeOpenRouting.swift */; };
+		FFCCB0012F00000100000001 /* Study.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFCCB0012F00000100000002 /* Study.swift */; };
+		FFCCB0032F00000100000003 /* StudySeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFCCB0032F00000100000004 /* StudySeries.swift */; };
+		FFCCB0102F00000100000010 /* ViewerErrorPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFCCB0112F00000100000011 /* ViewerErrorPresenter.swift */; };
+		FFF457555AB14674B8AC2D84 /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44BB442C53914EB5BF4F2EB8 /* CanvasView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,21 +80,33 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		FF7A019D2EC7EDB600CD988F /* CIImage2D+Image.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CIImage2D+Image.swift"; sourceTree = "<group>"; };
+		0D8B3C3979B7413EA9E9FB40 /* CrosshairOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrosshairOverlay.swift; sourceTree = "<group>"; };
+		44BB442C53914EB5BF4F2EB8 /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
+		4AC479D57ADC4A0A83AC1191 /* ErrorOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorOverlayView.swift; sourceTree = "<group>"; };
+		577345CA560B4506B83EF171 /* InspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorView.swift; sourceTree = "<group>"; };
+		65AA36EE534B437F82D1DB5C /* ExportSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSheetView.swift; sourceTree = "<group>"; };
+		6619C6ADAF6F48B29CAF6AC1 /* ViewViewerTransitions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewViewerTransitions.swift; sourceTree = "<group>"; };
+		6A43C29D672D413AB30D92FB /* LoadingOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingOverlayView.swift; sourceTree = "<group>"; };
+		7AFC40FE1F0B4C0081C7DFB7 /* MeasurementOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementOverlay.swift; sourceTree = "<group>"; };
+		829A90921FF94718ABC0F784 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		986815EC54BD4283AD1D12F3 /* Placeholder3DView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Placeholder3DView.swift; sourceTree = "<group>"; };
+		B50E993A984B4B1E92CBB700 /* ViewportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewportView.swift; sourceTree = "<group>"; };
+		C34F7F1AC3094DCD8D5046DD /* ViewViewerGlassEffect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewViewerGlassEffect.swift; sourceTree = "<group>"; };
+		FF303CE42EFB290000CD8E2B /* NeurometricaIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = NeurometricaIcon.icon; sourceTree = "<group>"; };
+		FF3DD3C52EF8DDA400AF5665 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		1033F69326094C25AFF6C615 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		FF7A019D2EC7EDB600CD988F /* CIImage2DImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CIImage2DImage.swift; sourceTree = "<group>"; };
 		FF9BB7362EC7199D000F271C /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
 		FF9BB7372EC7199D000F271C /* NeuroMetricaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeuroMetricaApp.swift; sourceTree = "<group>"; };
 		FF9BB7392EC7199D000F271C /* AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppError.swift; sourceTree = "<group>"; };
 		FF9BB73A2EC7199D000F271C /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
-		FFCCB0012F00000100000002 /* Study.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Study.swift; sourceTree = "<group>"; };
-		FFCCB0032F00000100000004 /* StudySeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySeries.swift; sourceTree = "<group>"; };
 		FF9BB73C2EC7199D000F271C /* FilePickerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePickerService.swift; sourceTree = "<group>"; };
 		FF9BB73D2EC7199D000F271C /* RecentFilesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesStore.swift; sourceTree = "<group>"; };
 		FF9BB73F2EC7199D000F271C /* ChromaEngineBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromaEngineBridge.swift; sourceTree = "<group>"; };
 		FF9BB7412EC7199D000F271C /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
-		FF9BB7442EC7199D000F271C /* Color+NeuroMetrica.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+NeuroMetrica.swift"; sourceTree = "<group>"; };
-		FF9BB7452EC7199D000F271C /* View+NeuroMetrica.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+NeuroMetrica.swift"; sourceTree = "<group>"; };
+		FF9BB7442EC7199D000F271C /* HeritagePACSTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeritagePACSTheme.swift; sourceTree = "<group>"; };
+		FF9BB7452EC7199D000F271C /* ViewNeuroMetrica.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewNeuroMetrica.swift; sourceTree = "<group>"; };
 		FF9BB7472EC7199D000F271C /* MainThreadExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainThreadExecutor.swift; sourceTree = "<group>"; };
-		FFCCB0112F00000100000011 /* ViewerErrorPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerErrorPresenter.swift; sourceTree = "<group>"; };
 		FF9BB74B2EC7199D000F271C /* DebugOverlayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlayViewModel.swift; sourceTree = "<group>"; };
 		FF9BB74D2EC7199D000F271C /* DebugOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlayView.swift; sourceTree = "<group>"; };
 		FF9BB7502EC7199D000F271C /* ImportSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportSource.swift; sourceTree = "<group>"; };
@@ -92,12 +122,18 @@
 		FF9BB7632EC7199D000F271C /* WWLControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WWLControlsView.swift; sourceTree = "<group>"; };
 		FF9BB7672EC7199D000F271C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FFA9EFF42EF6631F0073AA65 /* OrientationAliases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationAliases.swift; sourceTree = "<group>"; };
+		FFAB12012F5A0001 /* LoadingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingViewModel.swift; sourceTree = "<group>"; };
+		FFAB12022F5A0001 /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
+		FFB120042F5B0001 /* VolumeOpenRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeOpenRouting.swift; sourceTree = "<group>"; };
 		FFB3E2142EC54F1600EBFFE6 /* NeuroMetrica.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NeuroMetrica.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFB3E2212EC54F1900EBFFE6 /* NeuroMetricaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NeuroMetricaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFB3E22B2EC54F1900EBFFE6 /* NeuroMetricaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NeuroMetricaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFC408F52EC6C90A00315F9C /* NeuroMetricaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeuroMetricaTests.swift; sourceTree = "<group>"; };
 		FFC408F72EC6C90A00315F9C /* NeuroMetricaUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeuroMetricaUITests.swift; sourceTree = "<group>"; };
 		FFC408F82EC6C90A00315F9C /* NeuroMetricaUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeuroMetricaUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		FFCCB0012F00000100000002 /* Study.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Study.swift; sourceTree = "<group>"; };
+		FFCCB0032F00000100000004 /* StudySeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySeries.swift; sourceTree = "<group>"; };
+		FFCCB0112F00000100000011 /* ViewerErrorPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerErrorPresenter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,11 +163,98 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0259014416B0448493F60824 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				FF7A019D2EC7EDB600CD988F /* CIImage2DImage.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		0A87AB8067F442B194B00BD2 /* Inspector */ = {
+			isa = PBXGroup;
+			children = (
+				577345CA560B4506B83EF171 /* InspectorView.swift */,
+			);
+			path = Inspector;
+			sourceTree = "<group>";
+		};
+		101EE9E736334108824E7B6F /* Sheets */ = {
+			isa = PBXGroup;
+			children = (
+				65AA36EE534B437F82D1DB5C /* ExportSheetView.swift */,
+			);
+			path = Sheets;
+			sourceTree = "<group>";
+		};
+		14B0298494AD44B49EC24962 /* Overlays */ = {
+			isa = PBXGroup;
+			children = (
+				0D8B3C3979B7413EA9E9FB40 /* CrosshairOverlay.swift */,
+				7AFC40FE1F0B4C0081C7DFB7 /* MeasurementOverlay.swift */,
+				986815EC54BD4283AD1D12F3 /* Placeholder3DView.swift */,
+				6A43C29D672D413AB30D92FB /* LoadingOverlayView.swift */,
+				4AC479D57ADC4A0A83AC1191 /* ErrorOverlayView.swift */,
+			);
+			path = Overlays;
+			sourceTree = "<group>";
+		};
+		273118E3FD57463E9CDDBCC2 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				6619C6ADAF6F48B29CAF6AC1 /* ViewViewerTransitions.swift */,
+				C34F7F1AC3094DCD8D5046DD /* ViewViewerGlassEffect.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		59A391AFD81649F5AF098763 /* Sidebar */ = {
+			isa = PBXGroup;
+			children = (
+				829A90921FF94718ABC0F784 /* SidebarView.swift */,
+			);
+			path = Sidebar;
+			sourceTree = "<group>";
+		};
+		6ACFB9BCC0D940B29561C0BD /* Styles */ = {
+			isa = PBXGroup;
+			children = (
+				FF9BB7442EC7199D000F271C /* HeritagePACSTheme.swift */,
+			);
+			path = Styles;
+			sourceTree = "<group>";
+		};
+		794F8080B62645F0AD3BD70A /* Viewport */ = {
+			isa = PBXGroup;
+			children = (
+				B50E993A984B4B1E92CBB700 /* ViewportView.swift */,
+				14B0298494AD44B49EC24962 /* Overlays */,
+			);
+			path = Viewport;
+			sourceTree = "<group>";
+		};
+		9DF9149971FE4775B3691DAB /* Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				FFB120042F5B0001 /* VolumeOpenRouting.swift */,
+			);
+			path = Protocols;
+			sourceTree = "<group>";
+		};
+		D773678E8D6448FD92551738 /* Canvas */ = {
+			isa = PBXGroup;
+			children = (
+				44BB442C53914EB5BF4F2EB8 /* CanvasView.swift */,
+			);
+			path = Canvas;
+			sourceTree = "<group>";
+		};
 		FF9BB7382EC7199D000F271C /* App */ = {
 			isa = PBXGroup;
 			children = (
 				FF9BB7362EC7199D000F271C /* AppContainer.swift */,
 				FF9BB7372EC7199D000F271C /* NeuroMetricaApp.swift */,
+				1033F69326094C25AFF6C615 /* LaunchScreen.storyboard */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -185,9 +308,7 @@
 		FF9BB7462EC7199D000F271C /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
-				FF7A019D2EC7EDB600CD988F /* CIImage2D+Image.swift */,
-				FF9BB7442EC7199D000F271C /* Color+NeuroMetrica.swift */,
-				FF9BB7452EC7199D000F271C /* View+NeuroMetrica.swift */,
+				FF9BB7452EC7199D000F271C /* ViewNeuroMetrica.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -196,7 +317,6 @@
 			isa = PBXGroup;
 			children = (
 				FF9BB7472EC7199D000F271C /* MainThreadExecutor.swift */,
-				FFCCB0112F00000100000011 /* ViewerErrorPresenter.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -214,6 +334,7 @@
 			isa = PBXGroup;
 			children = (
 				FF9BB73B2EC7199D000F271C /* Models */,
+				9DF9149971FE4775B3691DAB /* Protocols */,
 				FF9BB7432EC7199D000F271C /* Services */,
 				FF9BB7492EC7199D000F271C /* Utils */,
 			);
@@ -309,6 +430,7 @@
 			children = (
 				FFA9EFF42EF6631F0073AA65 /* OrientationAliases.swift */,
 				FF9BB75C2EC7199D000F271C /* ViewerState.swift */,
+				FFCCB0112F00000100000011 /* ViewerErrorPresenter.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -324,6 +446,13 @@
 		FF9BB7642EC7199D000F271C /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				FF3DD3C52EF8DDA400AF5665 /* ContentView.swift */,
+				59A391AFD81649F5AF098763 /* Sidebar */,
+				D773678E8D6448FD92551738 /* Canvas */,
+				794F8080B62645F0AD3BD70A /* Viewport */,
+				0A87AB8067F442B194B00BD2 /* Inspector */,
+				101EE9E736334108824E7B6F /* Sheets */,
+				273118E3FD57463E9CDDBCC2 /* Shared */,
 				FF9BB7602EC7199D000F271C /* OrientationControlView.swift */,
 				FF9BB7612EC7199D000F271C /* SliceNavigationView.swift */,
 				FF9BB7622EC7199D000F271C /* ViewerView.swift */,
@@ -338,6 +467,8 @@
 				FF9BB75D2EC7199D000F271C /* Models */,
 				FF9BB75F2EC7199D000F271C /* ViewModels */,
 				FF9BB7642EC7199D000F271C /* Views */,
+				6ACFB9BCC0D940B29561C0BD /* Styles */,
+				0259014416B0448493F60824 /* Utils */,
 			);
 			path = Viewer;
 			sourceTree = "<group>";
@@ -348,6 +479,7 @@
 				FF9BB74F2EC7199D000F271C /* DevTools */,
 				FF9BB7562EC7199D000F271C /* Import */,
 				FF9BB75B2EC7199D000F271C /* Settings */,
+				FFAB12102F5A0001 /* Loading */,
 				FF9BB7652EC7199D000F271C /* Viewer */,
 			);
 			path = Features;
@@ -360,8 +492,34 @@
 				FF9BB74A2EC7199D000F271C /* Core */,
 				FF9BB7662EC7199D000F271C /* Features */,
 				FF9BB7672EC7199D000F271C /* Assets.xcassets */,
+				FF303CE42EFB290000CD8E2B /* NeurometricaIcon.icon */,
 			);
 			path = NeuroMetrica;
+			sourceTree = "<group>";
+		};
+		FFAB12102F5A0001 /* Loading */ = {
+			isa = PBXGroup;
+			children = (
+				FFAB12112F5A0001 /* ViewModels */,
+				FFAB12122F5A0001 /* Views */,
+			);
+			path = Loading;
+			sourceTree = "<group>";
+		};
+		FFAB12112F5A0001 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				FFAB12012F5A0001 /* LoadingViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		FFAB12122F5A0001 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				FFAB12022F5A0001 /* LoadingView.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 		FFB3E20B2EC54F1600EBFFE6 = {
@@ -529,6 +687,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				FF9BB7692EC7199D000F271C /* Assets.xcassets in Resources */,
+				FF303CE52EFB290000CD8E2B /* NeurometricaIcon.icon in Resources */,
+				B0DF5D00C8C84573BB476030 /* LaunchScreen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -559,6 +719,19 @@
 				FFA9EFF52EF663290073AA65 /* OrientationAliases.swift in Sources */,
 				FF9BB76D2EC7199D000F271C /* ImportView.swift in Sources */,
 				FF9BB76E2EC7199D000F271C /* AppSettings.swift in Sources */,
+				FF3DD3C62EF8DDAA00AF5665 /* ContentView.swift in Sources */,
+				70988EF6CDAD42E29ACD3393 /* SidebarView.swift in Sources */,
+				FFF457555AB14674B8AC2D84 /* CanvasView.swift in Sources */,
+				FA0DAD5D1809411D9AF1A1DD /* ViewportView.swift in Sources */,
+				C4DE3750A595481883581D5C /* CrosshairOverlay.swift in Sources */,
+				FBEDEF8A7BD94ACE91518B32 /* MeasurementOverlay.swift in Sources */,
+				5772E5C57E714FF9BF708A4F /* Placeholder3DView.swift in Sources */,
+				D37FDDF0DA3C4B6E8B944957 /* LoadingOverlayView.swift in Sources */,
+				13A48E68A14A4034A93349C2 /* ErrorOverlayView.swift in Sources */,
+				C50D94C06D704467883AEAE7 /* InspectorView.swift in Sources */,
+				D917FFCACA4A43C9A3B6B1A7 /* ExportSheetView.swift in Sources */,
+				2E3A1F5EFCEB4D61BEE0A287 /* ViewViewerTransitions.swift in Sources */,
+				3DDB3321273E42159E379CCC /* ViewViewerGlassEffect.swift in Sources */,
 				FFCCB0012F00000100000001 /* Study.swift in Sources */,
 				FFCCB0032F00000100000003 /* StudySeries.swift in Sources */,
 				FF9BB76F2EC7199D000F271C /* ViewerView.swift in Sources */,
@@ -570,10 +743,10 @@
 				FF9BB7752EC7199D000F271C /* OrientationControlView.swift in Sources */,
 				FF9BB7762EC7199D000F271C /* AppError.swift in Sources */,
 				FF9BB7772EC7199D000F271C /* AppContainer.swift in Sources */,
-				FF9BB7782EC7199D000F271C /* Color+NeuroMetrica.swift in Sources */,
+				FF9BB7782EC7199D000F271C /* HeritagePACSTheme.swift in Sources */,
 				FFCCB0102F00000100000010 /* ViewerErrorPresenter.swift in Sources */,
 				FF9BB7792EC7199D000F271C /* SettingsViewModel.swift in Sources */,
-				FF9BB77A2EC7199D000F271C /* View+NeuroMetrica.swift in Sources */,
+				FF9BB77A2EC7199D000F271C /* ViewNeuroMetrica.swift in Sources */,
 				FF9BB77B2EC7199D000F271C /* MainThreadExecutor.swift in Sources */,
 				FF9BB77C2EC7199D000F271C /* RecentFilesStore.swift in Sources */,
 				FF9BB77D2EC7199D000F271C /* ViewerViewModel.swift in Sources */,
@@ -581,7 +754,10 @@
 				FF9BB77F2EC7199D000F271C /* ImportViewModel.swift in Sources */,
 				FF9BB7802EC7199D000F271C /* AppLogger.swift in Sources */,
 				FF9BB7812EC7199D000F271C /* FilePickerService.swift in Sources */,
-				FF7A019E2EC7EDB900CD988F /* CIImage2D+Image.swift in Sources */,
+				FF7A019E2EC7EDB900CD988F /* CIImage2DImage.swift in Sources */,
+				FFAB12032F5A0001 /* LoadingViewModel.swift in Sources */,
+				FFAB12042F5A0001 /* LoadingView.swift in Sources */,
+				FFB120052F5B0001 /* VolumeOpenRouting.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -741,8 +917,9 @@
 		FFB3E2362EC54F1900EBFFE6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = NeurometricaIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -757,8 +934,10 @@
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = NO;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = NO;
+				"INFOPLIST_KEY_UILaunchStoryboardName[sdk=iphoneos*]" = LaunchScreen;
+				"INFOPLIST_KEY_UILaunchStoryboardName[sdk=iphonesimulator*]" = LaunchScreen;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -788,8 +967,9 @@
 		FFB3E2372EC54F1900EBFFE6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = NeurometricaIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -804,8 +984,10 @@
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = NO;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = NO;
+				"INFOPLIST_KEY_UILaunchStoryboardName[sdk=iphoneos*]" = LaunchScreen;
+				"INFOPLIST_KEY_UILaunchStoryboardName[sdk=iphonesimulator*]" = LaunchScreen;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

@@ -1,4 +1,5 @@
 import SwiftUI
+import ChromaEngineKit
 
 struct OrientationControlView: View {
     @Environment(ViewerState.self) private var viewerState

@@ -68,6 +68,16 @@ UPDATE 7: I orginally planned on using DCMTK and Nifti library for dicom and nif
 
 Update 8:  Successfully built a multi-slice ITK.xcframework for macOS/iOS/visionOS (device + simulators) and integrated it to ChromaImagingCore package. I want to limit the use of ITK to IO and simple image operations.In terms of speed well optomized c++ code is as fast if not faster then native swift code with vDSP. I dont think i can do better then ITK in image processing but I will limit my use when it comes to rendering 3D objects or AI tasks that are much better handled by metal and CoreML. Where possible I will aim to use ITK logic and write swift code if something is simple enough. if its not simple But better handled by metal or coreMl I will write native code.
 
+Roadmap (V1-V5 summary, aligned with Vertical Slices)
+- V1 Core Viewer: ✅ NIfTI open, ✅ single viewport, ✅ arrow key navigation, ✅ slice index display, ✅ WW/WL sliders + readout, ✅ grayscale rendering, ✅ dark UI; ☐ DICOM open, ☐ orientation picker, ☐ scroll/trackpad navigation, ☐ overlays/metadata, ☐ empty/error states, ☐ performance targets.
+- V2 Complete 2D Workstation: zoom/pan, WW/WL drag + presets, measurements, export, study info panel.
+- V2 Complete 2D Workstation: ☐ zoom/pan, ☐ WW/WL drag + presets, ☐ measurements, ☐ export, ☐ study info panel.
+- V3 3D Foundation: ☐ 3D modes (Slice/MIP/VR), ☐ 3D navigation, ☐ GPU MIP, ☐ basic VR, ☐ performance targets.
+- V4 Advanced 3D: ☐ sculpting/masks, ☐ transfer functions + presets, ☐ 4D time + fusion, ☐ 3D export.
+- V5 AI + Registration: ☐ on-device AI overlays, ☐ registration/fusion, ☐ smart suggestions, ☐ advanced export.
+
+Full checklist and status: see `Docs/VERTICAL_SLICES.md` (source of truth).
+
 
 V1 – Core Viewer (DICOM + NIfTI). 
 Goal: To read studies.

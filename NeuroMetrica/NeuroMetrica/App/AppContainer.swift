@@ -13,12 +13,15 @@ import Observation
 /// Later we will extend this to also create and inject shared services
 /// and feature view models (ViewerViewModel, ImportViewModel, etc.).
 struct AppContainer: View {
+    private static var didShowLoadingThisLaunch = false
+
     @State private var viewerState: ViewerState
     @State private var inspectorPresented: Bool = true
     @StateObject private var appSettings: AppSettings
     @StateObject private var viewerViewModel: ViewerViewModel
     @StateObject private var recentFilesStore: RecentFilesStore
     @StateObject private var importViewModel: ImportViewModel
+    @StateObject private var loadingViewModel: LoadingViewModel
 
     init() {
         let viewerState = ViewerState()
@@ -35,24 +38,38 @@ struct AppContainer: View {
         let importViewModel = ImportViewModel(
             filePickerService: filePickerService,
             recentFilesStore: recentFilesStore,
-            viewerViewModel: viewerViewModel
+            volumeRouter: viewerViewModel
         )
+        let loadingViewModel = LoadingViewModel()
+
+        if AppContainer.didShowLoadingThisLaunch {
+            loadingViewModel.isFinished = true
+        } else {
+            AppContainer.didShowLoadingThisLaunch = true
+        }
 
         _viewerState = State(initialValue: viewerState)
         _appSettings = StateObject(wrappedValue: appSettings)
         _viewerViewModel = StateObject(wrappedValue: viewerViewModel)
         _recentFilesStore = StateObject(wrappedValue: recentFilesStore)
         _importViewModel = StateObject(wrappedValue: importViewModel)
+        _loadingViewModel = StateObject(wrappedValue: loadingViewModel)
     }
 
     var body: some View {
-        ContentView(
-            viewModel: viewerViewModel,
-            importViewModel: importViewModel,
-            inspectorPresented: $inspectorPresented
-        )
-            .environment(viewerState)
-            .environmentObject(appSettings)
+        Group {
+            if loadingViewModel.isFinished {
+                ContentView(
+                    viewModel: viewerViewModel,
+                    importViewModel: importViewModel,
+                    inspectorPresented: $inspectorPresented
+                )
+                    .environment(viewerState)
+                    .environmentObject(appSettings)
+            } else {
+                LoadingView(viewModel: loadingViewModel)
+            }
+        }
     }
 }
 

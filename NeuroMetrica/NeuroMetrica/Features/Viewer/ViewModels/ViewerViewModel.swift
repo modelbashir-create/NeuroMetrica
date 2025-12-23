@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import SwiftUI
+import ChromaEngineKit
 
 /// ViewerViewModel
 ///
@@ -231,7 +232,8 @@ final class ViewerViewModel: ObservableObject {
 
         cineTasks[viewportIndex]?.cancel()
         let task = Task { [weak self] in
-            await self?.runCineLoop(for: viewportIndex)
+            guard let self else { return }
+            await self.runCineLoop(for: viewportIndex)
         }
         cineTasks[viewportIndex] = task
     }
@@ -452,6 +454,28 @@ final class ViewerViewModel: ObservableObject {
         viewportImages[index] ?? nil
     }
 
+    func displayAspectRatio(for viewportIndex: Int) -> CGFloat? {
+        guard let descriptor = currentDescriptor else { return nil }
+
+        let width: Double
+        let height: Double
+
+        switch viewerState.orientation(for: viewportIndex) {
+        case .axial:
+            width = Double(descriptor.sizeX) * descriptor.spacingX
+            height = Double(descriptor.sizeY) * descriptor.spacingY
+        case .coronal:
+            width = Double(descriptor.sizeX) * descriptor.spacingX
+            height = Double(descriptor.sizeZ) * descriptor.spacingZ
+        case .sagittal:
+            width = Double(descriptor.sizeY) * descriptor.spacingY
+            height = Double(descriptor.sizeZ) * descriptor.spacingZ
+        }
+
+        guard width > 0, height > 0 else { return nil }
+        return CGFloat(width / height)
+    }
+
     private func loadVolume(_ request: ViewerLoadRequest) async {
         viewerState.isLoadingVolume = true
         viewerState.lastError = nil
@@ -541,3 +565,5 @@ final class ViewerViewModel: ObservableObject {
     }
 
 }
+
+extension ViewerViewModel: VolumeOpenRouting {}

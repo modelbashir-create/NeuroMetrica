@@ -150,6 +150,20 @@ bool ITKLoadSingleFileVolume(const char *filePath,
                              char *errorBuffer,
                              int errorBufferLength);
 
+/// Load a single-file DICOM volume (e.g., Secondary Capture) via a backend.
+///
+/// filePath:
+///   Filesystem path to a single DICOM file.
+/// backend:
+///   Preferred DICOM IO backend (DCMTK vs GDCM).
+/// outDescriptor / errorBuffer:
+///   Same semantics as ITKLoadDicomSeries().
+bool ITKLoadDicomFileWithBackend(const char *filePath,
+                                 ITKDicomBackendC backend,
+                                 ITKImageDescriptorC *outDescriptor,
+                                 char *errorBuffer,
+                                 int errorBufferLength);
+
 
 /// Free resources owned by the descriptor (primarily the voxel buffer).
 ///

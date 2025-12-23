@@ -1,5 +1,6 @@
+import Combine
 import Foundation
-import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 final class ImportViewModel: ObservableObject {
@@ -8,16 +9,20 @@ final class ImportViewModel: ObservableObject {
 
     private let filePickerService: FilePickerService
     private let recentFilesStore: RecentFilesStore
-    private let viewerViewModel: ViewerViewModel
+    private let volumeRouter: VolumeOpenRouting
 
     init(
         filePickerService: FilePickerService,
         recentFilesStore: RecentFilesStore,
-        viewerViewModel: ViewerViewModel
+        volumeRouter: VolumeOpenRouting
     ) {
         self.filePickerService = filePickerService
         self.recentFilesStore = recentFilesStore
-        self.viewerViewModel = viewerViewModel
+        self.volumeRouter = volumeRouter
+    }
+
+    var allowedContentTypes: [UTType] {
+        FilePickerService.allowedContentTypes
     }
 
     var studies: [Study] {
@@ -64,7 +69,7 @@ final class ImportViewModel: ObservableObject {
         case .success(let urls):
             guard let url = filePickerService.normalizeSelection(urls) else { return }
             Task {
-                await viewerViewModel.openVolume(from: url)
+                await volumeRouter.openVolume(from: url)
             }
         case .failure(let error):
             AppLogger.error("Import failed", error: error)
@@ -73,13 +78,13 @@ final class ImportViewModel: ObservableObject {
 
     func openStudy(_ study: Study) {
         Task {
-            await viewerViewModel.openStudy(study)
+            await volumeRouter.openStudy(study)
         }
     }
 
     func openSeries(_ series: StudySeries, study: Study?) {
         Task {
-            await viewerViewModel.openSeries(series, study: study)
+            await volumeRouter.openSeries(series, study: study)
         }
     }
 }

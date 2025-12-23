@@ -210,11 +210,16 @@ actor ChromaEngineBridge {
                 throw ChromaEngineBridgeError.unsupportedFormat(url)
             }
 
-            return registerVolume(
+            let descriptor = registerVolume(
                 engineDescriptor,
                 url: url,
                 format: dicomFormat
             )
+            let modality = engineDescriptor.metadata.modality ?? "UNKNOWN"
+            await MainActor.run {
+                AppLogger.info("DICOM load  succeeded (\(modality)) \(descriptor.sizeX)x\(descriptor.sizeY)x\(descriptor.sizeZ) from \(url.lastPathComponent)")
+            }
+            return descriptor
         } catch {
             throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
         }

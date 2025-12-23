@@ -4,6 +4,7 @@ struct ViewerView: View {
     @Environment(ViewerState.self) private var viewerState
     @ObservedObject var viewModel: ViewerViewModel
     let image: Image?
+    let aspectRatio: CGFloat?
     let isLoading: Bool
     let isActive: Bool
 
@@ -15,8 +16,8 @@ struct ViewerView: View {
             if let image {
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .padding(8)
+                    .aspectRatio(aspectRatio, contentMode: .fit)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .gesture(isActive ? sliceDragGesture : nil)
                     .overlay(scrollWheelOverlay)
             } else {

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="22155" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="22132"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="tne-QT-ifu">
+            <objects>
+                <viewController id="YZv-l6-3u3" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="8bC-Xf-vdC">
+                        <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView opaque="NO" clipsSubviews="YES" contentMode="scaleAspectFit" image="regularicon" translatesAutoresizingMaskIntoConstraints="NO" id="Qiv-Sd-Vw5">
+                                <rect key="frame" x="117.5" y="286" width="140" height="140"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="140" id="VxS-qc-G5K"/>
+                                    <constraint firstAttribute="height" constant="140" id="XgD-8j-Tu4"/>
+                                </constraints>
+                            </imageView>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="cQ9-n6-x0b">
+                                <rect key="frame" x="117.5" y="292" width="140" height="2"/>
+                                <color key="backgroundColor" red="0.0" green="0.8941176471" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="2" id="1jN-o9-YH1"/>
+                                    <constraint firstAttribute="width" constant="140" id="C3L-LZ-0rH"/>
+                                </constraints>
+                            </view>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="NEUROMETRICA" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="1ha-FS-Vt6">
+                                <rect key="frame" x="48" y="441" width="279" height="24"/>
+                                <fontDescription key="fontDescription" type="system" weight="thin" pointSize="22"/>
+                                <color key="textColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            </label>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="ADVANCED IMAGING VIEWER" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="A0o-e0-g5W">
+                                <rect key="frame" x="65" y="473" width="245" height="12"/>
+                                <fontDescription key="fontDescription" type="system" weight="regular" pointSize="10"/>
+                                <color key="textColor" red="0.5490196078" green="0.5490196078" blue="0.5490196078" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            </label>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
+                        <color key="backgroundColor" red="0.01176470588" green="0.01960784314" blue="0.03137254902" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="cQ9-n6-x0b" firstAttribute="top" secondItem="Qiv-Sd-Vw5" secondAttribute="top" constant="6" id="0a8-4X-3Q1"/>
+                            <constraint firstItem="Qiv-Sd-Vw5" firstAttribute="centerX" secondItem="8bC-Xf-vdC" secondAttribute="centerX" id="5jv-2p-5a2"/>
+                            <constraint firstItem="cQ9-n6-x0b" firstAttribute="centerX" secondItem="Qiv-Sd-Vw5" secondAttribute="centerX" id="6wG-l6-nvS"/>
+                            <constraint firstItem="1ha-FS-Vt6" firstAttribute="top" secondItem="Qiv-Sd-Vw5" secondAttribute="bottom" constant="16" id="7ze-yu-epC"/>
+                            <constraint firstItem="A0o-e0-g5W" firstAttribute="top" secondItem="1ha-FS-Vt6" secondAttribute="bottom" constant="8" id="8re-Ac-w9d"/>
+                            <constraint firstItem="A0o-e0-g5W" firstAttribute="centerX" secondItem="8bC-Xf-vdC" secondAttribute="centerX" id="Fzo-jQ-R1d"/>
+                            <constraint firstItem="1ha-FS-Vt6" firstAttribute="centerX" secondItem="8bC-Xf-vdC" secondAttribute="centerX" id="h0B-6A-3yS"/>
+                            <constraint firstItem="Qiv-Sd-Vw5" firstAttribute="centerY" secondItem="8bC-Xf-vdC" secondAttribute="centerY" constant="-30" id="vAC-hy-TKJ"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="Ief-9b-YJQ" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-34" y="34"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="regularicon" width="256" height="256"/>
+    </resources>
+</document>

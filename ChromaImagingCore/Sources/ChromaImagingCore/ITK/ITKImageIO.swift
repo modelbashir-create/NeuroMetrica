@@ -38,7 +38,7 @@ public enum ITKDicomBackend {
 
 /// Errors specific to ITKImageIO. These will usually be wrapped
 /// or mapped into higher-level engine errors (ChromaEngineError).
-public enum ITKImageIOError: Error, CustomStringConvertible {
+public enum ITKImageIOError: Error, CustomStringConvertible, LocalizedError {
     case fileNotFound(URL)
     case unsupportedPath(URL)
     case bridgeUnavailable(String)
@@ -55,6 +55,10 @@ public enum ITKImageIOError: Error, CustomStringConvertible {
         case .loadFailed(let message):
             return "ITKImageIO: load failed – \(message)"
         }
+    }
+
+    public var errorDescription: String? {
+        description
     }
 }
 
@@ -104,7 +108,7 @@ public enum ITKImageIO {
         case .dicomSeries:
             return try loadDicomSeries(at: url, backend: dicomBackend)
         case .singleFile:
-            return try loadSingleFileVolume(at: url)
+            return try loadSingleFileVolume(at: url, backend: dicomBackend)
         case .auto:
             // Should never happen because we resolved above.
             throw ITKImageIOError.unsupportedPath(url)
@@ -135,7 +139,8 @@ public enum ITKImageIO {
         }
 
         guard success else {
-            let message = String(cString: errorBuffer)
+            let rawMessage = String(cString: errorBuffer)
+            let message = rawMessage.isEmpty ? "Unknown ITK error." : rawMessage
             throw ITKImageIOError.loadFailed(message: message)
         }
 
@@ -143,13 +148,31 @@ public enum ITKImageIO {
     }
 
     /// Load a single-file volume (NIfTI, NRRD, etc.) via ITKBridge.
-    private static func loadSingleFileVolume(at url: URL) throws -> ITKImageDescriptor {
+    private static func loadSingleFileVolume(
+        at url: URL,
+        backend: ITKDicomBackend
+    ) throws -> ITKImageDescriptor {
         var cDescriptor = ITKImageDescriptorC()
         var errorBuffer = [CChar](repeating: 0, count: 1024)
 
-        let success = pathString(for: url).withCString { cPath in
+        let path = pathString(for: url)
+        let ext = url.pathExtension.lowercased()
+        let isDicomFile = ext == "dcm"
+
+        let success = path.withCString { cPath in
             errorBuffer.withUnsafeMutableBufferPointer { errPtr in
-                ITKLoadSingleFileVolume(
+                if isDicomFile {
+                    let resolvedBackend = resolveBackend(backend)
+                    return ITKLoadDicomFileWithBackend(
+                        cPath,
+                        resolvedBackend,
+                        &cDescriptor,
+                        errPtr.baseAddress,
+                        Int32(errPtr.count)   // <- Int → Int32
+                    )
+                }
+
+                return ITKLoadSingleFileVolume(
                     cPath,
                     &cDescriptor,
                     errPtr.baseAddress,
@@ -159,7 +182,8 @@ public enum ITKImageIO {
         }
 
         guard success else {
-            let message = String(cString: errorBuffer)
+            let rawMessage = String(cString: errorBuffer)
+            let message = rawMessage.isEmpty ? "Unknown ITK error." : rawMessage
             throw ITKImageIOError.loadFailed(message: message)
         }
 

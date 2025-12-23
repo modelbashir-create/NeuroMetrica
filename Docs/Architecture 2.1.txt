@@ -1,0 +1,532 @@
+# NeuroMetrica Workspace Architecture 2.1 (Current)
+
+This document is the source of truth for structure, MVVM boundaries, and file responsibilities.
+It is written to be AI-agent friendly: explicit trees, per-file roles, and clear ownership rules.
+
+Guiding rules
+- Strict MVVM in the app target: Views depend on ViewModels and state, never on engine or IO.
+- Apple HIG aligned UI structure and behavior.
+- Clear layering: App -> Core -> Features -> Engine Packages.
+- Core services hide engine, file IO, and logging details from Features.
+- Packages provide imaging IO/engine (ChromaImagingCore, ChromaEngineKit) and ML runtime (RedEngine).
+- Launch screen is static (UIKit-only); loading screen is app-owned UI.
+
+----------------------------------------------------------------------------------------------------
+
+1) Workspace Layout
+
+NeuroMetricaWorkspace/
+- NeuroMetrica/                  # App project (SwiftUI / MVVM)
+- NeuroMetrica.xcodeproj          # App project file
+- NeuroMetrica.xcworkspace        # Workspace linking app + local packages
+- Docs/                           # Architecture + project docs
+- ChromaEnginekit/                # Local Swift package: engine facade
+- ChromaImagingCore/              # Local Swift package: ITK IO bridge
+- RedEngine/                      # Local Swift package: ML runtime (placeholder)
+
+----------------------------------------------------------------------------------------------------
+
+2) App Project File Tree (NeuroMetrica/NeuroMetrica)
+
+NeuroMetrica/
+- App/
+  - AppContainer.swift
+  - NeuroMetricaApp.swift
+  - LaunchScreen.storyboard
+- Core/
+  - Models/
+    - AppError.swift
+    - AppSettings.swift
+    - Study.swift
+    - StudySeries.swift
+  - Protocols/
+    - VolumeOpenRouting.swift
+  - Services/
+    - FileSystem/
+      - FilePickerService.swift
+      - RecentFilesStore.swift
+    - Imaging/
+      - ChromaEngineBridge.swift
+    - Logging/
+      - AppLogger.swift
+  - Utils/
+    - Extensions/
+      - ViewNeuroMetrica.swift
+    - Helpers/
+      - MainThreadExecutor.swift
+- Features/
+  - DevTools/
+    - ViewModels/
+      - DebugOverlayViewModel.swift
+    - Views/
+      - DebugOverlayView.swift
+  - Import/
+    - Models/
+      - ImportSource.swift
+    - ViewModels/
+      - ImportViewModel.swift
+    - Views/
+      - ImportView.swift
+  - Loading/
+    - ViewModels/
+      - LoadingViewModel.swift
+    - Views/
+      - LoadingView.swift
+  - Settings/
+    - ViewModels/
+      - SettingsViewModel.swift
+    - Views/
+      - SettingsView.swift
+  - Viewer/
+    - Models/
+      - OrientationAliases.swift
+      - ViewerErrorPresenter.swift
+      - ViewerState.swift
+    - Styles/
+      - HeritagePACSTheme.swift
+    - Utils/
+      - CIImage2DImage.swift
+    - ViewModels/
+      - ViewerViewModel.swift
+    - Views/
+      - ContentView.swift
+      - OrientationControlView.swift
+      - SliceNavigationView.swift
+      - ViewerView.swift
+      - WWLControlsView.swift
+      - Canvas/
+        - CanvasView.swift
+      - Inspector/
+        - InspectorView.swift
+      - Sidebar/
+        - SidebarView.swift
+      - Sheets/
+        - ExportSheetView.swift
+      - Shared/
+        - ViewViewerGlassEffect.swift
+        - ViewViewerTransitions.swift
+      - Viewport/
+        - ViewportView.swift
+        - Overlays/
+          - CrosshairOverlay.swift
+          - ErrorOverlayView.swift
+          - LoadingOverlayView.swift
+          - MeasurementOverlay.swift
+          - Placeholder3DView.swift
+- Assets.xcassets/
+  - Contents.json
+  - AccentColor.colorset/Contents.json
+  - AppIcon.appiconset/Contents.json
+  - regularicon.imageset/Contents.json + regularicon.png
+  - xrayicon.imageset/Contents.json + xrayicon.png
+  - 3upicon.symbolset/Contents.json + 3upicon.svg
+- NeurometricaIcon.icon/
+  - icon.json
+  - Assets/brain 2.svg
+  - Assets/eye 2.svg
+  - Assets/nose 2.svg
+- NeuroMetricaTests/
+  - NeuroMetricaTests.swift
+- NeuroMetricaUITests/
+  - NeuroMetricaUITests.swift
+- NeuroMetricaUITestsLaunchTests/
+  - NeuroMetricaUITestsLaunchTests.swift
+
+Notes
+- The app icon is provided by the Icon Composer file at `NeuroMetrica/NeurometricaIcon.icon`.
+- Assets.xcassets includes UI images and legacy AppIcon asset catalog (kept for compatibility).
+
+----------------------------------------------------------------------------------------------------
+
+3) App Responsibilities (Per File)
+
+App/
+- NeuroMetricaApp.swift
+  - App entry point. Creates the WindowGroup and hosts AppContainer.
+- AppContainer.swift
+  - Composition root for UI + dependency injection.
+  - Creates ViewerState, AppSettings, services, and ViewModels.
+  - Chooses between the Loading flow and the main Viewer UI at startup.
+  - Owns loading gate and ensures loading screen only shows once per app launch.
+- LaunchScreen.storyboard
+  - Static launch screen (UIKit-only, no animation). Mirrors first-frame branding.
+
+Core/Models/
+- AppSettings.swift
+  - Global preferences (window/level defaults, backend prefs, UI flags).
+  - Observable shared settings; future persistence target.
+- AppError.swift
+  - App-level error wrapper for user-facing error descriptions.
+- Study.swift
+  - Study model used by sidebar and recents list.
+- StudySeries.swift
+  - Series model used by sidebar and recents list.
+
+Core/Protocols/
+- VolumeOpenRouting.swift
+  - Cross-feature protocol used by Import to request Viewer volume loading.
+
+Core/Services/Logging/
+- AppLogger.swift
+  - Centralized OSLog-based logging for app actions and errors.
+
+Core/Services/FileSystem/
+- FilePickerService.swift
+  - Abstraction for file selection and URL normalization.
+- RecentFilesStore.swift
+  - In-memory recents store for the Import sidebar; future persistence target.
+
+Core/Services/Imaging/
+- ChromaEngineBridge.swift
+  - Primary boundary between app ViewModels and engine packages.
+  - Loads volumes, creates slices, hides ITK/Metal details.
+  - Maintains a volume registry and provides WW/WL slices for the viewer.
+
+Core/Utils/Extensions/
+- ViewNeuroMetrica.swift
+  - Shared SwiftUI view helpers and modifiers (general-purpose).
+
+Core/Utils/Helpers/
+- MainThreadExecutor.swift
+  - Ensures UI updates are dispatched to the main thread.
+
+Features/DevTools/
+- DebugOverlayViewModel.swift
+  - Tracks debug overlay visibility and status text.
+- DebugOverlayView.swift
+  - Developer-only overlay UI.
+
+Features/Import/
+- ImportSource.swift
+  - Describes how a volume entered the app (file vs series).
+- ImportViewModel.swift
+  - Manages search, recents, and file import flow.
+  - Exposes file importer configuration to views.
+- ImportView.swift
+  - Lightweight import UI for previews and feature composition.
+
+Features/Loading/
+- LoadingViewModel.swift
+  - Drives the startup loading sequence.
+- LoadingView.swift
+  - Loading UI with progress and animation.
+
+Features/Settings/
+- SettingsViewModel.swift
+  - Wraps AppSettings for future persistence and settings orchestration.
+- SettingsView.swift
+  - HIG-aligned settings form.
+
+Features/Viewer/Models/
+- ViewerState.swift
+  - Observable viewer UI + imaging state.
+- ViewerErrorPresenter.swift
+  - Maps engine errors to user-facing messages.
+- OrientationAliases.swift
+  - Typealiases for engine orientation types.
+
+Features/Viewer/Styles/
+- HeritagePACSTheme.swift
+  - Viewer color palette and overlay colors.
+
+Features/Viewer/Utils/
+- CIImage2DImage.swift
+  - Conversion from engine CIImage2D to SwiftUI Image.
+
+Features/Viewer/ViewModels/
+- ViewerViewModel.swift
+  - Viewer orchestration, volume loading, slice rendering, cine control.
+
+Features/Viewer/Views/
+- ContentView.swift
+  - Viewer shell with split view, toolbar, and sheets.
+- Sidebar/SidebarView.swift
+  - Study browser UI (includes StudyRow, SeriesRow).
+- Canvas/CanvasView.swift
+  - Layout grid for viewports.
+- Viewport/ViewportView.swift
+  - Single viewport container and overlays.
+- Viewport/Overlays/*
+  - Crosshair, measurement, loading, error, and placeholder views.
+- Inspector/InspectorView.swift
+  - Inspector with display/analysis tabs.
+- Sheets/ExportSheetView.swift
+  - Export options sheet.
+- Shared/ViewViewerTransitions.swift
+  - iOS 26 transition helpers.
+- Shared/ViewViewerGlassEffect.swift
+  - Glass effect helper.
+- OrientationControlView.swift
+  - Orientation picker for active viewport.
+- SliceNavigationView.swift
+  - Slice slider and navigation.
+- ViewerView.swift
+  - Image rendering + interaction layer.
+- WWLControlsView.swift
+  - Window/level controls and presets.
+
+Assets/
+- Assets.xcassets
+  - Central asset catalog for icons and named colors.
+- NeurometricaIcon.icon
+  - Icon Composer source for the app icon.
+
+Tests/
+- NeuroMetricaTests.swift
+  - Unit tests for app logic.
+- NeuroMetricaUITests.swift
+  - UI tests for main flows.
+- NeuroMetricaUITestsLaunchTests.swift
+  - Launch tests for startup validation and performance.
+
+----------------------------------------------------------------------------------------------------
+
+4) Package: ChromaEngineKit (ChromaEnginekit)
+
+Package tree
+ChromaEnginekit/
+- Package.swift
+- Sources/ChromaEngineKit/
+  - Core/
+    - ChromaEngine.swift
+    - ChromaEngineConfig.swift
+    - ChromaEngineError.swift (empty placeholder)
+    - EngineVolumeDescriptor.swift
+    - VolumeHandle.swift
+  - Models/
+    - CImageVolume.swift
+    - CIImage2D.swift
+    - CIMetadata.swift
+    - SliceOrientation.swift
+  - IO/
+    - ITKVolumeLoader.swift (empty placeholder)
+    - VolumeLoader.swift (empty placeholder)
+  - Backends/
+    - BackendProtocols.swift
+    - ITK/
+      - ITKSliceBackend.swift
+      - ITKWindowLevelBackend.swift
+      - ITKSegmentationBackend.swift
+    - Native/
+      - NativeSliceBackend.swift (empty placeholder)
+      - NativeWindowLevelBackend.swift (empty placeholder)
+      - NativeSegmentationBackend.swift (empty placeholder)
+  - Verification/
+    - VerificationMode.swift (empty placeholder)
+    - VerificationRunner.swift (empty placeholder)
+- Tests/ChromaEngineKitTests/
+  - ChromaEngineKitTests.swift (empty placeholder)
+  - ChromaImagingKitTests.swift
+
+Responsibilities (per file)
+- Package.swift
+  - Defines library product and dependency on ChromaImagingCore.
+
+Core/
+- ChromaEngine.swift
+  - High-level engine facade: volume IO via ITK, slice extraction with WW/WL.
+- ChromaEngineConfig.swift
+  - Engine configuration (DICOM backend selection, standard config).
+- ChromaEngineError.swift
+  - Placeholder for engine-specific error types.
+- EngineVolumeDescriptor.swift
+  - Engine-level pairing of CImageVolume with CIMetadata.
+- VolumeHandle.swift
+  - Opaque handle for loaded volume registry in app layer.
+
+Models/
+- CImageVolume.swift
+  - Canonical in-memory 3D/4D volume representation.
+- CIImage2D.swift
+  - Canonical 2D slice representation for engine output.
+- CIMetadata.swift
+  - Normalized DICOM/NIfTI/NRRD metadata model.
+- SliceOrientation.swift
+  - Canonical orientation enum (axial/coronal/sagittal).
+
+IO/
+- ITKVolumeLoader.swift
+  - Placeholder for explicit ITK-backed volume loading helper.
+- VolumeLoader.swift
+  - Placeholder for generic loading abstraction (future routing).
+
+Backends/
+- BackendProtocols.swift
+  - Protocols defining slice extraction and WW/WL backends.
+- ITK/ITKSliceBackend.swift
+  - Placeholder ITK slice backend (throws not implemented).
+- ITK/ITKWindowLevelBackend.swift
+  - Placeholder ITK WW/WL backend (throws not implemented).
+- ITK/ITKSegmentationBackend.swift
+  - Placeholder ITK segmentation backend (no-op, future ITK pipelines).
+- Native/NativeSliceBackend.swift
+  - Placeholder native (CPU/GPU) slice backend.
+- Native/NativeWindowLevelBackend.swift
+  - Placeholder native WW/WL backend.
+- Native/NativeSegmentationBackend.swift
+  - Placeholder native segmentation backend.
+
+Verification/
+- VerificationMode.swift
+  - Placeholder for verification mode enum (native vs ITK comparison).
+- VerificationRunner.swift
+  - Placeholder for verification pipeline runner.
+
+Tests/
+- ChromaEngineKitTests.swift
+  - Placeholder test target file.
+- ChromaImagingKitTests.swift
+  - Test skeleton referencing a NIfTI loader (future enablement).
+
+----------------------------------------------------------------------------------------------------
+
+5) Package: ChromaImagingCore (ChromaImagingCore)
+
+Package tree
+ChromaImagingCore/
+- Package.swift
+- README.md
+- Sources/ChromaImagingCore/
+  - ChromaImagingCore.swift
+  - Errors/
+    - ITKImageIOError.swift (empty placeholder)
+  - ITK/
+    - ITKImageIO.swift
+    - ITKInfo.swift
+    - Descriptors/
+      - ITKImageDescriptor.swift
+  - Utils/
+    - LoggingUtils.swift (empty placeholder)
+    - PathUtils.swift (empty placeholder)
+- Sources/ITKBridge/
+  - include/ITKBridge.h
+  - src/ITKBridge.mm
+- ThirdParty/ITK/ITK.xcframework
+- Tests/ImagingCoreTests/
+  - ImagingCoreTests.swift
+  - ITKinfoTests.swift (empty placeholder)
+
+Responsibilities (per file)
+- Package.swift
+  - Declares the ITK binary target, ITKBridge target, and ChromaImagingCore Swift API.
+- README.md
+  - Placeholder for package-level documentation.
+
+Sources/ChromaImagingCore/
+- ChromaImagingCore.swift
+  - Public Swift API: NMVolume, NMImageIO protocol, core errors, scalar types.
+- Errors/ITKImageIOError.swift
+  - Placeholder for dedicated imaging-core error definitions.
+- ITK/ITKImageIO.swift
+  - Swift facade around ITKBridge for loading DICOM and single-file volumes.
+- ITK/ITKInfo.swift
+  - ITK version and feature availability helpers.
+- ITK/Descriptors/ITKImageDescriptor.swift
+  - Swift descriptor mirroring ITK bridge output; manages bridge buffer lifetime.
+- Utils/LoggingUtils.swift
+  - Placeholder for logging helpers within the package.
+- Utils/PathUtils.swift
+  - Placeholder for file path and URL utilities.
+
+Sources/ITKBridge/
+- include/ITKBridge.h
+  - C/ObjC++ interface for ITK-based volume loading and descriptor API.
+- src/ITKBridge.mm
+  - ITK-backed implementation (DICOM series, single-file volumes, metadata JSON).
+
+ThirdParty/
+- ITK.xcframework
+  - Prebuilt ITK binary used by ITKBridge.
+
+Tests/
+- ImagingCoreTests.swift
+  - Basic NMVolume initialization test.
+- ITKinfoTests.swift
+  - Placeholder test file for ITK info checks.
+
+----------------------------------------------------------------------------------------------------
+
+6) Package: RedEngine (RedEngine)
+
+Package tree
+RedEngine/
+- Package.swift
+- Sources/RedEngine/
+  - Adapters/
+    - SliceTensorAdapter.swift (empty placeholder)
+    - VolumeTensorAdapter.swift (empty placeholder)
+  - Core/
+    - Redengine.swift (empty placeholder)
+    - RedengineConfig.swift (empty placeholder)
+    - RedengineError.swift (empty placeholder)
+    - RedengineModel.swift (empty placeholder)
+    - RedengineTask.swift (empty placeholder)
+  - Models/RedEye1/
+    - RedEye1.swift (empty placeholder)
+    - RedEye1Preprocessing.swift (empty placeholder)
+  - Runtime/
+    - ExTorchRuntime.swift (empty placeholder)
+    - FlareRuntime.swift (empty placeholder)
+  - Tasks/
+    - ClassificationTask.swift (empty placeholder)
+    - SegmentationTask.swift (empty placeholder)
+- Tests/RedEngineTests/
+  - RedEye1Tests.swift (empty placeholder)
+  - RedengineBasicTests.swift (empty placeholder)
+
+Responsibilities (per file)
+- Package.swift
+  - Declares RedEngine library and test target (note: target/product names currently include trailing spaces).
+
+Sources/RedEngine/
+- Adapters/SliceTensorAdapter.swift
+  - Placeholder for converting engine slices into ML tensor inputs.
+- Adapters/VolumeTensorAdapter.swift
+  - Placeholder for converting full volumes into ML tensor inputs.
+- Core/Redengine.swift
+  - Placeholder for top-level ML engine facade.
+- Core/RedengineConfig.swift
+  - Placeholder for configuration (runtime, device, precision).
+- Core/RedengineError.swift
+  - Placeholder for ML runtime errors.
+- Core/RedengineModel.swift
+  - Placeholder for model metadata and loading logic.
+- Core/RedengineTask.swift
+  - Placeholder for defining inference tasks.
+- Models/RedEye1/RedEye1.swift
+  - Placeholder for RedEye1 model entry point.
+- Models/RedEye1/RedEye1Preprocessing.swift
+  - Placeholder for preprocessing pipeline for RedEye1.
+- Runtime/ExTorchRuntime.swift
+  - Placeholder for ExTorch-based runtime integration.
+- Runtime/FlareRuntime.swift
+  - Placeholder for Flare runtime integration.
+- Tasks/ClassificationTask.swift
+  - Placeholder task definition for classification workflows.
+- Tasks/SegmentationTask.swift
+  - Placeholder task definition for segmentation workflows.
+
+Tests/
+- RedEye1Tests.swift
+  - Placeholder tests for RedEye1 model.
+- RedengineBasicTests.swift
+  - Placeholder basic package tests.
+
+----------------------------------------------------------------------------------------------------
+
+7) MVVM Boundaries (Quick Reference)
+
+- Views:
+  - Live under Features/*/Views.
+  - Read state from ViewModels or ViewerState.
+  - Never import ChromaEngineKit or ChromaImagingCore directly.
+- ViewModels:
+  - Live under Features/*/ViewModels.
+  - Own business logic and call Core services (ChromaEngineBridge, FilePickerService, RecentFilesStore).
+- Models:
+  - Live under Core/Models or Features/*/Models.
+  - Represent app or feature domain state and DTOs.
+- Core Services:
+  - Live under Core/Services; hide engine and IO details.
+- Packages:
+  - Provide the imaging and ML substrate; app does not depend on their internals directly.

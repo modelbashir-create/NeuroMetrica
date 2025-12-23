@@ -3,12 +3,14 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <algorithm>
 #include <sys/stat.h>
 
 #include "itkImage.h"
 #include "itkImageFileReader.h"
 #include "itkImageSeriesReader.h"
 #include "itkGDCMImageIO.h"
+#include "itkGDCMImageIOFactory.h"
 #include "itkGDCMSeriesFileNames.h"
 #if __has_include("itkDCMTKImageIO.h")
 #include "itkDCMTKImageIO.h"
@@ -16,8 +18,16 @@
 #else
 #define ITKBRIDGE_HAS_DCMTK 0
 #endif
+#if __has_include("itkDCMTKImageIOFactory.h")
+#include "itkDCMTKImageIOFactory.h"
+#define ITKBRIDGE_HAS_DCMTK_FACTORY 1
+#else
+#define ITKBRIDGE_HAS_DCMTK_FACTORY 0
+#endif
 #include "itkImageIOBase.h"
 #include "itkMetaDataObject.h"
+#include "itkNiftiImageIO.h"
+#include "itkNiftiImageIOFactory.h"
 #include "itkVersion.h"
 
 using Float3DImage = itk::Image<float, 3>;
@@ -65,6 +75,48 @@ bool supportsDCMTK() {
 #else
     return false;
 #endif
+}
+
+void registerDicomIOFactories() {
+    static bool registered = false;
+    if (registered) {
+        return;
+    }
+
+    itk::GDCMImageIOFactory::RegisterOneFactory();
+#if ITKBRIDGE_HAS_DCMTK_FACTORY
+    itk::DCMTKImageIOFactory::RegisterOneFactory();
+#endif
+    registered = true;
+}
+
+bool hasSuffix(const std::string &value, const std::string &suffix) {
+    if (suffix.size() > value.size()) {
+        return false;
+    }
+    return std::equal(suffix.rbegin(), suffix.rend(), value.rbegin());
+}
+
+bool isNiftiPath(const char *path) {
+    if (!path) {
+        return false;
+    }
+    std::string lower(path);
+    std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return hasSuffix(lower, ".nii") || hasSuffix(lower, ".nii.gz");
+}
+
+bool isDicomPath(const char *path) {
+    if (!path) {
+        return false;
+    }
+    std::string lower(path);
+    std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return hasSuffix(lower, ".dcm");
 }
 
 itk::ImageIOBase::Pointer makeDicomIO(ITKDicomBackendC backend) {
@@ -157,6 +209,7 @@ VolumeLoadResult loadDicomSeries(const char *directoryPath,
     using ReaderType  = itk::ImageSeriesReader<ImageType>;
     using GDCMNameGenType = itk::GDCMSeriesFileNames;
 
+    registerDicomIOFactories();
     GDCMNameGenType::Pointer nameGen = GDCMNameGenType::New();
     nameGen->SetUseSeriesDetails(true);
     nameGen->AddSeriesRestriction("0008|0021"); // Series Date.
@@ -195,8 +248,31 @@ VolumeLoadResult loadDicomSeries(const char *directoryPath,
 VolumeLoadResult loadSingleFileVolume(const char *filePath) {
     using ReaderType = itk::ImageFileReader<Float3DImage>;
     ReaderType::Pointer reader = ReaderType::New();
+    if (isNiftiPath(filePath)) {
+        static bool niftiFactoryRegistered = false;
+        if (!niftiFactoryRegistered) {
+            itk::NiftiImageIOFactory::RegisterOneFactory();
+            niftiFactoryRegistered = true;
+        }
+        reader->SetImageIO(itk::NiftiImageIO::New());
+    }
     reader->SetFileName(std::string(filePath));
     reader->Update();
+    VolumeLoadResult result;
+    result.image = reader->GetOutput();
+    result.metadataJSON = metadataDictionaryToJSON(reader->GetImageIO()->GetMetaDataDictionary());
+    return result;
+}
+
+VolumeLoadResult loadDicomFile(const char *filePath,
+                               ITKDicomBackendC backend) {
+    using ReaderType = itk::ImageFileReader<Float3DImage>;
+    ReaderType::Pointer reader = ReaderType::New();
+    registerDicomIOFactories();
+    reader->SetImageIO(makeDicomIO(backend));
+    reader->SetFileName(std::string(filePath));
+    reader->Update();
+
     VolumeLoadResult result;
     result.image = reader->GetOutput();
     result.metadataJSON = metadataDictionaryToJSON(reader->GetImageIO()->GetMetaDataDictionary());
@@ -415,6 +491,72 @@ extern "C" bool ITKLoadSingleFileVolume(const char *filePath,
     catch (...) {
         writeError(errorBuffer, errorBufferLength,
                    "ITKLoadSingleFileVolume: unknown exception");
+        return false;
+    }
+}
+
+extern "C" bool ITKLoadDicomFileWithBackend(const char *filePath,
+                                            ITKDicomBackendC backend,
+                                            ITKImageDescriptorC *outDescriptor,
+                                            char *errorBuffer,
+                                            int errorBufferLength) {
+    zeroDescriptor(outDescriptor);
+
+    if (!filePath || !outDescriptor) {
+        writeError(errorBuffer, errorBufferLength,
+                   "ITKLoadDicomFileWithBackend: null argument");
+        return false;
+    }
+
+    if (!isDicomPath(filePath)) {
+        writeError(errorBuffer, errorBufferLength,
+                   "ITKLoadDicomFileWithBackend: file is not a .dcm path");
+        return false;
+    }
+
+    try {
+#if !ITKBRIDGE_HAS_DCMTK
+        if (backend == ITKDicomBackend_DCMTK || backend == ITKDicomBackend_Auto) {
+            backend = ITKDicomBackend_GDCM;
+        }
+#endif
+        VolumeLoadResult result = loadDicomFile(filePath, backend);
+        if (!result.image) {
+            writeError(errorBuffer, errorBufferLength,
+                       "ITKLoadDicomFileWithBackend: reader returned null image");
+            return false;
+        }
+
+        const auto &size = result.image->GetLargestPossibleRegion().GetSize();
+        const uint64_t voxelCount =
+            static_cast<uint64_t>(size[0]) *
+            static_cast<uint64_t>(size[1]) *
+            static_cast<uint64_t>(size[2]);
+        const uint64_t componentsPerPixel = 1;
+        const uint64_t valueCount         = voxelCount * componentsPerPixel;
+        const uint64_t byteCount          = valueCount * 4; // float32
+
+        void *buffer = std::malloc(static_cast<size_t>(byteCount));
+        if (!buffer) {
+            writeError(errorBuffer, errorBufferLength,
+                       "ITKLoadDicomFileWithBackend: failed to allocate voxel buffer");
+            return false;
+        }
+
+        const float *src = result.image->GetBufferPointer();
+        std::memcpy(buffer, src, static_cast<size_t>(byteCount));
+
+        fillDescriptorFromImage(result.image, buffer, valueCount, outDescriptor);
+        attachMetadataJSON(outDescriptor, result.metadataJSON);
+        return true;
+    }
+    catch (const itk::ExceptionObject &ex) {
+        writeError(errorBuffer, errorBufferLength, ex.GetDescription());
+        return false;
+    }
+    catch (...) {
+        writeError(errorBuffer, errorBufferLength,
+                   "ITKLoadDicomFileWithBackend: unknown exception");
         return false;
     }
 }
