@@ -2,6 +2,8 @@ NeuroMetrica is a solo-developed, neurosurgery focused imaging and planning work
 The core design goal is to build a federated learning platform for medical imaging rather than a cloud only model server.
 Federated learning:
 
+![NeuroMetrica app icon](../regularicon.png)
+
 NeuroMetrica acts as a federated learning client:
 * A user loads a CT/MR volume and draws a tumor mask, region of interest, or other segmentation.
 * The device slices the volume into tiles and runs raining steps locally on device using those labels.
