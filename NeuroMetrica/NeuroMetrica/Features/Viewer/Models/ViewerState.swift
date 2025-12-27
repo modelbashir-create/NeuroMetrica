@@ -54,7 +54,6 @@ enum ThreeDSubMode: String, CaseIterable, Identifiable {
 
 /// Active tool in the viewer toolbar
 enum ViewerTool: String, CaseIterable, Identifiable {
-    case none        = "None"
     case windowLevel = "Window/Level"
     case pan         = "Pan"
     case zoom        = "Zoom"
@@ -65,7 +64,6 @@ enum ViewerTool: String, CaseIterable, Identifiable {
 
     var symbolName: String {
         switch self {
-        case .none:        return "circle"
         case .windowLevel: return "line.3.horizontal.decrease.circle"
         case .pan:         return "hand.draw"
         case .zoom:        return "magnifyingglass.circle"
@@ -105,7 +103,7 @@ final class ViewerState {
     var activeViewportIndex: Int = 0
 
     /// Currently selected tool in the viewer toolbar
-    var activeTool: ViewerTool = .none
+    var activeTool: ViewerTool? = nil
 
     /// Last non-zoom tool, used to restore the previous mode when toggling Zoom off.
     var lastNonZoomTool: ViewerTool? = nil

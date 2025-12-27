@@ -86,8 +86,8 @@ final class ViewerViewModel: ObservableObject {
         viewerState.threeDMode = mode
     }
 
-    func setActiveTool(_ tool: ViewerTool) {
-        if tool != .zoom && tool != .none {
+    func setActiveTool(_ tool: ViewerTool?) {
+        if let tool, tool != .zoom {
             viewerState.lastNonZoomTool = tool
         }
         viewerState.activeTool = tool
@@ -95,13 +95,13 @@ final class ViewerViewModel: ObservableObject {
 
     func toggleZoomTool() {
         if viewerState.activeTool == .zoom {
-            viewerState.activeTool = .none
+            viewerState.activeTool = nil
             viewerState.lastNonZoomTool = nil
             return
         }
 
-        if viewerState.activeTool != .none {
-            viewerState.lastNonZoomTool = viewerState.activeTool
+        if let activeTool = viewerState.activeTool {
+            viewerState.lastNonZoomTool = activeTool
         }
         viewerState.activeTool = .zoom
     }

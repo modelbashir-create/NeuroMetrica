@@ -272,29 +272,28 @@ struct ContentView: View {
     // MARK: - Viewer Tools
 
     private var viewerToolsGroup: some View {
-        ControlGroup {
+        HStack(spacing: 6) {
             ForEach(ViewerTool.allCases, id: \.self) { tool in
-                if tool == viewerState.activeTool {
-                    Button {
-                        viewModel.setActiveTool(tool)
-                    } label: {
-                        Image(systemName: tool.symbolName)
-                    }
-                    .tint(.accentColor)
-                    .help(tool.rawValue)
-                } else {
-                    Button {
-                        viewModel.setActiveTool(tool)
-                    } label: {
-                        Image(systemName: tool.symbolName)
-                    }
-                    .foregroundStyle(.primary)
-                    .help(tool.rawValue)
+                Toggle(
+                    isOn: Binding(
+                        get: { viewerState.activeTool == tool },
+                        set: { isOn in
+                            if isOn {
+                                viewModel.setActiveTool(tool)
+                            } else if viewerState.activeTool == tool {
+                                viewModel.setActiveTool(nil)
+                            }
+                        }
+                    )
+                ) {
+                    Image(systemName: tool.symbolName)
                 }
+                .toggleStyle(.button)
+                .tint(.accentColor)
+                .help(tool.rawValue)
+                .disabled(viewerState.isLoadingVolume)
             }
         }
-        .controlGroupStyle(.navigation)
-        .disabled(viewerState.isLoadingVolume)
     }
 
     // MARK: - Primary Actions
