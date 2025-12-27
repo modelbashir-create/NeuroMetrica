@@ -16,7 +16,7 @@ struct InspectorView: View {
     var body: some View {
         VStack(spacing: 0) {
             // iOS 26: Segmented control adopts glass automatically
-            Picker("Inspector Tab", selection: $selectedTab) {
+            Picker("", selection: $selectedTab) {
                 ForEach(InspectorTab.allCases, id: \.self) { tab in
                     Text(tab.rawValue)
                         .lineLimit(1)
@@ -68,7 +68,6 @@ struct DisplayTabContent: View {
                 VStack(alignment: .leading, spacing: 12) {
                     LabeledContent("Current Layout") {
                         Text(viewerState.layoutMode.rawValue)
-                            .foregroundStyle(.secondary)
                     }
 
                     Toggle("Link Viewports", isOn: $linkViewports)
@@ -129,7 +128,6 @@ struct MeasurementsTabContent: View {
 
             GroupBox("Recorded") {
                 Text("No measurements recorded")
-                    .foregroundStyle(.secondary)
                     .font(.callout)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

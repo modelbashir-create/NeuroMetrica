@@ -19,26 +19,22 @@ struct ViewportView: View {
             ZStack {
                 // Base viewport
                 Rectangle()
-                    .fill(HeritagePACSTheme.viewportBackground)
+                    .fill(viewerState.hasVolume ? HeritagePACSTheme.viewportBackground : viewportSystemBackground)
                     .overlay(
                         Rectangle()
-                            .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
-                    )
-                    .overlay(
-                        Rectangle()
-                            .strokeBorder(
-                                HeritagePACSTheme.activeViewportBorder.opacity(isActive ? 0.75 : 0),
-                                lineWidth: isActive ? 2 : 0
-                            )
+                            .strokeBorder(.separator, lineWidth: 1)
                     )
 
                 if viewerState.isImagingViewport(index) {
                     ViewerView(
                         viewModel: viewModel,
+                        viewportIndex: index,
                         image: viewModel.image(for: index),
                         aspectRatio: viewModel.displayAspectRatio(for: index),
                         isLoading: viewerState.isLoadingVolume,
-                        isActive: index == viewerState.clampedActiveIndex
+                        isActive: index == viewerState.clampedActiveIndex,
+                        zoom: viewerState.zoom(for: index),
+                        pan: viewerState.pan(for: index)
                     )
                 } else {
                     Placeholder3DView()
@@ -46,15 +42,24 @@ struct ViewportView: View {
 
                 // Crosshairs
                 CrosshairOverlay(size: size)
+                    .allowsHitTesting(false)
 
                 // Measurement annotation
                 MeasurementOverlay(size: size)
+                    .allowsHitTesting(false)
 
                 // iOS 26: Liquid Glass overlays
                 viewportOverlays(size: size)
+                    .allowsHitTesting(false)
 
                 if viewerState.isImagingViewport(index) {
                     viewportStateOverlays
+                }
+
+                if isActive {
+                    Rectangle()
+                        .strokeBorder(Color.accentColor, lineWidth: 1)
+                        .allowsHitTesting(false)
                 }
             }
         }
@@ -125,10 +130,10 @@ struct ViewportView: View {
                 }
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(.primary)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .applyGlassEffect(tint: .black.opacity(0.4))
+        .applyGlassEffect(tint: .clear)
     }
 
     private var cornerOverlays: some View {
@@ -137,13 +142,13 @@ struct ViewportView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(viewerState.seriesTitle)
                     .font(.caption)
-                    .foregroundStyle(HeritagePACSTheme.overlayTextPrimary)
+                    .foregroundStyle(.primary)
                 Text(viewerState.seriesSubtitle)
                     .font(.caption2)
-                    .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
+                    .foregroundStyle(.secondary)
             }
             .padding(6)
-            .applyGlassEffect(tint: .black.opacity(0.3))
+            .applyGlassEffect(tint: .clear)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(8)
 
@@ -151,16 +156,16 @@ struct ViewportView: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(viewerState.patientDisplayName)
                     .font(.caption.bold())
-                    .foregroundStyle(HeritagePACSTheme.phiHighlightYellow)
+                    .foregroundStyle(.primary)
                 Text(viewerState.patientDetails)
                     .font(.caption2)
-                    .foregroundStyle(HeritagePACSTheme.overlayTextPrimary)
+                    .foregroundStyle(.primary)
                 Text(viewerState.acquisitionDateTimeDisplay)
                     .font(.caption2)
-                    .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
+                    .foregroundStyle(.secondary)
             }
             .padding(6)
-            .applyGlassEffect(tint: .black.opacity(0.3))
+            .applyGlassEffect(tint: .clear)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .padding(8)
 
@@ -171,25 +176,33 @@ struct ViewportView: View {
                 Text("SLICE \(String(format: "%02d", viewerState.clampedSliceIndex + 1))/\(viewerState.seriesImagesDisplay)")
                     .font(.caption2.monospaced())
             }
-            .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
+            .foregroundStyle(.secondary)
             .padding(6)
-            .applyGlassEffect(tint: .black.opacity(0.3))
+            .applyGlassEffect(tint: .clear)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             .padding(8)
 
             // Bottom-right: Status
             HStack(spacing: 6) {
                 Circle()
-                    .fill(HeritagePACSTheme.statusOK)
+                    .fill(Color.accentColor)
                     .frame(width: 6, height: 6)
                 Text(viewerState.hasVolume ? "ONLINE" : "NO DATA")
                     .font(.caption2)
-                    .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
+                    .foregroundStyle(.secondary)
             }
             .padding(6)
-            .applyGlassEffect(tint: .black.opacity(0.3))
+            .applyGlassEffect(tint: .clear)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             .padding(8)
         }
+    }
+
+    private var viewportSystemBackground: Color {
+        #if os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color(uiColor: .systemBackground)
+        #endif
     }
 }

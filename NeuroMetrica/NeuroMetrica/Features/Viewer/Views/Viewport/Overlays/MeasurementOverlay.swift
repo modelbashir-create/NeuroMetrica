@@ -11,7 +11,7 @@ struct MeasurementOverlay: View {
 
             context.stroke(
                 path,
-                with: .color(HeritagePACSTheme.measurementColor),
+                with: .color(Color.secondary),
                 style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
             )
         }

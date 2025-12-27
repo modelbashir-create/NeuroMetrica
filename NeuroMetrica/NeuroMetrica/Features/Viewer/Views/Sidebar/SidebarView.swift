@@ -40,19 +40,24 @@ struct SidebarView: View {
             }
             .listStyle(.sidebar)
             .navigationTitle("Studies")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.large)
-            #endif
-        }
-        .fileImporter(
-            isPresented: $viewModel.isFileImporterPresented,
-            allowedContentTypes: viewModel.allowedContentTypes,
-            allowsMultipleSelection: false
-        ) { result in
-            viewModel.handleFileImport(result: result)
-        }
+            .modifier(SidebarSearchModifier(searchText: $viewModel.searchText))
+            .onDrop(of: viewModel.allowedContentTypes, isTargeted: nil) { providers in
+                handleSidebarDrop(providers: providers)
+            }
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+        #endif
+    }
+    .fileImporter(
+        isPresented: $viewModel.isFileImporterPresented,
+        allowedContentTypes: viewModel.allowedContentTypes,
+        allowsMultipleSelection: false
+    ) { result in
+        viewModel.handleFileImport(result: result)
+    }
         .onChange(of: selectedSeriesID) { _, newValue in
             guard let seriesID = newValue else { return }
+            guard seriesID != viewerState.activeSeries?.id else { return }
             let series = viewModel.studies
                 .flatMap(\.series)
                 .first(where: { $0.id == seriesID })
@@ -60,19 +65,17 @@ struct SidebarView: View {
             let study = viewModel.studies.first(where: { $0.series.contains(series) })
             viewModel.openSeries(series, study: study)
         }
+        .onChange(of: viewerState.activeSeries?.id) { _, newValue in
+            guard let seriesID = newValue else { return }
+            selectedSeriesID = seriesID
+            if let study = viewModel.studies.first(where: { $0.series.contains(where: { $0.id == seriesID }) }) {
+                selectedStudyID = study.id
+            }
+        }
     }
 
     private var sidebarHeader: some View {
         VStack(spacing: 8) {
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Search studies", text: $viewModel.searchText)
-                    .textFieldStyle(.plain)
-            }
-            .padding(8)
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
-
             Button {
                 viewModel.openImporter()
             } label: {
@@ -123,6 +126,23 @@ struct SidebarView: View {
             )
         }
     }
+
+    // Sidebar drop handler: routes dropped URLs through ImportViewModel's existing import/open flow.
+    private func handleSidebarDrop(providers: [NSItemProvider]) -> Bool {
+        viewModel.handleDroppedProviders(providers)
+    }
+}
+
+private struct SidebarSearchModifier: ViewModifier {
+    @Binding var searchText: String
+
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        content.searchable(text: $searchText, placement: .sidebar, prompt: "Search studies")
+        #else
+        content.searchable(text: $searchText, placement: .navigationBarDrawer, prompt: "Search studies")
+        #endif
+    }
 }
 
 struct StudyRow: View {
@@ -148,7 +168,6 @@ struct StudyRow: View {
 
                 if showsError {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
                         .help(errorMessage ?? "Unable to open study.")
                 }
 
@@ -157,7 +176,6 @@ struct StudyRow: View {
                     .fontWeight(.semibold)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(.quaternary, in: Capsule())
             }
 
             HStack {
@@ -168,7 +186,6 @@ struct StudyRow: View {
                 Text("\(study.series.count) series")
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
             .lineLimit(1)
         }
         .padding(.vertical, 2)
@@ -189,7 +206,6 @@ struct SeriesRow: View {
                     .lineLimit(1)
                 Text(isLoading ? "Loading…" : "SER \(series.seriesNumber) • \(series.imagesCount) images")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -201,7 +217,6 @@ struct SeriesRow: View {
 
             if showsError {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
                     .help(errorMessage ?? "Unable to open series.")
             }
 
@@ -210,7 +225,6 @@ struct SeriesRow: View {
                 .fontWeight(.semibold)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(.quaternary, in: Capsule())
         }
         .padding(.vertical, 2)
         .padding(.leading, 8)

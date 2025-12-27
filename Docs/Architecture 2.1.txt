@@ -154,6 +154,7 @@ App/
 Core/Models/
 - AppSettings.swift
   - Global preferences (window/level defaults, backend prefs, UI flags).
+  - Scroll tuning knobs (thresholds, caps, momentum scale) persisted via UserDefaults.
   - Observable shared settings; future persistence target.
 - AppError.swift
   - App-level error wrapper for user-facing error descriptions.
@@ -215,7 +216,7 @@ Features/Settings/
 - SettingsViewModel.swift
   - Wraps AppSettings for future persistence and settings orchestration.
 - SettingsView.swift
-  - HIG-aligned settings form.
+  - HIG-aligned settings form and developer tuning sliders (scroll sensitivity/momentum).
 
 Features/Viewer/Models/
 - ViewerState.swift
@@ -236,6 +237,7 @@ Features/Viewer/Utils/
 Features/Viewer/ViewModels/
 - ViewerViewModel.swift
   - Viewer orchestration, volume loading, slice rendering, cine control.
+  - Normalizes scroll deltas and applies momentum scaling for slice navigation.
 
 Features/Viewer/Views/
 - ContentView.swift
@@ -262,6 +264,7 @@ Features/Viewer/Views/
   - Slice slider and navigation.
 - ViewerView.swift
   - Image rendering + interaction layer.
+  - Bridges scroll events (phase/momentum) into the ViewModel.
 - WWLControlsView.swift
   - Window/level controls and presets.
 
@@ -281,7 +284,27 @@ Tests/
 
 ----------------------------------------------------------------------------------------------------
 
-4) Package: ChromaEngineKit (ChromaEnginekit)
+4) Controls
+
+Viewer interactions (macOS + iOS)
+- Active viewport: click/tap a viewport to make it active.
+- Toolbar tools: select an active tool (Window/Level, Pan, Zoom, Measure, Cine).
+- Slice navigation:
+  - Scroll/two-finger scroll over a viewport changes slices.
+  - Drag vertically when not in Zoom mode scrubs slices.
+  - Keyboard: up/down arrows step slices; page up/down jump by 5; home/end jump to first/last.
+- Zoom:
+  - Pinch (trackpad) zooms the active viewport.
+  - Command + scroll zooms in/out on macOS (plain scroll remains slice navigation).
+  - When Zoom tool is active, vertical drag zooms (drag up = zoom in, drag down = zoom out).
+  - Zoom is per-viewport and clamped to sane bounds in ViewerState.
+- Cine:
+  - Space toggles cine playback for the active viewport.
+  - Left/right arrows adjust cine FPS.
+
+----------------------------------------------------------------------------------------------------
+
+5) Package: ChromaEngineKit (ChromaEnginekit)
 
 Package tree
 ChromaEnginekit/
@@ -380,7 +403,7 @@ Tests/
 
 ----------------------------------------------------------------------------------------------------
 
-5) Package: ChromaImagingCore (ChromaImagingCore)
+6) Package: ChromaImagingCore (ChromaImagingCore)
 
 Package tree
 ChromaImagingCore/
@@ -446,7 +469,7 @@ Tests/
 
 ----------------------------------------------------------------------------------------------------
 
-6) Package: RedEngine (RedEngine)
+7) Package: RedEngine (RedEngine)
 
 Package tree
 RedEngine/
@@ -514,7 +537,7 @@ Tests/
 
 ----------------------------------------------------------------------------------------------------
 
-7) MVVM Boundaries (Quick Reference)
+8) MVVM Boundaries (Quick Reference)
 
 - Views:
   - Live under Features/*/Views.

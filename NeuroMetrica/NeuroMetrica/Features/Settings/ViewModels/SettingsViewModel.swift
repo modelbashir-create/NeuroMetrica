@@ -8,4 +8,8 @@ final class SettingsViewModel: ObservableObject {
     init(settings: AppSettings) {
         self.settings = settings
     }
+
+    func resetScrollTuningToDefaults() {
+        settings.resetScrollTuningToDefaults()
+    }
 }

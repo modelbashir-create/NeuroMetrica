@@ -104,10 +104,145 @@ final class AppSettings: ObservableObject {
     /// Preferred DICOM IO backend.
     @Published var dicomBackendPreference: DicomBackendPreference = .dcmtk
 
+    // MARK: - Developer Tools (scroll tuning)
+
+    /// Points of scroll per slice step (higher = slower / more precise).
+    @Published var sliceScrollBaseThreshold: Double = 36 {
+        didSet {
+            guard !isClampingScrollSettings else { return }
+            let clamped = persistClampedDouble(sliceScrollBaseThreshold, min: 20, max: 80, key: Keys.sliceScrollBaseThreshold)
+            if clamped != sliceScrollBaseThreshold {
+                isClampingScrollSettings = true
+                sliceScrollBaseThreshold = clamped
+                isClampingScrollSettings = false
+            }
+        }
+    }
+
+    /// Speed multiplier for Shift+scroll.
+    @Published var sliceScrollFastMultiplier: Int = 3 {
+        didSet {
+            guard !isClampingScrollSettings else { return }
+            let clamped = persistClampedInt(sliceScrollFastMultiplier, min: 2, max: 6, key: Keys.sliceScrollFastMultiplier)
+            if clamped != sliceScrollFastMultiplier {
+                isClampingScrollSettings = true
+                sliceScrollFastMultiplier = clamped
+                isClampingScrollSettings = false
+            }
+        }
+    }
+
+    /// Cap on total slices advanced per scroll event.
+    @Published var sliceScrollMaxSlicesPerEvent: Int = 6 {
+        didSet {
+            guard !isClampingScrollSettings else { return }
+            let clamped = persistClampedInt(sliceScrollMaxSlicesPerEvent, min: 2, max: 12, key: Keys.sliceScrollMaxSlicesPerEvent)
+            if clamped != sliceScrollMaxSlicesPerEvent {
+                isClampingScrollSettings = true
+                sliceScrollMaxSlicesPerEvent = clamped
+                isClampingScrollSettings = false
+            }
+        }
+    }
+
+    /// Momentum scale for trackpad scroll (lower = shorter/less glide).
+    @Published var sliceScrollMomentumScale: Double = 0.11 {
+        didSet {
+            guard !isClampingScrollSettings else { return }
+            let clamped = persistClampedDouble(sliceScrollMomentumScale, min: 0.01, max: 1.0, key: Keys.sliceScrollMomentumScale)
+            if clamped != sliceScrollMomentumScale {
+                isClampingScrollSettings = true
+                sliceScrollMomentumScale = clamped
+                isClampingScrollSettings = false
+            }
+        }
+    }
+
+    /// Page Up/Down and Option+Up/Down jump size.
+    @Published var sliceScrollPageJumpSize: Int = 10 {
+        didSet {
+            guard !isClampingScrollSettings else { return }
+            let clamped = persistClampedInt(sliceScrollPageJumpSize, min: 5, max: 30, key: Keys.sliceScrollPageJumpSize)
+            if clamped != sliceScrollPageJumpSize {
+                isClampingScrollSettings = true
+                sliceScrollPageJumpSize = clamped
+                isClampingScrollSettings = false
+            }
+        }
+    }
+
+    /// Whether Shift+scroll uses the fast multiplier.
+    @Published var sliceScrollUseShiftFastMode: Bool = true {
+        didSet { userDefaults.set(sliceScrollUseShiftFastMode, forKey: Keys.sliceScrollUseShiftFastMode) }
+    }
+
 
     // MARK: - Init
 
-    init() {}
+    private let userDefaults: UserDefaults = .standard
+    private var isClampingScrollSettings = false
+
+    init() {
+        sliceScrollBaseThreshold = loadDouble(key: Keys.sliceScrollBaseThreshold, defaultValue: sliceScrollBaseThreshold)
+        sliceScrollFastMultiplier = loadInt(key: Keys.sliceScrollFastMultiplier, defaultValue: sliceScrollFastMultiplier)
+        sliceScrollMaxSlicesPerEvent = loadInt(key: Keys.sliceScrollMaxSlicesPerEvent, defaultValue: sliceScrollMaxSlicesPerEvent)
+        sliceScrollMomentumScale = loadDouble(key: Keys.sliceScrollMomentumScale, defaultValue: sliceScrollMomentumScale)
+        sliceScrollPageJumpSize = loadInt(key: Keys.sliceScrollPageJumpSize, defaultValue: sliceScrollPageJumpSize)
+        sliceScrollUseShiftFastMode = loadBool(key: Keys.sliceScrollUseShiftFastMode, defaultValue: sliceScrollUseShiftFastMode)
+    }
+}
+
+// MARK: - Persistence
+
+private enum Keys {
+    static let sliceScrollBaseThreshold = "appSettings.sliceScrollBaseThreshold"
+    static let sliceScrollFastMultiplier = "appSettings.sliceScrollFastMultiplier"
+    static let sliceScrollMaxSlicesPerEvent = "appSettings.sliceScrollMaxSlicesPerEvent"
+    static let sliceScrollMomentumScale = "appSettings.sliceScrollMomentumScale"
+    static let sliceScrollPageJumpSize = "appSettings.sliceScrollPageJumpSize"
+    static let sliceScrollUseShiftFastMode = "appSettings.sliceScrollUseShiftFastMode"
+}
+
+private extension AppSettings {
+    func loadDouble(key: String, defaultValue: Double) -> Double {
+        guard let value = userDefaults.object(forKey: key) as? Double else { return defaultValue }
+        return value
+    }
+
+    func loadInt(key: String, defaultValue: Int) -> Int {
+        guard let value = userDefaults.object(forKey: key) as? Int else { return defaultValue }
+        return value
+    }
+
+    func loadBool(key: String, defaultValue: Bool) -> Bool {
+        guard let value = userDefaults.object(forKey: key) as? Bool else { return defaultValue }
+        return value
+    }
+
+    func persistClampedDouble(_ value: Double, min: Double, max: Double, key: String) -> Double {
+        let clamped = Swift.min(Swift.max(value, min), max)
+        userDefaults.set(clamped, forKey: key)
+        return clamped
+    }
+
+    func persistClampedInt(_ value: Int, min: Int, max: Int, key: String) -> Int {
+        let clamped = Swift.min(Swift.max(value, min), max)
+        userDefaults.set(clamped, forKey: key)
+        return clamped
+    }
+}
+
+// MARK: - Developer Tools helpers
+
+extension AppSettings {
+    func resetScrollTuningToDefaults() {
+        sliceScrollBaseThreshold = 36
+        sliceScrollFastMultiplier = 3
+        sliceScrollMaxSlicesPerEvent = 6
+        sliceScrollMomentumScale = 0.11
+        sliceScrollPageJumpSize = 10
+        sliceScrollUseShiftFastMode = true
+    }
 }
 
 // MARK: - Static default

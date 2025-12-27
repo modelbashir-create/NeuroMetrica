@@ -16,7 +16,7 @@ struct CrosshairOverlay: View {
 
             context.stroke(
                 path,
-                with: .color(HeritagePACSTheme.crosshairColor.opacity(0.5)),
+                with: .color(Color.secondary.opacity(0.5)),
                 lineWidth: 1
             )
         }

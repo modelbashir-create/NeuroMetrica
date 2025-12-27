@@ -1,60 +1,92 @@
 import SwiftUI
 import Observation
 
+#if os(macOS)
+import AppKit
+#endif
+
 // MARK: - Root ContentView (Viewer Shell)
 
 struct ContentView: View {
-    // Shared viewer state is created in AppContainer and injected via `.environment(viewerState)`
+
     @Environment(ViewerState.self) private var viewerState
+    @EnvironmentObject private var appSettings: AppSettings
+
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+
     @ObservedObject var viewModel: ViewerViewModel
     @ObservedObject var importViewModel: ImportViewModel
+    @ObservedObject var settingsViewModel: SettingsViewModel
+
     @Binding var inspectorPresented: Bool
 
-    // iOS 26: Namespaces for morphing sheet transitions
     @Namespace private var exportTransition
     @Namespace private var settingsTransition
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
+
             SidebarView(viewModel: importViewModel)
+
         } detail: {
-            CanvasView(viewModel: viewModel, importViewModel: importViewModel)
-                .navigationTitle("")
-                #if os(iOS)
-                .toolbar(.hidden, for: .navigationBar)
-                #endif
+
+            CanvasView(
+                viewModel: viewModel,
+                importViewModel: importViewModel
+            )
+            .navigationTitle("")
+            #if os(iOS)
+            .toolbar(.hidden, for: .navigationBar)
+            #endif
         }
         .accessibilityIdentifier("ViewerContentView")
-        // Inspector column (third pane)
+
+        // MARK: Inspector
+
         .inspector(isPresented: $inspectorPresented) {
             InspectorView(viewModel: viewModel)
                 .environment(viewerState)
                 .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
         }
+
+        // MARK: Toolbar
+
         .toolbar { toolbarContent }
         .toolbarRole(.editor)
-        // iOS 26: Morphing sheet presentations
-        .sheet(isPresented: .init(
-            get: { viewerState.showExportSheet },
-            set: { viewModel.setExportSheetPresented($0) }
-        )) {
+
+        // MARK: Export Sheet
+
+        .sheet(
+            isPresented: .init(
+                get: { viewerState.showExportSheet },
+                set: { viewModel.setExportSheetPresented($0) }
+            )
+        ) {
             ExportSheetView()
                 .presentationDetents([.medium, .large])
                 .applyMorphingTransition(id: "export", in: exportTransition)
         }
-        .sheet(isPresented: .init(
-            get: { viewerState.showSettingsSheet },
-            set: { viewModel.setSettingsSheetPresented($0) }
-        )) {
+
+        // MARK: Settings Sheet
+
+        .sheet(
+            isPresented: .init(
+                get: { viewerState.showSettingsSheet },
+                set: { viewModel.setSettingsSheetPresented($0) }
+            )
+        ) {
             NavigationStack {
-                SettingsView()
+                SettingsView(viewModel: settingsViewModel)
             }
-                .environment(viewerState)
-                .presentationDetents([.medium, .large])
-                .applyMorphingTransition(id: "settings", in: settingsTransition)
+            .environment(viewerState)
+            .presentationDetents([.medium, .large])
+            .applyMorphingTransition(id: "settings", in: settingsTransition)
         }
+
+        // MARK: Keyboard Handling
+
         .focusable()
+
         .onKeyPress(.space) {
             viewModel.toggleCine(for: viewerState.clampedActiveIndex)
             return .handled
@@ -68,11 +100,11 @@ struct ContentView: View {
             return .handled
         }
         .onKeyPress(.pageUp) {
-            viewModel.stepSlice(by: 5)
+            viewModel.stepSlice(by: appSettings.sliceScrollPageJumpSize)
             return .handled
         }
         .onKeyPress(.pageDown) {
-            viewModel.stepSlice(by: -5)
+            viewModel.stepSlice(by: -appSettings.sliceScrollPageJumpSize)
             return .handled
         }
         .onKeyPress(.home) {
@@ -83,40 +115,75 @@ struct ContentView: View {
             viewModel.jumpToLastSlice()
             return .handled
         }
-        .onKeyPress(.leftArrow) {
-            viewModel.adjustCineFPS(by: -1, for: viewerState.clampedActiveIndex)
-            return .handled
-        }
-        .onKeyPress(.rightArrow) {
-            viewModel.adjustCineFPS(by: 1, for: viewerState.clampedActiveIndex)
-            return .handled
+
+        #if os(macOS)
+        .background(
+            KeyDownCatcherView(onKeyDown: handleKeyDown)
+                .frame(width: 0, height: 0)
+        )
+        #endif
+    }
+
+    // MARK: - macOS Option Paging
+
+    #if os(macOS)
+    private func handleKeyDown(_ event: NSEvent) -> Bool {
+        guard event.modifierFlags.contains(.option) else { return false }
+
+        switch event.keyCode {
+        case 126: // Up
+            viewModel.stepSlice(by: appSettings.sliceScrollPageJumpSize)
+            return true
+        case 125: // Down
+            viewModel.stepSlice(by: -appSettings.sliceScrollPageJumpSize)
+            return true
+        default:
+            return false
         }
     }
+
+    private struct KeyDownCatcherView: NSViewRepresentable {
+
+        var onKeyDown: (NSEvent) -> Bool
+
+        final class RepresentedView: NSView {
+            var onKeyDown: ((NSEvent) -> Bool)?
+            override var acceptsFirstResponder: Bool { true }
+
+            override func keyDown(with event: NSEvent) {
+                if onKeyDown?(event) == true { return }
+                super.keyDown(with: event)
+            }
+        }
+
+        func makeNSView(context: Context) -> RepresentedView {
+            let view = RepresentedView()
+            view.onKeyDown = onKeyDown
+            DispatchQueue.main.async {
+                view.window?.makeFirstResponder(view)
+            }
+            return view
+        }
+
+        func updateNSView(_ nsView: RepresentedView, context: Context) {
+            nsView.onKeyDown = onKeyDown
+        }
+    }
+    #endif
 
     // MARK: - Toolbar Content
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+
         ToolbarItemGroup(placement: .navigation) {
             viewModeMenu
             layoutMenu
         }
 
-        // iOS 26: Flexible spacing with ToolbarSpacer
         ToolbarItemGroup(placement: .principal) {
-            #if swift(>=6.0)
-            if #available(iOS 26, macOS 26, *) {
-                ToolbarSpacer(.flexible)
-            }
-            #endif
 
             viewerToolsGroup
-
-            #if swift(>=6.0)
-            if #available(iOS 26, macOS 26, *) {
-                ToolbarSpacer(.flexible)
-            }
-            #endif
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
@@ -126,14 +193,19 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - View Mode Menu
+    // MARK: - View Mode Menu (RESTORED)
 
     private var viewModeMenu: some View {
         Menu {
             Button {
                 viewModel.setViewerMode(.twoD)
             } label: {
-                Label("2D", systemImage: viewerState.viewerMode == .twoD ? "checkmark" : "square")
+                Label(
+                    "2D",
+                    systemImage: viewerState.viewerMode == .twoD
+                        ? "checkmark"
+                        : "square"
+                )
             }
 
             Divider()
@@ -145,7 +217,9 @@ struct ContentView: View {
                 } label: {
                     Label(
                         mode.rawValue,
-                        systemImage: viewerState.viewerMode == .threeD && viewerState.threeDMode == mode
+                        systemImage:
+                            viewerState.viewerMode == .threeD &&
+                            viewerState.threeDMode == mode
                             ? "checkmark"
                             : "square"
                     )
@@ -156,10 +230,10 @@ struct ContentView: View {
         } primaryAction: {
             viewModel.toggleViewerMode()
         }
-        .help("Toggle 2D/3D")
+        .help("Toggle 2D / 3D")
     }
 
-    // MARK: - Layout Menu
+    // MARK: - Layout Menu (RESTORED)
 
     private var layoutMenu: some View {
         Menu {
@@ -172,12 +246,12 @@ struct ContentView: View {
                     Label {
                         Text(mode.rawValue)
                     } icon: {
-                        layoutIconImage(for: mode)
+                        Image(systemName: layoutIcon(for: mode))
                     }
                 }
             }
         } label: {
-            layoutIconView
+            Image(systemName: layoutIcon(for: viewerState.layoutMode))
         } primaryAction: {
             withAnimation(.smooth) {
                 viewModel.cycleLayout()
@@ -186,42 +260,37 @@ struct ContentView: View {
         .help("Cycle layout")
     }
 
-    @ViewBuilder
-    private var layoutIconView: some View {
-        layoutIconImage(for: viewerState.layoutMode)
-        .contentTransition(.symbolEffect(.automatic))
-    }
-
-    @ViewBuilder
-    private func layoutIconImage(for mode: LayoutMode) -> some View {
-        switch mode {
-        case .threeUp:
-            Image("3upicon")
-        default:
-            Image(systemName: layoutIcon(for: mode))
-        }
-    }
-
     private func layoutIcon(for mode: LayoutMode) -> String {
         switch mode {
         case .oneUp:   return "rectangle"
         case .twoUp:   return "rectangle.split.2x1"
-        case .threeUp: return "rectangle.split.1x2.fill"
+        case .threeUp: return "rectangle.split.1x2"
         case .fourUp:  return "rectangle.split.2x2"
         }
     }
 
-    // MARK: - Viewer Tools Group
+    // MARK: - Viewer Tools
 
     private var viewerToolsGroup: some View {
         ControlGroup {
-            ForEach(ViewerTool.allCases) { tool in
-                Button {
-                    viewModel.setActiveTool(tool)
-                } label: {
-                    Image(systemName: tool.icon)
+            ForEach(ViewerTool.allCases, id: \.self) { tool in
+                if tool == viewerState.activeTool {
+                    Button {
+                        viewModel.setActiveTool(tool)
+                    } label: {
+                        Image(systemName: tool.symbolName)
+                    }
+                    .tint(.accentColor)
+                    .help(tool.rawValue)
+                } else {
+                    Button {
+                        viewModel.setActiveTool(tool)
+                    } label: {
+                        Image(systemName: tool.symbolName)
+                    }
+                    .foregroundStyle(.primary)
+                    .help(tool.rawValue)
                 }
-                .help(tool.rawValue)
             }
         }
         .controlGroupStyle(.navigation)
@@ -237,7 +306,6 @@ struct ContentView: View {
             Image(systemName: "gearshape")
         }
         .help("Settings")
-        .applyTransitionSource(id: "settings", in: settingsTransition)
     }
 
     private var inspectorToggle: some View {
@@ -258,6 +326,5 @@ struct ContentView: View {
             Image(systemName: "square.and.arrow.up")
         }
         .help("Export")
-        .applyTransitionSource(id: "export", in: exportTransition)
     }
 }

@@ -2,6 +2,9 @@ import Foundation
 import Combine
 import SwiftUI
 import ChromaEngineKit
+#if os(macOS)
+import AppKit
+#endif
 
 /// ViewerViewModel
 ///
@@ -33,6 +36,7 @@ final class ViewerViewModel: ObservableObject {
     private var lastLoadRequest: ViewerLoadRequest?
     private var pendingActiveSeries: StudySeries?
     private var cineTasks: [Int: Task<Void, Never>] = [:]
+    private var scrollAccumulators: [Int: CGFloat] = [:]
 
     // MARK: - Init
 
@@ -83,7 +87,23 @@ final class ViewerViewModel: ObservableObject {
     }
 
     func setActiveTool(_ tool: ViewerTool) {
+        if tool != .zoom && tool != .none {
+            viewerState.lastNonZoomTool = tool
+        }
         viewerState.activeTool = tool
+    }
+
+    func toggleZoomTool() {
+        if viewerState.activeTool == .zoom {
+            viewerState.activeTool = .none
+            viewerState.lastNonZoomTool = nil
+            return
+        }
+
+        if viewerState.activeTool != .none {
+            viewerState.lastNonZoomTool = viewerState.activeTool
+        }
+        viewerState.activeTool = .zoom
     }
 
     func setActiveViewportIndex(_ index: Int) {
@@ -201,6 +221,67 @@ final class ViewerViewModel: ObservableObject {
         setSliceIndex(viewerState.sliceIndex + delta)
     }
 
+    func consumeScrollForSlices(
+        deltaY: CGFloat,
+        viewportIndex: Int,
+        isPrecise: Bool,
+        isFast: Bool
+    ) -> Int {
+        // Values are sourced from Developer Tools settings in AppSettings.
+        let baseThreshold = CGFloat(appSettings.sliceScrollBaseThreshold)
+        let fastMultiplier = CGFloat(appSettings.sliceScrollFastMultiplier)
+        let maxSlicesPerEvent = appSettings.sliceScrollMaxSlicesPerEvent
+        let useShiftFastMode = appSettings.sliceScrollUseShiftFastMode
+
+        let clampedBase = min(max(baseThreshold, 20), 80)
+        let clampedFast = min(max(fastMultiplier, 2), 6)
+        let clampedMax = min(max(maxSlicesPerEvent, 2), 12)
+
+        // Normalize system delta so positive values move forward through slices.
+        let normalizedDeltaY = -deltaY
+
+        // Precise trackpad uses a lower threshold for smoother, faster traversal; wheel uses a smaller threshold.
+        let coarseThreshold = max(clampedBase / 4, 6)
+        let preciseThreshold = max(clampedBase * 0.3, 4)
+        let scrollThreshold = isPrecise ? preciseThreshold : coarseThreshold
+        let speedScale = min(max(abs(normalizedDeltaY) / max(clampedBase, 1), 0.5), 3)
+        let threshold = (scrollThreshold / speedScale) / ((isFast && useShiftFastMode) ? clampedFast : 1)
+
+        var accumulator = (scrollAccumulators[viewportIndex] ?? 0) + normalizedDeltaY
+        var steps = 0
+
+        while abs(accumulator) >= threshold && abs(steps) < clampedMax {
+            let step = accumulator > 0 ? 1 : -1
+            steps += step
+            accumulator -= threshold * CGFloat(step)
+        }
+
+        scrollAccumulators[viewportIndex] = accumulator
+        return steps
+    }
+
+    func handleScrollEvent(
+        deltaY: CGFloat,
+        viewportIndex: Int,
+        isPrecise: Bool,
+        isFast: Bool,
+        phase: NSEvent.Phase,
+        momentumPhase: NSEvent.Phase
+    ) {
+        let momentumScale = CGFloat(min(max(appSettings.sliceScrollMomentumScale, 0.2), 1.0))
+        let adjustedDeltaY = momentumPhase.isEmpty ? deltaY : deltaY * momentumScale
+
+        let steps = consumeScrollForSlices(
+            deltaY: adjustedDeltaY,
+            viewportIndex: viewportIndex,
+            isPrecise: isPrecise,
+            isFast: isFast
+        )
+        if steps != 0 {
+            stepSlice(by: steps, for: viewportIndex)
+        }
+    }
+
     func jumpToFirstSlice() {
         guard !viewerState.isLoadingVolume else { return }
         guard viewerState.sliceCount > 0 else { return }
@@ -266,6 +347,40 @@ final class ViewerViewModel: ObservableObject {
         guard level != viewerState.level else { return }
         viewerState.level = level
         refreshViewportSlices()
+    }
+
+    // MARK: - Zoom
+
+    func zoom(for viewportIndex: Int) -> CGFloat {
+        viewerState.zoom(for: viewportIndex)
+    }
+
+    func setZoom(for viewportIndex: Int, to zoom: CGFloat) {
+        guard viewerState.isImagingViewport(viewportIndex) else { return }
+        viewerState.setZoom(zoom, for: viewportIndex)
+    }
+
+    func stepZoom(for viewportIndex: Int, by factor: CGFloat) {
+        guard factor > 0 else { return }
+        let currentZoom = viewerState.zoom(for: viewportIndex)
+        setZoom(for: viewportIndex, to: currentZoom * factor)
+    }
+
+    func pan(for viewportIndex: Int) -> CGSize {
+        viewerState.pan(for: viewportIndex)
+    }
+
+    func setPan(for viewportIndex: Int, to pan: CGSize) {
+        viewerState.setPan(pan, for: viewportIndex)
+    }
+
+    func zoomFitView(for viewportIndex: Int) {
+        viewerState.resetZoom(for: viewportIndex)
+        viewerState.resetPan(for: viewportIndex)
+    }
+
+    func zoomFitActiveView() {
+        zoomFitView(for: viewerState.clampedActiveIndex)
     }
 
     // MARK: - Internal helpers
@@ -349,7 +464,7 @@ final class ViewerViewModel: ObservableObject {
     private func updateSlice(for index: Int) {
         let snapshotHandle = viewerState.volumeHandle
         let snapshotOrientation = viewerState.orientation(for: index)
-        let snapshotIndex = clampedSliceIndex(for: snapshotOrientation)
+        let snapshotIndex = engineSliceIndex(for: snapshotOrientation)
         let snapshotWindow = viewerState.window
         let snapshotLevel = viewerState.level
 
@@ -383,12 +498,6 @@ final class ViewerViewModel: ObservableObject {
         }
     }
 
-    private func clampedSliceIndex(for orientation: SliceOrientation) -> Int {
-        let count = sliceCount(for: orientation)
-        guard count > 0 else { return 0 }
-        return min(max(viewerState.sliceIndex, 0), count - 1)
-    }
-
     private func sliceCount(for orientation: SliceOrientation) -> Int {
         guard let descriptor = currentDescriptor else { return 0 }
         switch orientation {
@@ -399,6 +508,13 @@ final class ViewerViewModel: ObservableObject {
         case .sagittal:
             return descriptor.sizeX
         }
+    }
+
+    private func engineSliceIndex(for orientation: SliceOrientation) -> Int {
+        let count = sliceCount(for: orientation)
+        guard count > 0 else { return 0 }
+        let clamped = min(max(viewerState.sliceIndex, 0), count - 1)
+        return max(count - 1, 0) - clamped
     }
 
     private func stopCineForNonImagingViewports() {
@@ -412,6 +528,7 @@ final class ViewerViewModel: ObservableObject {
             stopCine(for: index)
         }
     }
+
 
     private func runCineLoop(for viewportIndex: Int) async {
         while !Task.isCancelled {

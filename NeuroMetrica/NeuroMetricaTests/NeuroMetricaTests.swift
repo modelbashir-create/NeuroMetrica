@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import ChromaEngineKit
 @testable import NeuroMetrica
 
 final class NeuroMetricaTests: XCTestCase {
@@ -16,7 +17,7 @@ final class NeuroMetricaTests: XCTestCase {
         state.activeViewportIndex = 3
         state.setLayout(.twoUp)
 
-        XCTAssertEqual(state.clampedActiveIndex, 1)
+        XCTAssertEqual(state.clampedActiveIndex, 0)
         XCTAssertEqual(state.orientation(for: 0), .axial)
         XCTAssertEqual(state.orientation(for: 1), .sagittal)
     }
@@ -48,7 +49,7 @@ final class NeuroMetricaTests: XCTestCase {
 
         state.setLayout(.twoUp)
 
-        XCTAssertEqual(state.clampedActiveIndex, 1)
+        XCTAssertEqual(state.clampedActiveIndex, 0)
         XCTAssertTrue(state.cineState(for: 0).isPlaying)
     }
 
@@ -67,7 +68,7 @@ final class NeuroMetricaTests: XCTestCase {
         let importViewModel = ImportViewModel(
             filePickerService: FilePickerService(),
             recentFilesStore: recentFilesStore,
-            viewerViewModel: viewerViewModel
+            volumeRouter: viewerViewModel
         )
 
         let studies = [
@@ -121,5 +122,57 @@ final class NeuroMetricaTests: XCTestCase {
 
         importViewModel.searchText = ""
         XCTAssertEqual(importViewModel.filteredStudies.count, 2)
+    }
+
+    @MainActor
+    func testZoomClampsPerViewport() {
+        let state = ViewerState()
+        state.setZoom(0.1, for: 0)
+        state.setZoom(10, for: 1)
+
+        XCTAssertEqual(state.zoom(for: 0), ViewerState.minZoom)
+        XCTAssertEqual(state.zoom(for: 1), ViewerState.maxZoom)
+        XCTAssertEqual(state.zoom(for: 2), ViewerState.defaultZoom)
+    }
+
+    @MainActor
+    func testViewModelZoomStepAndClamp() {
+        let state = ViewerState()
+        let engineBridge = ChromaEngineBridge(config: .standard)
+        let appSettings = AppSettings()
+        let recentFilesStore = RecentFilesStore()
+        let viewModel = ViewerViewModel(
+            viewerState: state,
+            engineBridge: engineBridge,
+            appSettings: appSettings,
+            recentFilesStore: recentFilesStore
+        )
+
+        viewModel.setZoom(for: 0, to: 3.0)
+        viewModel.stepZoom(for: 0, by: 2.0)
+        XCTAssertEqual(state.zoom(for: 0), ViewerState.maxZoom)
+
+        viewModel.setZoom(for: 0, to: 1.0)
+        viewModel.stepZoom(for: 0, by: 0.1)
+        XCTAssertEqual(state.zoom(for: 0), ViewerState.minZoom)
+    }
+
+    @MainActor
+    func testZoomIgnoredForNonImagingViewport() {
+        let state = ViewerState()
+        state.setLayout(.fourUp)
+
+        let engineBridge = ChromaEngineBridge(config: .standard)
+        let appSettings = AppSettings()
+        let recentFilesStore = RecentFilesStore()
+        let viewModel = ViewerViewModel(
+            viewerState: state,
+            engineBridge: engineBridge,
+            appSettings: appSettings,
+            recentFilesStore: recentFilesStore
+        )
+
+        viewModel.setZoom(for: 3, to: 2.0)
+        XCTAssertEqual(state.zoom(for: 3), ViewerState.defaultZoom)
     }
 }

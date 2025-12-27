@@ -54,6 +54,7 @@ enum ThreeDSubMode: String, CaseIterable, Identifiable {
 
 /// Active tool in the viewer toolbar
 enum ViewerTool: String, CaseIterable, Identifiable {
+    case none        = "None"
     case windowLevel = "Window/Level"
     case pan         = "Pan"
     case zoom        = "Zoom"
@@ -62,14 +63,19 @@ enum ViewerTool: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var icon: String {
+    var symbolName: String {
         switch self {
-        case .windowLevel: return "slider.horizontal.3"
+        case .none:        return "circle"
+        case .windowLevel: return "line.3.horizontal.decrease.circle"
         case .pan:         return "hand.draw"
-        case .zoom:        return "plus.magnifyingglass"
+        case .zoom:        return "magnifyingglass.circle"
         case .measure:     return "ruler"
-        case .cine:        return "play.fill"
+        case .cine:        return "play"
         }
+    }
+
+    static var allCases: [ViewerTool] {
+        [.windowLevel, .pan, .zoom, .measure, .cine]
     }
 }
 
@@ -99,7 +105,10 @@ final class ViewerState {
     var activeViewportIndex: Int = 0
 
     /// Currently selected tool in the viewer toolbar
-    var activeTool: ViewerTool = .windowLevel
+    var activeTool: ViewerTool = .none
+
+    /// Last non-zoom tool, used to restore the previous mode when toggling Zoom off.
+    var lastNonZoomTool: ViewerTool? = nil
 
     // Sheet presentation states
     var showExportSheet: Bool = false
@@ -164,6 +173,16 @@ final class ViewerState {
     /// Window width and level (engine-space)
     var window: Float = 350
     var level: Float = 40
+
+    // MARK: Zoom state
+
+    static let defaultZoom: CGFloat = 1.0
+    static let minZoom: CGFloat = 0.5
+    static let maxZoom: CGFloat = 5.0
+    static let defaultPan: CGSize = .zero
+
+    private var viewportZooms: [Int: CGFloat] = [:]
+    private var viewportPans: [Int: CGSize] = [:]
 
     /// Indicates an async load / reslice is in progress
     var isLoadingVolume: Bool = false
@@ -264,6 +283,8 @@ final class ViewerState {
         sliceCount = 0
         window = 350
         level = 40
+        viewportZooms = [:]
+        viewportPans = [:]
         isLoadingVolume = false
         lastError = nil
         lastErrorContext = nil
@@ -323,6 +344,31 @@ final class ViewerState {
 
     func setOrientation(_ orientation: SliceOrientation, for index: Int) {
         viewportOrientations[index] = orientation
+    }
+
+    func zoom(for index: Int) -> CGFloat {
+        viewportZooms[index] ?? Self.defaultZoom
+    }
+
+    func setZoom(_ zoom: CGFloat, for index: Int) {
+        let clamped = min(max(zoom, Self.minZoom), Self.maxZoom)
+        viewportZooms[index] = clamped
+    }
+
+    func resetZoom(for index: Int) {
+        viewportZooms[index] = Self.defaultZoom
+    }
+
+    func pan(for index: Int) -> CGSize {
+        viewportPans[index] ?? Self.defaultPan
+    }
+
+    func setPan(_ pan: CGSize, for index: Int) {
+        viewportPans[index] = pan
+    }
+
+    func resetPan(for index: Int) {
+        viewportPans[index] = Self.defaultPan
     }
 
     func isImagingViewport(_ index: Int) -> Bool {
