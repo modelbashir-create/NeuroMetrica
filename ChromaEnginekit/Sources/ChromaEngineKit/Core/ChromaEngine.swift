@@ -345,48 +345,228 @@ private extension ChromaEngine {
         sourceFormat: CIMetadataSourceFormat,
         sourceDescription: String?
     ) -> CIMetadata {
-        let tags = parseMetadataTags(descriptor.metadataJSON)
+        let parsed = parseMetadataMap(descriptor.metadata)
         let metadata = CIMetadata(
             sourceFormat: sourceFormat,
             sourceDescription: sourceDescription,
-            patientID: tags["0010,0020"],
-            patientName: tags["0010,0010"],
-            patientSex: tags["0010,0040"],
-            patientBirthDate: tags["0010,0030"],
-            patientAge: tags["0010,1010"],
-            studyInstanceUID: tags["0020,000D"],
-            seriesInstanceUID: tags["0020,000E"],
-            frameOfReferenceUID: tags["0020,0052"],
-            studyID: tags["0020,0010"],
-            accessionNumber: tags["0008,0050"],
-            studyDescription: tags["0008,1030"],
-            seriesDescription: tags["0008,103E"],
-            modality: tags["0008,0060"],
-            bodyPartExamined: tags["0018,0015"],
-            institutionName: tags["0008,0080"],
-            manufacturer: tags["0008,0070"],
-            manufacturerModelName: tags["0008,1090"],
-            acquisitionDate: tags["0008,0022"] ?? tags["0008,0021"] ?? tags["0008,0020"],
-            acquisitionTime: tags["0008,0032"] ?? tags["0008,0031"] ?? tags["0008,0030"],
-            rows: parseInt(tags["0028,0010"]),
-            columns: parseInt(tags["0028,0011"]),
-            sliceThickness: parseDouble(tags["0018,0050"]),
-            spacingBetweenSlices: parseDouble(tags["0018,0088"]),
-            pixelSpacing: parsePixelSpacing(tags["0028,0030"]),
-            additionalTags: tags
+            patientID: parsed.tags["0010,0020"],
+            patientName: parsed.tags["0010,0010"],
+            patientSex: parsed.tags["0010,0040"],
+            patientBirthDate: parsed.tags["0010,0030"],
+            patientAge: parsed.tags["0010,1010"],
+            studyInstanceUID: parsed.tags["0020,000D"],
+            seriesInstanceUID: parsed.tags["0020,000E"],
+            frameOfReferenceUID: parsed.tags["0020,0052"],
+            studyID: parsed.tags["0020,0010"],
+            accessionNumber: parsed.tags["0008,0050"],
+            studyDescription: parsed.tags["0008,1030"],
+            seriesDescription: parsed.tags["0008,103E"],
+            modality: parsed.tags["0008,0060"],
+            bodyPartExamined: parsed.tags["0018,0015"],
+            studyDate: parsed.tags["0008,0020"],
+            studyTime: parsed.tags["0008,0030"],
+            seriesNumber: parsed.seriesNumber,
+            instanceNumber: parsed.instanceNumber,
+            institutionName: parsed.tags["0008,0080"],
+            manufacturer: parsed.tags["0008,0070"],
+            manufacturerModelName: parsed.tags["0008,1090"],
+            acquisitionDate: parsed.tags["0008,0022"] ?? parsed.tags["0008,0021"] ?? parsed.tags["0008,0020"],
+            acquisitionTime: parsed.tags["0008,0032"] ?? parsed.tags["0008,0031"] ?? parsed.tags["0008,0030"],
+            rows: parsed.rows ?? parseInt(parsed.tags["0028,0010"]),
+            columns: parsed.columns ?? parseInt(parsed.tags["0028,0011"]),
+            sliceThickness: parsed.sliceThickness ?? parseDouble(parsed.tags["0018,0050"]),
+            spacingBetweenSlices: parsed.spacingBetweenSlices ?? parseDouble(parsed.tags["0018,0088"]),
+            pixelSpacing: parsed.pixelSpacing ?? parsePixelSpacing(parsed.tags["0028,0030"]),
+            bitsAllocated: parsed.bitsAllocated,
+            bitsStored: parsed.bitsStored,
+            pixelRepresentation: parsed.pixelRepresentation,
+            highBit: parsed.highBit,
+            rescaleIntercept: parsed.rescaleIntercept ?? parseDouble(parsed.tags["0028,1052"]),
+            rescaleSlope: parsed.rescaleSlope ?? parseDouble(parsed.tags["0028,1053"]),
+            windowCenter: parsed.windowCenter,
+            windowWidth: parsed.windowWidth,
+            transferSyntaxUID: parsed.transferSyntaxUID ?? parsed.tags["0002,0010"],
+            pixelDataConsistentAcrossSlices: parsed.pixelDataConsistentAcrossSlices,
+            geometryConsistentAcrossSlices: parsed.geometryConsistentAcrossSlices,
+            numberOfFrames: parsed.numberOfFrames ?? parseInt(parsed.tags["0028,0008"]),
+            numberOfInstances: parsed.numberOfInstances ?? parseInt(parsed.tags["0020,1209"]),
+            imageOrientationPatientRow: parsed.imageOrientationPatientRow,
+            imageOrientationPatientColumn: parsed.imageOrientationPatientColumn,
+            imagePositionPatient: parsed.imagePositionPatient,
+            imageOrientationConsistentAcrossSlices: parsed.imageOrientationConsistentAcrossSlices,
+            additionalTags: parsed.tags
         )
 
         return metadata
     }
 
-    func parseMetadataTags(_ metadataJSON: String?) -> [String: String] {
-        guard let metadataJSON,
-              let data = metadataJSON.data(using: .utf8) else {
-            return [:]
+    struct ParsedMetadata {
+        var tags: [String: String]
+        var imageOrientationPatientRow: [Double]?
+        var imageOrientationPatientColumn: [Double]?
+        var imagePositionPatient: [Double]?
+        var imageOrientationConsistentAcrossSlices: Bool?
+        var pixelDataConsistentAcrossSlices: Bool?
+        var geometryConsistentAcrossSlices: Bool?
+        var seriesNumber: Int?
+        var instanceNumber: Int?
+        var bitsAllocated: Int?
+        var bitsStored: Int?
+        var highBit: Int?
+        var pixelRepresentation: Int?
+        var rescaleIntercept: Double?
+        var rescaleSlope: Double?
+        var windowCenter: [Double]?
+        var windowWidth: [Double]?
+        var rows: Int?
+        var columns: Int?
+        var sliceThickness: Double?
+        var spacingBetweenSlices: Double?
+        var pixelSpacing: CIPixelSpacing?
+        var transferSyntaxUID: String?
+        var numberOfFrames: Int?
+        var numberOfInstances: Int?
+    }
+
+    func parseMetadataMap(_ metadata: [String: ITKMetadataValue]) -> ParsedMetadata {
+        var tags: [String: String] = [:]
+        var row: [Double]?
+        var column: [Double]?
+        var position: [Double]?
+        var consistent: Bool?
+        var seriesNumber: Int?
+        var instanceNumber: Int?
+        var bitsAllocated: Int?
+        var bitsStored: Int?
+        var highBit: Int?
+        var pixelRepresentation: Int?
+        var rescaleIntercept: Double?
+        var rescaleSlope: Double?
+        var windowCenter: [Double]?
+        var windowWidth: [Double]?
+        var rows: Int?
+        var columns: Int?
+        var sliceThickness: Double?
+        var spacingBetweenSlices: Double?
+        var pixelSpacing: CIPixelSpacing?
+        var transferSyntaxUID: String?
+        var numberOfFrames: Int?
+        var numberOfInstances: Int?
+        var pixelDataConsistentAcrossSlices: Bool?
+        var geometryConsistentAcrossSlices: Bool?
+
+        for (key, value) in metadata {
+            switch value {
+            case .string(let stringValue):
+                tags[key] = stringValue
+                switch key {
+                case "0002,0010":
+                    transferSyntaxUID = stringValue
+                default:
+                    break
+                }
+            case .number(let numberValue):
+                tags[key] = formatNumber(numberValue)
+                switch key {
+                case "0020,0011": seriesNumber = Int(numberValue.rounded())
+                case "0020,0013": instanceNumber = Int(numberValue.rounded())
+                case "0028,0100": bitsAllocated = Int(numberValue.rounded())
+                case "0028,0101": bitsStored = Int(numberValue.rounded())
+                case "0028,0102": highBit = Int(numberValue.rounded())
+                case "0028,0103": pixelRepresentation = Int(numberValue.rounded())
+                case "0028,1052": rescaleIntercept = numberValue
+                case "0028,1053": rescaleSlope = numberValue
+                case "0028,0010": rows = Int(numberValue.rounded())
+                case "0028,0011": columns = Int(numberValue.rounded())
+                case "0018,0050": sliceThickness = numberValue
+                case "0018,0088": spacingBetweenSlices = numberValue
+                case "0028,0008": numberOfFrames = Int(numberValue.rounded())
+                case "0020,1209": numberOfInstances = Int(numberValue.rounded())
+                default: break
+                }
+            case .array(let arrayValue):
+                tags[key] = formatNumberArray(arrayValue)
+                switch key {
+                case "0020,0037":
+                    if arrayValue.count == 6 {
+                        row = Array(arrayValue.prefix(3))
+                        column = Array(arrayValue.suffix(3))
+                    }
+                case "0020,0032":
+                    if arrayValue.count >= 3 {
+                        position = Array(arrayValue.prefix(3))
+                    }
+                case "0028,1050":
+                    windowCenter = arrayValue
+                case "0028,1051":
+                    windowWidth = arrayValue
+                case "0028,0030":
+                    if arrayValue.count >= 2 {
+                        pixelSpacing = CIPixelSpacing(row: arrayValue[0], column: arrayValue[1])
+                    }
+                default:
+                    break
+                }
+            case .boolean(let boolValue):
+                tags[key] = boolValue ? "true" : "false"
+                switch key {
+                case "_orientationConsistent":
+                    consistent = boolValue
+                case "_pixelDataConsistent":
+                    pixelDataConsistentAcrossSlices = boolValue
+                case "_geometryConsistent":
+                    geometryConsistentAcrossSlices = boolValue
+                default:
+                    break
+                }
+            }
         }
 
-        let object = try? JSONSerialization.jsonObject(with: data, options: [])
-        return object as? [String: String] ?? [:]
+        return ParsedMetadata(
+            tags: tags,
+            imageOrientationPatientRow: row,
+            imageOrientationPatientColumn: column,
+            imagePositionPatient: position,
+            imageOrientationConsistentAcrossSlices: consistent,
+            pixelDataConsistentAcrossSlices: pixelDataConsistentAcrossSlices,
+            geometryConsistentAcrossSlices: geometryConsistentAcrossSlices,
+            seriesNumber: seriesNumber,
+            instanceNumber: instanceNumber,
+            bitsAllocated: bitsAllocated,
+            bitsStored: bitsStored,
+            highBit: highBit,
+            pixelRepresentation: pixelRepresentation,
+            rescaleIntercept: rescaleIntercept,
+            rescaleSlope: rescaleSlope,
+            windowCenter: windowCenter,
+            windowWidth: windowWidth,
+            rows: rows,
+            columns: columns,
+            sliceThickness: sliceThickness,
+            spacingBetweenSlices: spacingBetweenSlices,
+            pixelSpacing: pixelSpacing,
+            transferSyntaxUID: transferSyntaxUID,
+            numberOfFrames: numberOfFrames,
+            numberOfInstances: numberOfInstances
+        )
+    }
+
+    private func formatNumber(_ value: Double) -> String {
+        var text = String(format: "%.6f", value)
+        while text.contains(".") && text.last == "0" {
+            text.removeLast()
+        }
+        if text.last == "." {
+            text.removeLast()
+        }
+        if text.isEmpty {
+            return "0"
+        }
+        return text
+    }
+
+    private func formatNumberArray(_ values: [Double]) -> String {
+        values.map { formatNumber($0) }.joined(separator: "\\")
     }
 
     func parseInt(_ value: String?) -> Int? {

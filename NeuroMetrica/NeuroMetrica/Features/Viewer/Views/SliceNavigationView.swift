@@ -9,7 +9,8 @@ struct SliceNavigationView: View {
             // Snapshot values — avoid constructing controls that assert on empty ranges
             let sliceCount = viewerState.sliceCount
             let hasSlices = sliceCount > 0
-            let upper = hasSlices ? (sliceCount - 1) : 0
+            let hasSlider = sliceCount > 1
+            let upper = hasSlider ? (sliceCount - 1) : 0
             let currentIndex = hasSlices
                 ? min(max(viewerState.sliceIndex, 0), upper)
                 : 0
@@ -24,7 +25,7 @@ struct SliceNavigationView: View {
 
             // Only construct a Slider when there are slices — some SwiftUI slider variants
             // assert if the range/content is degenerate.
-            if hasSlices {
+            if hasSlider {
                 Slider(
                     value: Binding(
                         get: { Double(currentIndex) },

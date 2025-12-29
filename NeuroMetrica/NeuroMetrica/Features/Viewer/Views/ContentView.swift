@@ -122,6 +122,7 @@ struct ContentView: View {
                 .frame(width: 0, height: 0)
         )
         #endif
+        .background(fitToViewKeyCommand)
     }
 
     // MARK: - macOS Option Paging
@@ -170,6 +171,20 @@ struct ContentView: View {
         }
     }
     #endif
+
+    private var fitToViewKeyCommand: some View {
+        Button("") {
+            viewModel.zoomFitActiveView()
+        }
+        #if os(macOS)
+        .keyboardShortcut("0", modifiers: [.command])
+        #else
+        .keyboardShortcut("0", modifiers: [.control])
+        #endif
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .accessibilityHidden(true)
+    }
 
     // MARK: - Toolbar Content
 
@@ -224,13 +239,22 @@ struct ContentView: View {
                             : "square"
                     )
                 }
-            }
+        }
         } label: {
-            Image(systemName: viewerState.viewerMode == .twoD ? "cube" : "cube.fill")
+            HStack(spacing: 4) {
+                Image(systemName: viewerState.viewerMode == .twoD ? "cube" : "cube.fill")
+                Text(viewModeLabelText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         } primaryAction: {
             viewModel.toggleViewerMode()
         }
         .help("Toggle 2D / 3D")
+    }
+
+    private var viewModeLabelText: String {
+        viewerState.viewerMode == .twoD ? "3D" : viewerState.threeDMode.rawValue
     }
 
     // MARK: - Layout Menu (RESTORED)
@@ -289,7 +313,7 @@ struct ContentView: View {
                     Image(systemName: tool.symbolName)
                 }
                 .toggleStyle(.button)
-                .tint(.accentColor)
+                .tint(HeritagePACSTheme.phiHighlightYellow)
                 .help(tool.rawValue)
                 .disabled(viewerState.isLoadingVolume)
             }

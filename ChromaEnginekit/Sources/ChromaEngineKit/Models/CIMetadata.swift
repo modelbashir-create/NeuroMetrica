@@ -69,6 +69,11 @@ public struct CIMetadata: Sendable, Equatable {
     public var modality: String?
     public var bodyPartExamined: String?
 
+    public var studyDate: String?
+    public var studyTime: String?
+    public var seriesNumber: Int?
+    public var instanceNumber: Int?
+
     // MARK: - Institution / Equipment
 
     public var institutionName: String?
@@ -104,6 +109,33 @@ public struct CIMetadata: Sendable, Equatable {
 
     /// In-plane pixel spacing (row, column) in mm.
     public var pixelSpacing: CIPixelSpacing?
+    public var bitsAllocated: Int?
+    public var bitsStored: Int?
+    public var pixelRepresentation: Int?
+    public var highBit: Int?
+    public var rescaleIntercept: Double?
+    public var rescaleSlope: Double?
+    public var windowCenter: [Double]?
+    public var windowWidth: [Double]?
+    public var transferSyntaxUID: String?
+    public var pixelDataConsistentAcrossSlices: Bool?
+    public var geometryConsistentAcrossSlices: Bool?
+    public var numberOfFrames: Int?
+    public var numberOfInstances: Int?
+
+    // MARK: - DICOM Orientation (Patient)
+
+    /// Image Orientation (Patient) row direction cosines.
+    public var imageOrientationPatientRow: [Double]?
+
+    /// Image Orientation (Patient) column direction cosines.
+    public var imageOrientationPatientColumn: [Double]?
+
+    /// Image Position (Patient) of the first slice.
+    public var imagePositionPatient: [Double]?
+
+    /// Whether orientation was consistent across slices (when validated).
+    public var imageOrientationConsistentAcrossSlices: Bool?
 
     // MARK: - Raw tags / header map
 
@@ -143,6 +175,10 @@ public struct CIMetadata: Sendable, Equatable {
         seriesDescription: String? = nil,
         modality: String? = nil,
         bodyPartExamined: String? = nil,
+        studyDate: String? = nil,
+        studyTime: String? = nil,
+        seriesNumber: Int? = nil,
+        instanceNumber: Int? = nil,
         institutionName: String? = nil,
         manufacturer: String? = nil,
         manufacturerModelName: String? = nil,
@@ -153,6 +189,23 @@ public struct CIMetadata: Sendable, Equatable {
         sliceThickness: Double? = nil,
         spacingBetweenSlices: Double? = nil,
         pixelSpacing: CIPixelSpacing? = nil,
+        bitsAllocated: Int? = nil,
+        bitsStored: Int? = nil,
+        pixelRepresentation: Int? = nil,
+        highBit: Int? = nil,
+        rescaleIntercept: Double? = nil,
+        rescaleSlope: Double? = nil,
+        windowCenter: [Double]? = nil,
+        windowWidth: [Double]? = nil,
+        transferSyntaxUID: String? = nil,
+        pixelDataConsistentAcrossSlices: Bool? = nil,
+        geometryConsistentAcrossSlices: Bool? = nil,
+        numberOfFrames: Int? = nil,
+        numberOfInstances: Int? = nil,
+        imageOrientationPatientRow: [Double]? = nil,
+        imageOrientationPatientColumn: [Double]? = nil,
+        imagePositionPatient: [Double]? = nil,
+        imageOrientationConsistentAcrossSlices: Bool? = nil,
         additionalTags: [String: String] = [:]
     ) {
         self.sourceFormat = sourceFormat
@@ -171,6 +224,10 @@ public struct CIMetadata: Sendable, Equatable {
         self.seriesDescription = seriesDescription
         self.modality = modality
         self.bodyPartExamined = bodyPartExamined
+        self.studyDate = studyDate
+        self.studyTime = studyTime
+        self.seriesNumber = seriesNumber
+        self.instanceNumber = instanceNumber
         self.institutionName = institutionName
         self.manufacturer = manufacturer
         self.manufacturerModelName = manufacturerModelName
@@ -181,6 +238,23 @@ public struct CIMetadata: Sendable, Equatable {
         self.sliceThickness = sliceThickness
         self.spacingBetweenSlices = spacingBetweenSlices
         self.pixelSpacing = pixelSpacing
+        self.bitsAllocated = bitsAllocated
+        self.bitsStored = bitsStored
+        self.pixelRepresentation = pixelRepresentation
+        self.highBit = highBit
+        self.rescaleIntercept = rescaleIntercept
+        self.rescaleSlope = rescaleSlope
+        self.windowCenter = windowCenter
+        self.windowWidth = windowWidth
+        self.transferSyntaxUID = transferSyntaxUID
+        self.pixelDataConsistentAcrossSlices = pixelDataConsistentAcrossSlices
+        self.geometryConsistentAcrossSlices = geometryConsistentAcrossSlices
+        self.numberOfFrames = numberOfFrames
+        self.numberOfInstances = numberOfInstances
+        self.imageOrientationPatientRow = imageOrientationPatientRow
+        self.imageOrientationPatientColumn = imageOrientationPatientColumn
+        self.imagePositionPatient = imagePositionPatient
+        self.imageOrientationConsistentAcrossSlices = imageOrientationConsistentAcrossSlices
         self.additionalTags = additionalTags
     }
 }

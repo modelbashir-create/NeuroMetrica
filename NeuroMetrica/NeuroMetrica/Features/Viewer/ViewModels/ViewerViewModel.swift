@@ -37,6 +37,56 @@ final class ViewerViewModel: ObservableObject {
     private var pendingActiveSeries: StudySeries?
     private var cineTasks: [Int: Task<Void, Never>] = [:]
     private var scrollAccumulators: [Int: CGFloat] = [:]
+    private var windowLevelDragStates: [Int: WindowLevelDragState] = [:]
+    private var panDragStates: [Int: PanDragState] = [:]
+    private var crosshairDragStates: [Int: CrosshairDragState] = [:]
+    private var viewportGeometries: [Int: ViewportGeometry] = [:]
+
+    private struct WindowLevelDragState {
+        let startWindow: Float
+        let startLevel: Float
+        let startLocation: CGPoint
+        var lockedAxis: WindowLevelAxisLock?
+    }
+
+    private enum WindowLevelAxisLock {
+        case window
+        case level
+    }
+
+    private struct PanDragState {
+        let startPan: CGSize
+    }
+
+    private struct CrosshairDragState {
+        let isActive: Bool
+    }
+
+    private struct ViewportGeometry {
+        let viewSize: CGSize
+        let contentRect: CGRect
+    }
+
+    private struct WindowLevelPreset {
+        let name: String
+        let window: Float
+        let level: Float
+    }
+
+    private enum WindowLevelLimits {
+        static let minWindow: Float = 1
+        static let maxWindow: Float = 4096
+        static let minLevel: Float = -1024
+        static let maxLevel: Float = 3072
+    }
+
+    private let windowLevelPresets: [WindowLevelPreset] = [
+        WindowLevelPreset(name: "Brain", window: 80, level: 40),
+        WindowLevelPreset(name: "Lung", window: 1500, level: -600),
+        WindowLevelPreset(name: "Bone", window: 2500, level: 500)
+    ]
+
+    private let crosshairHitRadius: CGFloat = 7
 
     // MARK: - Init
 
@@ -87,6 +137,10 @@ final class ViewerViewModel: ObservableObject {
     }
 
     func setActiveTool(_ tool: ViewerTool?) {
+        if tool == .fitToView {
+            zoomFitActiveView()
+            return
+        }
         if let tool, tool != .zoom {
             viewerState.lastNonZoomTool = tool
         }
@@ -126,6 +180,10 @@ final class ViewerViewModel: ObservableObject {
 
     func setSettingsSheetPresented(_ presented: Bool) {
         viewerState.showSettingsSheet = presented
+    }
+
+    func updateViewportGeometry(for index: Int, viewSize: CGSize, contentRect: CGRect) {
+        viewportGeometries[index] = ViewportGeometry(viewSize: viewSize, contentRect: contentRect)
     }
 
     // MARK: - Volume Loading
@@ -336,17 +394,146 @@ final class ViewerViewModel: ObservableObject {
     }
 
     func setWindow(_ window: Float) {
-        guard !viewerState.isLoadingVolume else { return }
-        guard window != viewerState.window else { return }
-        viewerState.window = window
-        refreshViewportSlices()
+        setWindowLevel(window: window, level: viewerState.level)
     }
 
     func setLevel(_ level: Float) {
+        setWindowLevel(window: viewerState.window, level: level)
+    }
+
+    func setWindowLevel(window: Float, level: Float) {
         guard !viewerState.isLoadingVolume else { return }
-        guard level != viewerState.level else { return }
-        viewerState.level = level
+        let clampedWindow = min(max(window, WindowLevelLimits.minWindow), WindowLevelLimits.maxWindow)
+        let clampedLevel = min(max(level, WindowLevelLimits.minLevel), WindowLevelLimits.maxLevel)
+        guard clampedWindow != viewerState.window || clampedLevel != viewerState.level else { return }
+        viewerState.window = clampedWindow
+        viewerState.level = clampedLevel
         refreshViewportSlices()
+    }
+
+    func beginWindowLevelDrag(at location: CGPoint, viewportIndex: Int) {
+        guard !viewerState.isLoadingVolume else { return }
+        guard viewerState.isImagingViewport(viewportIndex) else { return }
+        if windowLevelDragStates[viewportIndex] != nil { return }
+        windowLevelDragStates[viewportIndex] = WindowLevelDragState(
+            startWindow: viewerState.window,
+            startLevel: viewerState.level,
+            startLocation: location
+        )
+    }
+
+    func updateWindowLevelDrag(
+        to location: CGPoint,
+        viewportIndex: Int,
+        isFineAdjustment: Bool,
+        forceAxisLock: Bool
+    ) {
+        guard !viewerState.isLoadingVolume else { return }
+        guard viewerState.isImagingViewport(viewportIndex) else { return }
+        if windowLevelDragStates[viewportIndex] == nil {
+            beginWindowLevelDrag(at: location, viewportIndex: viewportIndex)
+        }
+        guard var state = windowLevelDragStates[viewportIndex] else { return }
+
+        let deltaX = Float(location.x - state.startLocation.x)
+        let deltaY = Float(location.y - state.startLocation.y)
+        let absDeltaX = abs(deltaX)
+        let absDeltaY = abs(deltaY)
+
+        if forceAxisLock, state.lockedAxis == nil {
+            state.lockedAxis = absDeltaX >= absDeltaY ? .window : .level
+            windowLevelDragStates[viewportIndex] = state
+        }
+
+        if state.lockedAxis == nil {
+            let threshold = Float(appSettings.windowLevelDragAxisLockThreshold)
+            if absDeltaX > absDeltaY * (1 + threshold) {
+                state.lockedAxis = .window
+            } else if absDeltaY > absDeltaX * (1 + threshold) {
+                state.lockedAxis = .level
+            }
+            windowLevelDragStates[viewportIndex] = state
+        }
+
+        let levelScale = Float(appSettings.windowLevelDragLevelScale)
+        let windowRatio = Float(appSettings.windowLevelDragWindowToLevelRatio)
+        let gamma = Float(appSettings.windowLevelDragResponseGamma)
+        let deadZone = Float(appSettings.windowLevelDragDeadZonePoints)
+        let fineScale = Float(appSettings.windowLevelDragFineAdjustmentScale)
+        let levelPerPoint = max(state.startWindow * levelScale, 0.01)
+        let windowPerPoint = levelPerPoint * windowRatio
+
+        let sensitivityScale: Float = isFineAdjustment ? fineScale : 1.0
+        let adjustedDeltaX = applyDeadZone(deltaX, threshold: deadZone)
+        let adjustedDeltaY = applyDeadZone(deltaY, threshold: deadZone)
+        let curvedDeltaX = applyResponseCurve(adjustedDeltaX, gamma: gamma) * sensitivityScale
+        let curvedDeltaY = applyResponseCurve(adjustedDeltaY, gamma: gamma) * sensitivityScale
+
+        let windowWeight: Float
+        let levelWeight: Float
+
+        switch state.lockedAxis {
+        case .window:
+            windowWeight = 1.0
+            levelWeight = 0.2
+        case .level:
+            windowWeight = 0.2
+            levelWeight = 1.0
+        case .none:
+            windowWeight = 1.0
+            levelWeight = 1.0
+        }
+
+        let newWindow = state.startWindow + curvedDeltaX * windowPerPoint * windowWeight
+        let newLevel = state.startLevel - curvedDeltaY * levelPerPoint * levelWeight
+        let snapped = applyPresetSnap(window: newWindow, level: newLevel)
+        setWindowLevel(window: snapped.window, level: snapped.level)
+    }
+
+    private func applyResponseCurve(_ delta: Float, gamma: Float) -> Float {
+        let magnitude = pow(abs(delta), gamma)
+        return delta.sign == .minus ? -magnitude : magnitude
+    }
+
+    private func applyDeadZone(_ delta: Float, threshold: Float) -> Float {
+        let magnitude = abs(delta)
+        guard magnitude > threshold else { return 0 }
+        let adjusted = magnitude - threshold
+        return delta.sign == .minus ? -adjusted : adjusted
+    }
+
+    private func applyPresetSnap(window: Float, level: Float) -> (window: Float, level: Float) {
+        let tolerance = Float(appSettings.windowLevelPresetSnapTolerance)
+        let strength = Float(appSettings.windowLevelPresetSnapStrength)
+        guard tolerance > 0, strength > 0 else { return (window, level) }
+
+        var bestPreset: WindowLevelPreset?
+        var bestScore: Float = .greatestFiniteMagnitude
+
+        for preset in windowLevelPresets {
+            let windowDelta = abs(window - preset.window) / max(preset.window, 1)
+            let levelDelta = abs(level - preset.level) / max(abs(preset.level), 1)
+            let maxDelta = max(windowDelta, levelDelta)
+            guard maxDelta <= tolerance else { continue }
+            if maxDelta < bestScore {
+                bestScore = maxDelta
+                bestPreset = preset
+            }
+        }
+
+        guard let preset = bestPreset else { return (window, level) }
+
+        let normalized = min(max(bestScore / max(tolerance, 0.0001), 0), 1)
+        let proximity = 1 - normalized
+        let blend = min(max(proximity * strength, 0), 1)
+
+        let snappedWindow = window + (preset.window - window) * blend
+        let snappedLevel = level + (preset.level - level) * blend
+        return (snappedWindow, snappedLevel)
+    }
+
+    func endWindowLevelDrag(for viewportIndex: Int) {
+        windowLevelDragStates[viewportIndex] = nil
     }
 
     // MARK: - Zoom
@@ -374,9 +561,150 @@ final class ViewerViewModel: ObservableObject {
         viewerState.setPan(pan, for: viewportIndex)
     }
 
+    func beginPanDrag(for viewportIndex: Int) {
+        guard viewerState.isImagingViewport(viewportIndex) else { return }
+        if panDragStates[viewportIndex] != nil { return }
+        panDragStates[viewportIndex] = PanDragState(startPan: viewerState.pan(for: viewportIndex))
+    }
+
+    func updatePanDrag(for viewportIndex: Int, translation: CGSize) {
+        guard viewerState.isImagingViewport(viewportIndex) else { return }
+        if panDragStates[viewportIndex] == nil {
+            beginPanDrag(for: viewportIndex)
+        }
+        guard let state = panDragStates[viewportIndex] else { return }
+        let updated = CGSize(
+            width: state.startPan.width + translation.width,
+            height: state.startPan.height + translation.height
+        )
+        setPan(for: viewportIndex, to: updated)
+    }
+
+    func endPanDrag(for viewportIndex: Int) {
+        panDragStates[viewportIndex] = nil
+    }
+
+    // MARK: - Crosshair
+
+    func crosshairViewPoint(
+        for viewportIndex: Int,
+        viewSize: CGSize,
+        contentRect: CGRect,
+        aspectRatio: CGFloat?,
+        zoom: CGFloat,
+        pan: CGSize
+    ) -> CGPoint? {
+        guard let imageSize = imagePixelSize(for: viewportIndex) else { return nil }
+        let imagePoint = viewerState.crosshairPoint(for: viewportIndex, imageSize: imageSize)
+        return imagePointToViewPoint(
+            imagePoint,
+            viewSize: viewSize,
+            imageSize: imageSize,
+            aspectRatio: aspectRatio,
+            zoom: zoom,
+            pan: pan,
+            contentRect: contentRect
+        )
+    }
+
+    func beginCrosshairDrag(
+        at viewPoint: CGPoint,
+        viewportIndex: Int,
+        viewSize: CGSize,
+        contentRect: CGRect,
+        aspectRatio: CGFloat?,
+        zoom: CGFloat,
+        pan: CGSize
+    ) -> Bool {
+        guard viewerState.isImagingViewport(viewportIndex) else { return false }
+        guard contentRect.contains(viewPoint) else { return false }
+        guard let imageSize = imagePixelSize(for: viewportIndex) else { return false }
+
+        let crosshairViewPoint = imagePointToViewPoint(
+            viewerState.crosshairPoint(for: viewportIndex, imageSize: imageSize),
+            viewSize: viewSize,
+            imageSize: imageSize,
+            aspectRatio: aspectRatio,
+            zoom: zoom,
+            pan: pan,
+            contentRect: contentRect
+        )
+        guard isPointNearCrosshairLine(
+            viewPoint,
+            crosshairViewPoint: crosshairViewPoint,
+            contentRect: contentRect
+        ) else { return false }
+
+        crosshairDragStates[viewportIndex] = CrosshairDragState(isActive: true)
+        updateCrosshairDrag(
+            to: viewPoint,
+            viewportIndex: viewportIndex,
+            viewSize: viewSize,
+            contentRect: contentRect,
+            aspectRatio: aspectRatio,
+            zoom: zoom,
+            pan: pan
+        )
+        return true
+    }
+
+    func updateCrosshairDrag(
+        to viewPoint: CGPoint,
+        viewportIndex: Int,
+        viewSize: CGSize,
+        contentRect: CGRect,
+        aspectRatio: CGFloat?,
+        zoom: CGFloat,
+        pan: CGSize
+    ) {
+        guard viewerState.isImagingViewport(viewportIndex) else { return }
+        guard crosshairDragStates[viewportIndex]?.isActive == true else { return }
+        guard let imageSize = imagePixelSize(for: viewportIndex) else { return }
+
+        let imagePoint = viewPointToImagePoint(
+            viewPoint,
+            viewSize: viewSize,
+            imageSize: imageSize,
+            aspectRatio: aspectRatio,
+            zoom: zoom,
+            pan: pan,
+            contentRect: contentRect
+        )
+        viewerState.setCrosshairPoint(imagePoint, for: viewportIndex, imageSize: imageSize)
+    }
+
+    func endCrosshairDrag(for viewportIndex: Int) {
+        crosshairDragStates[viewportIndex] = nil
+    }
+
     func zoomFitView(for viewportIndex: Int) {
-        viewerState.resetZoom(for: viewportIndex)
-        viewerState.resetPan(for: viewportIndex)
+        let targetZoom = ViewerState.defaultZoom
+        let geometry = viewportGeometries[viewportIndex]
+        let aspectRatio = displayAspectRatio(for: viewportIndex)
+        guard let geometry, let imageSize = imagePixelSize(for: viewportIndex) else {
+            viewerState.resetZoom(for: viewportIndex)
+            viewerState.resetPan(for: viewportIndex)
+            return
+        }
+
+        let crosshairPoint = viewerState.crosshairPoint(for: viewportIndex, imageSize: imageSize)
+        let basePoint = imagePointToViewPoint(
+            crosshairPoint,
+            viewSize: geometry.viewSize,
+            imageSize: imageSize,
+            aspectRatio: aspectRatio,
+            zoom: targetZoom,
+            pan: .zero,
+            contentRect: geometry.contentRect
+        )
+        let viewCenter = CGPoint(x: geometry.viewSize.width * 0.5, y: geometry.viewSize.height * 0.5)
+        let pan = CGSize(
+            width: viewCenter.x - basePoint.x,
+            height: viewCenter.y - basePoint.y
+        )
+
+        viewerState.setZoom(targetZoom, for: viewportIndex)
+        viewerState.setPan(pan, for: viewportIndex)
     }
 
     func zoomFitActiveView() {
@@ -385,10 +713,140 @@ final class ViewerViewModel: ObservableObject {
 
     // MARK: - Internal helpers
 
+    private func imagePixelSize(for viewportIndex: Int) -> CGSize? {
+        guard let descriptor = currentDescriptor else { return nil }
+        let orientation = viewerState.orientation(for: viewportIndex)
+
+        let width: Int
+        let height: Int
+        switch orientation {
+        case .axial:
+            width = descriptor.sizeX
+            height = descriptor.sizeY
+        case .coronal:
+            width = descriptor.sizeX
+            height = descriptor.sizeZ
+        case .sagittal:
+            width = descriptor.sizeY
+            height = descriptor.sizeZ
+        }
+
+        guard width > 0, height > 0 else { return nil }
+        return CGSize(width: CGFloat(width), height: CGFloat(height))
+    }
+
+    private func imagePointToViewPoint(
+        _ imagePoint: CGPoint,
+        viewSize: CGSize,
+        imageSize: CGSize,
+        aspectRatio: CGFloat?,
+        zoom: CGFloat,
+        pan: CGSize,
+        contentRect: CGRect
+    ) -> CGPoint {
+        let baseRect = fittedImageRect(
+            viewSize: viewSize,
+            imageSize: imageSize,
+            aspectRatio: aspectRatio,
+            contentRect: contentRect
+        )
+        let normalizedX = imageSize.width > 0 ? imagePoint.x / imageSize.width : 0
+        let normalizedY = imageSize.height > 0 ? imagePoint.y / imageSize.height : 0
+        let basePoint = CGPoint(
+            x: baseRect.minX + normalizedX * baseRect.width,
+            y: baseRect.minY + normalizedY * baseRect.height
+        )
+
+        let viewCenter = CGPoint(x: viewSize.width * 0.5, y: viewSize.height * 0.5)
+        let scaled = CGPoint(
+            x: viewCenter.x + (basePoint.x - viewCenter.x) * zoom,
+            y: viewCenter.y + (basePoint.y - viewCenter.y) * zoom
+        )
+
+        return CGPoint(x: scaled.x + pan.width, y: scaled.y + pan.height)
+    }
+
+    private func viewPointToImagePoint(
+        _ viewPoint: CGPoint,
+        viewSize: CGSize,
+        imageSize: CGSize,
+        aspectRatio: CGFloat?,
+        zoom: CGFloat,
+        pan: CGSize,
+        contentRect: CGRect
+    ) -> CGPoint {
+        let safeZoom = max(zoom, 0.001)
+        let viewCenter = CGPoint(x: viewSize.width * 0.5, y: viewSize.height * 0.5)
+        let unpanned = CGPoint(x: viewPoint.x - pan.width, y: viewPoint.y - pan.height)
+        let unscaled = CGPoint(
+            x: viewCenter.x + (unpanned.x - viewCenter.x) / safeZoom,
+            y: viewCenter.y + (unpanned.y - viewCenter.y) / safeZoom
+        )
+
+        let baseRect = fittedImageRect(
+            viewSize: viewSize,
+            imageSize: imageSize,
+            aspectRatio: aspectRatio,
+            contentRect: contentRect
+        )
+        let normalizedX = baseRect.width > 0 ? (unscaled.x - baseRect.minX) / baseRect.width : 0
+        let normalizedY = baseRect.height > 0 ? (unscaled.y - baseRect.minY) / baseRect.height : 0
+
+        let imageX = min(max(normalizedX, 0), 1) * imageSize.width
+        let imageY = min(max(normalizedY, 0), 1) * imageSize.height
+        return CGPoint(x: imageX, y: imageY)
+    }
+
+    private func fittedImageRect(
+        viewSize: CGSize,
+        imageSize: CGSize,
+        aspectRatio: CGFloat?,
+        contentRect: CGRect
+    ) -> CGRect {
+        let baseAspect = aspectRatio ?? (imageSize.width > 0 ? imageSize.width / imageSize.height : 1)
+        guard viewSize.width > 0, viewSize.height > 0, baseAspect > 0 else {
+            return contentRect
+        }
+
+        let viewAspect = viewSize.width / viewSize.height
+        let width: CGFloat
+        let height: CGFloat
+        if viewAspect > baseAspect {
+            height = viewSize.height
+            width = height * baseAspect
+        } else {
+            width = viewSize.width
+            height = width / baseAspect
+        }
+
+        let origin = CGPoint(
+            x: (viewSize.width - width) * 0.5,
+            y: (viewSize.height - height) * 0.5
+        )
+        return CGRect(origin: origin, size: CGSize(width: width, height: height))
+    }
+
+    private func isPointNearCrosshairLine(
+        _ viewPoint: CGPoint,
+        crosshairViewPoint: CGPoint,
+        contentRect: CGRect
+    ) -> Bool {
+        guard contentRect.contains(viewPoint) else { return false }
+
+        let nearVertical = abs(viewPoint.x - crosshairViewPoint.x) <= crosshairHitRadius
+            && viewPoint.y >= contentRect.minY
+            && viewPoint.y <= contentRect.maxY
+        let nearHorizontal = abs(viewPoint.y - crosshairViewPoint.y) <= crosshairHitRadius
+            && viewPoint.x >= contentRect.minX
+            && viewPoint.x <= contentRect.maxX
+        return nearVertical || nearHorizontal
+    }
+
     private func installVolume(_ descriptor: VolumeDescriptor) {
         currentDescriptor = descriptor
         viewerState.volumeHandle = descriptor.handle
         viewerState.metadata = descriptor.metadata
+        logMetadataDiagnostics()
         viewerState.activeSeries = pendingActiveSeries ?? makeSeries(from: descriptor)
         if let series = viewerState.activeSeries {
             viewerState.currentSeriesLabel = "\(series.seriesDescription) (SER \(series.seriesNumber))"
@@ -410,6 +868,7 @@ final class ViewerViewModel: ObservableObject {
 
         viewerState.window = Float(appSettings.defaultWindow)
         viewerState.level = Float(appSettings.defaultLevel)
+        viewerState.resetCrosshairPoints()
 
         viewerState.isLoadingVolume = false
         viewerState.lastError = nil
@@ -565,6 +1024,57 @@ final class ViewerViewModel: ObservableObject {
         viewerState.level = Float(appSettings.defaultLevel)
     }
 
+    private struct OrientationVector {
+        let x: Double
+        let y: Double
+        let z: Double
+    }
+
+    private func normalize(_ vector: OrientationVector) -> OrientationVector? {
+        let length = sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)
+        guard length > 0 else { return nil }
+        return OrientationVector(
+            x: vector.x / length,
+            y: vector.y / length,
+            z: vector.z / length
+        )
+    }
+
+    private func cross(_ a: OrientationVector, _ b: OrientationVector) -> OrientationVector {
+        OrientationVector(
+            x: a.y * b.z - a.z * b.y,
+            y: a.z * b.x - a.x * b.z,
+            z: a.x * b.y - a.y * b.x
+        )
+    }
+
+    private func dominantPatientAxisLabel(for vector: OrientationVector) -> String? {
+        let absX = abs(vector.x)
+        let absY = abs(vector.y)
+        let absZ = abs(vector.z)
+
+        if absX >= absY && absX >= absZ {
+            return vector.x >= 0 ? "L" : "R"
+        } else if absY >= absX && absY >= absZ {
+            return vector.y >= 0 ? "P" : "A"
+        } else if absZ >= absX && absZ >= absY {
+            return vector.z >= 0 ? "S" : "I"
+        }
+        return nil
+    }
+
+    private func oppositePatientAxisLabel(for label: String) -> String? {
+        switch label {
+        case "L": return "R"
+        case "R": return "L"
+        case "A": return "P"
+        case "P": return "A"
+        case "S": return "I"
+        case "I": return "S"
+        default: return nil
+        }
+    }
+
     // MARK: - Viewports
 
     func image(for index: Int) -> Image? {
@@ -591,6 +1101,63 @@ final class ViewerViewModel: ObservableObject {
 
         guard width > 0, height > 0 else { return nil }
         return CGFloat(width / height)
+    }
+
+    func orientationLabels(for viewportIndex: Int) -> ViewportOrientationLabels? {
+        guard viewerState.isImagingViewport(viewportIndex) else { return nil }
+        guard let metadata = viewerState.metadata else { return nil }
+        guard let rowValues = metadata.imageOrientationPatientRow,
+              let colValues = metadata.imageOrientationPatientColumn,
+              let position = metadata.imagePositionPatient,
+              rowValues.count == 3,
+              colValues.count == 3,
+              position.count == 3 else {
+            return nil
+        }
+
+        guard let row = normalize(OrientationVector(x: rowValues[0], y: rowValues[1], z: rowValues[2])),
+              let col = normalize(OrientationVector(x: colValues[0], y: colValues[1], z: colValues[2])) else { return nil }
+
+        guard let normal = normalize(cross(row, col)) else { return nil }
+
+        let xAxis: OrientationVector
+        let yAxis: OrientationVector
+
+        switch viewerState.orientation(for: viewportIndex) {
+        case .axial:
+            xAxis = row
+            yAxis = col
+        case .coronal:
+            xAxis = row
+            yAxis = normal
+        case .sagittal:
+            xAxis = col
+            yAxis = normal
+        }
+
+        guard let right = dominantPatientAxisLabel(for: xAxis),
+              let left = oppositePatientAxisLabel(for: right),
+              let bottom = dominantPatientAxisLabel(for: yAxis),
+              let top = oppositePatientAxisLabel(for: bottom) else { return nil }
+
+        return ViewportOrientationLabels(left: left, right: right, top: top, bottom: bottom)
+    }
+
+    private func logMetadataDiagnostics() {
+        guard let metadata = viewerState.metadata else { return }
+        let showPHI = appSettings.showDebugOverlay && appSettings.showPHIInDiagnostics
+        let report = MetadataDiagnostics.report(for: metadata, showPHI: showPHI)
+        MetadataDiagnostics.logReport(report)
+    }
+
+    func metadataReport() -> MetadataReport? {
+        guard let metadata = viewerState.metadata else { return nil }
+        let showPHI = appSettings.showDebugOverlay && appSettings.showPHIInDiagnostics
+        return MetadataDiagnostics.report(for: metadata, showPHI: showPHI)
+    }
+
+    func imageDataReport() -> ImageDataReport? {
+        currentDescriptor?.imageDataReport
     }
 
     private func loadVolume(_ request: ViewerLoadRequest) async {

@@ -88,6 +88,14 @@ struct DisplayTabContent: View {
             WWLControlsView(viewModel: viewModel)
                 .disabled(viewerState.isLoadingVolume)
 
+            GroupBox("Metadata Status") {
+                MetadataStatusSection(viewModel: viewModel)
+            }
+
+            GroupBox("Image Data Status") {
+                ImageDataStatusSection(viewModel: viewModel)
+            }
+
             // Overlays section
             GroupBox("Overlays") {
                 VStack(alignment: .leading, spacing: 12) {
@@ -96,6 +104,126 @@ struct DisplayTabContent: View {
                 }
             }
         }
+    }
+}
+
+struct MetadataStatusSection: View {
+    @ObservedObject var viewModel: ViewerViewModel
+
+    var body: some View {
+        if let report = viewModel.metadataReport() {
+            VStack(alignment: .leading, spacing: 10) {
+                statusGroup(title: "Identity", entries: report.identity)
+                statusGroup(title: "Geometry", entries: report.geometry)
+            }
+        } else {
+            Text("No metadata loaded")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func statusGroup(title: String, entries: [MetadataChecklistEntry]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+            ForEach(entries) { entry in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(entry.label)
+                        Spacer()
+                        Text(entry.status.rawValue.uppercased())
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let detail = entry.detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct ImageDataStatusSection: View {
+    @ObservedObject var viewModel: ViewerViewModel
+    @EnvironmentObject private var appSettings: AppSettings
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let report = viewModel.imageDataReport() {
+                statusGroup(title: "Pixel Data", entries: report.pixelData)
+                statusGroup(title: "Encoding", entries: report.encoding)
+                statusGroup(title: "Scaling", entries: report.scaling)
+                statusGroup(title: "Transfer Syntax", entries: report.transferSyntax)
+                statusGroup(title: "Consistency", entries: report.consistency)
+                statusGroup(title: "Geometry", entries: report.geometry)
+                statusGroup(title: "Rendering", entries: report.rendering)
+
+                if let stats = report.volumeStats {
+                    Text("Volume Range: \(format(stats.range.min)) … \(format(stats.range.max))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                if appSettings.showDebugOverlay && !report.sliceStats.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Slice Ranges")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.secondary)
+                        ForEach(report.sliceStats) { stats in
+                            Text("Slice \(stats.index + 1): \(format(stats.range.min)) … \(format(stats.range.max))")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            } else {
+                Text("No image data loaded")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func statusGroup(title: String, entries: [ImageDataChecklistEntry]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+            ForEach(entries) { entry in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(entry.label)
+                        Spacer()
+                        Text(entry.status.rawValue.uppercased())
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let detail = entry.detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private func format(_ value: Double) -> String {
+        var text = String(format: "%.4f", value)
+        while text.contains(".") && text.last == "0" {
+            text.removeLast()
+        }
+        if text.last == "." {
+            text.removeLast()
+        }
+        return text
     }
 }
 

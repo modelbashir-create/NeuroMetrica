@@ -8,6 +8,9 @@ struct ViewportView: View {
     @ObservedObject var viewModel: ViewerViewModel
     @ObservedObject var importViewModel: ImportViewModel
 
+    private let overlayMargin: CGFloat = 16
+    @State private var isCrosshairDragging = false
+
     private var isActive: Bool {
         index == viewerState.clampedActiveIndex
     }
@@ -15,6 +18,10 @@ struct ViewportView: View {
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
+            let contentRect = CGRect(origin: .zero, size: size).insetBy(dx: overlayMargin, dy: overlayMargin)
+            let zoom = viewerState.zoom(for: index)
+            let pan = viewerState.pan(for: index)
+            let aspectRatio = viewModel.displayAspectRatio(for: index)
 
             ZStack {
                 // Base viewport
@@ -36,17 +43,31 @@ struct ViewportView: View {
                         zoom: viewerState.zoom(for: index),
                         pan: viewerState.pan(for: index)
                     )
+                    if let labels = viewModel.orientationLabels(for: index) {
+                        OrientationLabelsOverlay(labels: labels)
+                    }
                 } else {
                     Placeholder3DView()
                 }
 
                 // Crosshairs
-                CrosshairOverlay(size: size)
-                    .allowsHitTesting(false)
-
-                // Measurement annotation
-                MeasurementOverlay(size: size)
-                    .allowsHitTesting(false)
+                if let crosshairPoint = viewModel.crosshairViewPoint(
+                    for: index,
+                    viewSize: size,
+                    contentRect: contentRect,
+                    aspectRatio: aspectRatio,
+                    zoom: zoom,
+                    pan: pan
+                ) {
+                    CrosshairOverlay(contentRect: contentRect, position: crosshairPoint)
+                        .gesture(crosshairDragGesture(
+                            viewSize: size,
+                            contentRect: contentRect,
+                            aspectRatio: aspectRatio,
+                            zoom: zoom,
+                            pan: pan
+                        ))
+                }
 
                 // iOS 26: Liquid Glass overlays
                 viewportOverlays(size: size)
@@ -62,6 +83,14 @@ struct ViewportView: View {
                         .allowsHitTesting(false)
                 }
             }
+            .onAppear {
+                viewModel.updateViewportGeometry(for: index, viewSize: size, contentRect: contentRect)
+            }
+            .onChange(of: size) { _, newSize in
+                let newRect = CGRect(origin: .zero, size: newSize)
+                    .insetBy(dx: overlayMargin, dy: overlayMargin)
+                viewModel.updateViewportGeometry(for: index, viewSize: newSize, contentRect: newRect)
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -70,6 +99,45 @@ struct ViewportView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Viewport \(index + 1)")
         .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+
+    private func crosshairDragGesture(
+        viewSize: CGSize,
+        contentRect: CGRect,
+        aspectRatio: CGFloat?,
+        zoom: CGFloat,
+        pan: CGSize
+    ) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                guard isActive else { return }
+                if !isCrosshairDragging {
+                    isCrosshairDragging = viewModel.beginCrosshairDrag(
+                        at: value.startLocation,
+                        viewportIndex: index,
+                        viewSize: viewSize,
+                        contentRect: contentRect,
+                        aspectRatio: aspectRatio,
+                        zoom: zoom,
+                        pan: pan
+                    )
+                }
+                guard isCrosshairDragging else { return }
+                viewModel.updateCrosshairDrag(
+                    to: value.location,
+                    viewportIndex: index,
+                    viewSize: viewSize,
+                    contentRect: contentRect,
+                    aspectRatio: aspectRatio,
+                    zoom: zoom,
+                    pan: pan
+                )
+            }
+            .onEnded { _ in
+                guard isCrosshairDragging else { return }
+                viewModel.endCrosshairDrag(for: index)
+                isCrosshairDragging = false
+            }
     }
 
     @ViewBuilder
@@ -109,31 +177,8 @@ struct ViewportView: View {
 
     @ViewBuilder
     private func overlayContent(size: CGSize) -> some View {
-        // Center mode indicator
-        modeIndicator
-
         // Corner overlays
         cornerOverlays
-    }
-
-    private var modeIndicator: some View {
-        Group {
-            if viewerState.viewerMode == .twoD {
-                Text("2D")
-                    .font(.caption.bold())
-            } else {
-                VStack(spacing: 2) {
-                    Text("3D")
-                        .font(.caption.bold())
-                    Text(viewerState.threeDMode.rawValue)
-                        .font(.caption2)
-                }
-            }
-        }
-        .foregroundStyle(.primary)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .applyGlassEffect(tint: .clear)
     }
 
     private var cornerOverlays: some View {

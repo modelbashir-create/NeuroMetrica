@@ -56,6 +56,7 @@ enum ThreeDSubMode: String, CaseIterable, Identifiable {
 enum ViewerTool: String, CaseIterable, Identifiable {
     case windowLevel = "Window/Level"
     case pan         = "Pan"
+    case fitToView   = "Fit to View"
     case zoom        = "Zoom"
     case measure     = "Measure"
     case cine        = "Cine"
@@ -65,7 +66,8 @@ enum ViewerTool: String, CaseIterable, Identifiable {
     var symbolName: String {
         switch self {
         case .windowLevel: return "line.3.horizontal.decrease.circle"
-        case .pan:         return "hand.draw"
+        case .pan:         return "hand.raised"
+        case .fitToView:   return "arrow.up.backward.and.arrow.down.forward.rectangle"
         case .zoom:        return "magnifyingglass.circle"
         case .measure:     return "ruler"
         case .cine:        return "play"
@@ -73,7 +75,7 @@ enum ViewerTool: String, CaseIterable, Identifiable {
     }
 
     static var allCases: [ViewerTool] {
-        [.windowLevel, .pan, .zoom, .measure, .cine]
+        [.windowLevel, .zoom, .pan, .fitToView, .cine, .measure]
     }
 }
 
@@ -181,6 +183,7 @@ final class ViewerState {
 
     private var viewportZooms: [Int: CGFloat] = [:]
     private var viewportPans: [Int: CGSize] = [:]
+    private var viewportCrosshairPoints: [Int: CGPoint] = [:]
 
     /// Indicates an async load / reslice is in progress
     var isLoadingVolume: Bool = false
@@ -367,6 +370,26 @@ final class ViewerState {
 
     func resetPan(for index: Int) {
         viewportPans[index] = Self.defaultPan
+    }
+
+    func crosshairPoint(for index: Int, imageSize: CGSize) -> CGPoint {
+        let stored = viewportCrosshairPoints[index]
+        let defaultPoint = CGPoint(x: imageSize.width * 0.5, y: imageSize.height * 0.5)
+        return clampCrosshairPoint(stored ?? defaultPoint, imageSize: imageSize)
+    }
+
+    func setCrosshairPoint(_ point: CGPoint, for index: Int, imageSize: CGSize) {
+        viewportCrosshairPoints[index] = clampCrosshairPoint(point, imageSize: imageSize)
+    }
+
+    func resetCrosshairPoints() {
+        viewportCrosshairPoints.removeAll()
+    }
+
+    private func clampCrosshairPoint(_ point: CGPoint, imageSize: CGSize) -> CGPoint {
+        let x = min(max(point.x, 0), max(imageSize.width, 0))
+        let y = min(max(point.y, 0), max(imageSize.height, 0))
+        return CGPoint(x: x, y: y)
     }
 
     func isImagingViewport(_ index: Int) -> Bool {

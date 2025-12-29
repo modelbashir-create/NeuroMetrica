@@ -103,6 +103,9 @@ public struct ITKImageDescriptor {
     /// Raw metadata JSON emitted by the bridge (string map).
     public let metadataJSON: String?
 
+    /// Parsed metadata map (lossless numeric types preserved).
+    public let metadata: [String: ITKMetadataValue]
+
     private let metadataPointer: UnsafePointer<CChar>?
 
     // MARK: Designated init
@@ -121,6 +124,7 @@ public struct ITKImageDescriptor {
         bufferPointer: UnsafeRawPointer?,
         debugDescription: String? = nil,
         metadataJSON: String? = nil,
+        metadata: [String: ITKMetadataValue] = [:],
         metadataPointer: UnsafePointer<CChar>? = nil
     ) {
         self.dimension = dimension
@@ -136,8 +140,16 @@ public struct ITKImageDescriptor {
         self.bufferPointer = bufferPointer
         self.debugDescription = debugDescription
         self.metadataJSON = metadataJSON
+        self.metadata = metadata
         self.metadataPointer = metadataPointer
     }
+}
+
+public enum ITKMetadataValue: Sendable, Equatable {
+    case string(String)
+    case number(Double)
+    case array([Double])
+    case boolean(Bool)
 }
 
 // MARK: - C bridge helpers
@@ -210,6 +222,7 @@ public extension ITKImageDescriptor {
         let ptr = UnsafeRawPointer(desc.bufferHandle)
         let metadataPointer = UnsafePointer<CChar>(desc.metadataJSON)
         let metadataJSON = metadataPointer != nil ? String(cString: metadataPointer!) : nil
+        let metadata = parseMetadataJSON(metadataJSON)
 
         let debug = """
         dim=\(clampedDim), size=\(sizeArray), spacing=\(spacingArray), \
@@ -233,6 +246,7 @@ public extension ITKImageDescriptor {
             bufferPointer: ptr,
             debugDescription: debug,
             metadataJSON: metadataJSON,
+            metadata: metadata,
             metadataPointer: metadataPointer
         )
     }
@@ -260,4 +274,44 @@ public extension ITKImageDescriptor {
         cDescriptor.valueCount = UInt64(valueCount)
         ITKFreeImageDescriptor(&cDescriptor)
     }
+}
+
+private func parseMetadataJSON(_ metadataJSON: String?) -> [String: ITKMetadataValue] {
+    guard let metadataJSON,
+          let data = metadataJSON.data(using: .utf8) else {
+        return [:]
+    }
+
+    guard let object = try? JSONSerialization.jsonObject(with: data, options: []),
+          let dictionary = object as? [String: Any] else {
+        return [:]
+    }
+
+    var result: [String: ITKMetadataValue] = [:]
+    result.reserveCapacity(dictionary.count)
+
+    for (key, value) in dictionary {
+        if let stringValue = value as? String {
+            result[key] = .string(stringValue)
+            continue
+        }
+        if let numberValue = value as? NSNumber {
+            result[key] = .number(numberValue.doubleValue)
+            continue
+        }
+        if let boolValue = value as? Bool {
+            result[key] = .boolean(boolValue)
+            continue
+        }
+        if let arrayValue = value as? [NSNumber] {
+            result[key] = .array(arrayValue.map { $0.doubleValue })
+            continue
+        }
+        if let arrayValue = value as? [Double] {
+            result[key] = .array(arrayValue)
+            continue
+        }
+    }
+
+    return result
 }

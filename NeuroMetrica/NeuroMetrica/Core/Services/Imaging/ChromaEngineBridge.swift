@@ -35,6 +35,7 @@ struct VolumeDescriptor {
     let url: URL
     let format: VolumeFormat
     let metadata: CIMetadata
+    let imageDataReport: ImageDataReport
     
     let sizeX: Int
     let sizeY: Int
@@ -93,6 +94,7 @@ private struct VolumeRecord {
     let url: URL
     let format: VolumeFormat
     let metadata: CIMetadata
+    let imageDataReport: ImageDataReport
     
     /// The actual engine volume object (from ChromaEngineKit).
     let engineVolume: CImageVolume
@@ -167,7 +169,7 @@ actor ChromaEngineBridge {
             // For now, this uses the ChromaEngine API.
             // Behind the scenes, ChromaImagingCore can use ITK or native IO.
             let engineDescriptor = try await engine.loadNiftiVolume(from: url)
-            return registerVolume(
+            return await registerVolume(
                 engineDescriptor,
                 url: url,
                 format: VolumeFormat.nifti
@@ -181,7 +183,7 @@ actor ChromaEngineBridge {
     func loadNRRDVolume(from url: URL) async throws -> VolumeDescriptor {
         do {
             let engineDescriptor = try await engine.loadNRRDVolume(from: url)
-            return registerVolume(
+            return await registerVolume(
                 engineDescriptor,
                 url: url,
                 format: VolumeFormat.nrrd
@@ -210,7 +212,7 @@ actor ChromaEngineBridge {
                 throw ChromaEngineBridgeError.unsupportedFormat(url)
             }
 
-            let descriptor = registerVolume(
+            let descriptor = await registerVolume(
                 engineDescriptor,
                 url: url,
                 format: dicomFormat
@@ -274,7 +276,7 @@ actor ChromaEngineBridge {
         _ engineDescriptor: EngineVolumeDescriptor,
         url: URL,
         format: VolumeFormat
-    ) -> VolumeDescriptor {
+    ) async -> VolumeDescriptor {
         let handle = VolumeHandle()
 
         let engineVolume = engineDescriptor.volume
@@ -288,12 +290,23 @@ actor ChromaEngineBridge {
         let spacingX = engineVolume.spacingX
         let spacingY = engineVolume.spacingY
         let spacingZ = engineVolume.spacingZ
+
+        let imageDataReport = await MainActor.run {
+            ImageDataDiagnostics.report(
+                for: engineVolume,
+                metadata: engineDescriptor.metadata
+            )
+        }
+        await MainActor.run {
+            ImageDataDiagnostics.logReport(imageDataReport)
+        }
         
         let descriptor = VolumeDescriptor(
             handle: handle,
             url: url,
             format: format,
             metadata: engineDescriptor.metadata,
+            imageDataReport: imageDataReport,
             sizeX: sizeX,
             sizeY: sizeY,
             sizeZ: sizeZ,
@@ -307,6 +320,7 @@ actor ChromaEngineBridge {
             url: url,
             format: format,
             metadata: engineDescriptor.metadata,
+            imageDataReport: imageDataReport,
             engineVolume: engineVolume,
             descriptor: descriptor
         )

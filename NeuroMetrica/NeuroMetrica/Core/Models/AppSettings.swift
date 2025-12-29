@@ -79,6 +79,128 @@ final class AppSettings: ObservableObject {
     /// Default window level for new studies.
     @Published var defaultLevel: Double = 40
 
+    // MARK: - Window/Level interaction tuning
+
+    /// Fraction of starting window used as Level change per point of drag.
+    @Published var windowLevelDragLevelScale: Double = 0.003 {
+        didSet {
+            let clamped = persistClampedDouble(
+                windowLevelDragLevelScale,
+                min: 0.0005,
+                max: 0.02,
+                key: Keys.windowLevelDragLevelScale
+            )
+            if clamped != windowLevelDragLevelScale {
+                windowLevelDragLevelScale = clamped
+            }
+        }
+    }
+
+    /// Ratio of Window sensitivity relative to Level (default = 2x slower).
+    @Published var windowLevelDragWindowToLevelRatio: Double = 0.5 {
+        didSet {
+            let clamped = persistClampedDouble(
+                windowLevelDragWindowToLevelRatio,
+                min: 0.2,
+                max: 1.0,
+                key: Keys.windowLevelDragWindowToLevelRatio
+            )
+            if clamped != windowLevelDragWindowToLevelRatio {
+                windowLevelDragWindowToLevelRatio = clamped
+            }
+        }
+    }
+
+    /// Axis lock threshold (dominant axis must exceed the other by this ratio).
+    @Published var windowLevelDragAxisLockThreshold: Double = 0.35 {
+        didSet {
+            let clamped = persistClampedDouble(
+                windowLevelDragAxisLockThreshold,
+                min: 0.05,
+                max: 1.0,
+                key: Keys.windowLevelDragAxisLockThreshold
+            )
+            if clamped != windowLevelDragAxisLockThreshold {
+                windowLevelDragAxisLockThreshold = clamped
+            }
+        }
+    }
+
+    /// Gamma curve for WW/WL drag response (1.0 = linear, >1 accelerates).
+    @Published var windowLevelDragResponseGamma: Double = 1.15 {
+        didSet {
+            let clamped = persistClampedDouble(
+                windowLevelDragResponseGamma,
+                min: 1.0,
+                max: 1.5,
+                key: Keys.windowLevelDragResponseGamma
+            )
+            if clamped != windowLevelDragResponseGamma {
+                windowLevelDragResponseGamma = clamped
+            }
+        }
+    }
+
+    /// Dead zone in points before WW/WL drag starts applying.
+    @Published var windowLevelDragDeadZonePoints: Double = 3.0 {
+        didSet {
+            let clamped = persistClampedDouble(
+                windowLevelDragDeadZonePoints,
+                min: 0.0,
+                max: 8.0,
+                key: Keys.windowLevelDragDeadZonePoints
+            )
+            if clamped != windowLevelDragDeadZonePoints {
+                windowLevelDragDeadZonePoints = clamped
+            }
+        }
+    }
+
+    /// Preset snap tolerance as a fraction of the preset values.
+    @Published var windowLevelPresetSnapTolerance: Double = 0.08 {
+        didSet {
+            let clamped = persistClampedDouble(
+                windowLevelPresetSnapTolerance,
+                min: 0.02,
+                max: 0.2,
+                key: Keys.windowLevelPresetSnapTolerance
+            )
+            if clamped != windowLevelPresetSnapTolerance {
+                windowLevelPresetSnapTolerance = clamped
+            }
+        }
+    }
+
+    /// Preset snap strength (0 = none, 1 = full snap).
+    @Published var windowLevelPresetSnapStrength: Double = 0.6 {
+        didSet {
+            let clamped = persistClampedDouble(
+                windowLevelPresetSnapStrength,
+                min: 0.0,
+                max: 1.0,
+                key: Keys.windowLevelPresetSnapStrength
+            )
+            if clamped != windowLevelPresetSnapStrength {
+                windowLevelPresetSnapStrength = clamped
+            }
+        }
+    }
+
+    /// Fine-adjustment scale when holding Option during WW/WL drag.
+    @Published var windowLevelDragFineAdjustmentScale: Double = 0.25 {
+        didSet {
+            let clamped = persistClampedDouble(
+                windowLevelDragFineAdjustmentScale,
+                min: 0.1,
+                max: 0.5,
+                key: Keys.windowLevelDragFineAdjustmentScale
+            )
+            if clamped != windowLevelDragFineAdjustmentScale {
+                windowLevelDragFineAdjustmentScale = clamped
+            }
+        }
+    }
+
     // MARK: - UI / UX flags
 
     /// Whether to show crosshairs in new viewports by default.
@@ -96,7 +218,14 @@ final class AppSettings: ObservableObject {
     // MARK: - Dev / debug flags
 
     /// Whether to show the developer debug overlay by default.
-    @Published var showDebugOverlay: Bool = false
+    @Published var showDebugOverlay: Bool = false {
+        didSet { userDefaults.set(showDebugOverlay, forKey: Keys.showDebugOverlay) }
+    }
+
+    /// Whether PHI is allowed in diagnostics/metadata views (DevTools only).
+    @Published var showPHIInDiagnostics: Bool = false {
+        didSet { userDefaults.set(showPHIInDiagnostics, forKey: Keys.showPHIInDiagnostics) }
+    }
 
     /// Which processing backend the viewer should use.
     @Published var processingBackend: ProcessingBackend = .native
@@ -189,6 +318,40 @@ final class AppSettings: ObservableObject {
         sliceScrollMomentumScale = loadDouble(key: Keys.sliceScrollMomentumScale, defaultValue: sliceScrollMomentumScale)
         sliceScrollPageJumpSize = loadInt(key: Keys.sliceScrollPageJumpSize, defaultValue: sliceScrollPageJumpSize)
         sliceScrollUseShiftFastMode = loadBool(key: Keys.sliceScrollUseShiftFastMode, defaultValue: sliceScrollUseShiftFastMode)
+        showDebugOverlay = loadBool(key: Keys.showDebugOverlay, defaultValue: showDebugOverlay)
+        showPHIInDiagnostics = loadBool(key: Keys.showPHIInDiagnostics, defaultValue: showPHIInDiagnostics)
+        windowLevelDragLevelScale = loadDouble(
+            key: Keys.windowLevelDragLevelScale,
+            defaultValue: windowLevelDragLevelScale
+        )
+        windowLevelDragWindowToLevelRatio = loadDouble(
+            key: Keys.windowLevelDragWindowToLevelRatio,
+            defaultValue: windowLevelDragWindowToLevelRatio
+        )
+        windowLevelDragAxisLockThreshold = loadDouble(
+            key: Keys.windowLevelDragAxisLockThreshold,
+            defaultValue: windowLevelDragAxisLockThreshold
+        )
+        windowLevelDragResponseGamma = loadDouble(
+            key: Keys.windowLevelDragResponseGamma,
+            defaultValue: windowLevelDragResponseGamma
+        )
+        windowLevelDragDeadZonePoints = loadDouble(
+            key: Keys.windowLevelDragDeadZonePoints,
+            defaultValue: windowLevelDragDeadZonePoints
+        )
+        windowLevelPresetSnapTolerance = loadDouble(
+            key: Keys.windowLevelPresetSnapTolerance,
+            defaultValue: windowLevelPresetSnapTolerance
+        )
+        windowLevelPresetSnapStrength = loadDouble(
+            key: Keys.windowLevelPresetSnapStrength,
+            defaultValue: windowLevelPresetSnapStrength
+        )
+        windowLevelDragFineAdjustmentScale = loadDouble(
+            key: Keys.windowLevelDragFineAdjustmentScale,
+            defaultValue: windowLevelDragFineAdjustmentScale
+        )
     }
 }
 
@@ -201,6 +364,16 @@ private enum Keys {
     static let sliceScrollMomentumScale = "appSettings.sliceScrollMomentumScale"
     static let sliceScrollPageJumpSize = "appSettings.sliceScrollPageJumpSize"
     static let sliceScrollUseShiftFastMode = "appSettings.sliceScrollUseShiftFastMode"
+    static let windowLevelDragLevelScale = "appSettings.windowLevelDragLevelScale"
+    static let windowLevelDragWindowToLevelRatio = "appSettings.windowLevelDragWindowToLevelRatio"
+    static let windowLevelDragAxisLockThreshold = "appSettings.windowLevelDragAxisLockThreshold"
+    static let windowLevelDragResponseGamma = "appSettings.windowLevelDragResponseGamma"
+    static let windowLevelDragDeadZonePoints = "appSettings.windowLevelDragDeadZonePoints"
+    static let windowLevelPresetSnapTolerance = "appSettings.windowLevelPresetSnapTolerance"
+    static let windowLevelPresetSnapStrength = "appSettings.windowLevelPresetSnapStrength"
+    static let windowLevelDragFineAdjustmentScale = "appSettings.windowLevelDragFineAdjustmentScale"
+    static let showDebugOverlay = "appSettings.showDebugOverlay"
+    static let showPHIInDiagnostics = "appSettings.showPHIInDiagnostics"
 }
 
 private extension AppSettings {

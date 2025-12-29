@@ -45,6 +45,10 @@ struct WWLControlsView: View {
                             viewModel.setWindow(80)
                             viewModel.setLevel(40)
                         }
+                        Button("Lung (W 1500 / L -600)") {
+                            viewModel.setWindow(1500)
+                            viewModel.setLevel(-600)
+                        }
                         Button("Subdural (W 200 / L 80)") {
                             viewModel.setWindow(200)
                             viewModel.setLevel(80)

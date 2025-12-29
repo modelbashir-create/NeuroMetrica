@@ -16,6 +16,8 @@
 		C50D94C06D704467883AEAE7 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 577345CA560B4506B83EF171 /* InspectorView.swift */; };
 		D37FDDF0DA3C4B6E8B944957 /* LoadingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A43C29D672D413AB30D92FB /* LoadingOverlayView.swift */; };
 		D917FFCACA4A43C9A3B6B1A7 /* ExportSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65AA36EE534B437F82D1DB5C /* ExportSheetView.swift */; };
+		B1B1B1B1B1B1B1B1B1B1B1B1 /* ViewportOrientationLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A1A1A1 /* ViewportOrientationLabels.swift */; };
+		B2B2B2B2B2B2B2B2B2B2B2B2 /* OrientationLabelsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2A2A2A2A2A2A2A2A2A2A2A2 /* OrientationLabelsOverlay.swift */; };
 		FA0DAD5D1809411D9AF1A1DD /* ViewportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50E993A984B4B1E92CBB700 /* ViewportView.swift */; };
 		FBEDEF8A7BD94ACE91518B32 /* MeasurementOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AFC40FE1F0B4C0081C7DFB7 /* MeasurementOverlay.swift */; };
 		FF303CE52EFB290000CD8E2B /* NeurometricaIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = FF303CE42EFB290000CD8E2B /* NeurometricaIcon.icon */; };
@@ -51,6 +53,8 @@
 		FF9BB77E2EC7199D000F271C /* DebugOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB74D2EC7199D000F271C /* DebugOverlayView.swift */; };
 		FF9BB77F2EC7199D000F271C /* ImportViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7522EC7199D000F271C /* ImportViewModel.swift */; };
 		FF9BB7802EC7199D000F271C /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7412EC7199D000F271C /* AppLogger.swift */; };
+		A3A3A3A3A3A3A3A3A3A3A3A3 /* MetadataDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A4A4A4A4A4A4A4A4A4A4A4 /* MetadataDiagnostics.swift */; };
+		A5A5A5A5A5A5A5A5A5A5A5A5 /* ImageDataDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6A6A6A6A6A6A6A6A6A6A6A6 /* ImageDataDiagnostics.swift */; };
 		FF9BB7812EC7199D000F271C /* FilePickerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73C2EC7199D000F271C /* FilePickerService.swift */; };
 		FFA9EFF52EF663290073AA65 /* OrientationAliases.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA9EFF42EF6631F0073AA65 /* OrientationAliases.swift */; };
 		FFAB12032F5A0001 /* LoadingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFAB12012F5A0001 /* LoadingViewModel.swift */; };
@@ -90,6 +94,8 @@
 		7AFC40FE1F0B4C0081C7DFB7 /* MeasurementOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementOverlay.swift; sourceTree = "<group>"; };
 		829A90921FF94718ABC0F784 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		986815EC54BD4283AD1D12F3 /* Placeholder3DView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Placeholder3DView.swift; sourceTree = "<group>"; };
+		A1A1A1A1A1A1A1A1A1A1A1A1 /* ViewportOrientationLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewportOrientationLabels.swift; sourceTree = "<group>"; };
+		A2A2A2A2A2A2A2A2A2A2A2A2 /* OrientationLabelsOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationLabelsOverlay.swift; sourceTree = "<group>"; };
 		B50E993A984B4B1E92CBB700 /* ViewportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewportView.swift; sourceTree = "<group>"; };
 		C34F7F1AC3094DCD8D5046DD /* ViewViewerGlassEffect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewViewerGlassEffect.swift; sourceTree = "<group>"; };
 		FF303CE42EFB290000CD8E2B /* NeurometricaIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = NeurometricaIcon.icon; sourceTree = "<group>"; };
@@ -104,6 +110,8 @@
 		FF9BB73D2EC7199D000F271C /* RecentFilesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesStore.swift; sourceTree = "<group>"; };
 		FF9BB73F2EC7199D000F271C /* ChromaEngineBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromaEngineBridge.swift; sourceTree = "<group>"; };
 		FF9BB7412EC7199D000F271C /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
+		A4A4A4A4A4A4A4A4A4A4A4A4 /* MetadataDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataDiagnostics.swift; sourceTree = "<group>"; };
+		A6A6A6A6A6A6A6A6A6A6A6A6 /* ImageDataDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageDataDiagnostics.swift; sourceTree = "<group>"; };
 		FF9BB7442EC7199D000F271C /* HeritagePACSTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeritagePACSTheme.swift; sourceTree = "<group>"; };
 		FF9BB7452EC7199D000F271C /* ViewNeuroMetrica.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewNeuroMetrica.swift; sourceTree = "<group>"; };
 		FF9BB7472EC7199D000F271C /* MainThreadExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainThreadExecutor.swift; sourceTree = "<group>"; };
@@ -228,6 +236,7 @@
 			isa = PBXGroup;
 			children = (
 				B50E993A984B4B1E92CBB700 /* ViewportView.swift */,
+				A2A2A2A2A2A2A2A2A2A2A2A2 /* OrientationLabelsOverlay.swift */,
 				14B0298494AD44B49EC24962 /* Overlays */,
 			);
 			path = Viewport;
@@ -291,6 +300,8 @@
 			isa = PBXGroup;
 			children = (
 				FF9BB7412EC7199D000F271C /* AppLogger.swift */,
+				A4A4A4A4A4A4A4A4A4A4A4A4 /* MetadataDiagnostics.swift */,
+				A6A6A6A6A6A6A6A6A6A6A6A6 /* ImageDataDiagnostics.swift */,
 			);
 			path = Logging;
 			sourceTree = "<group>";
@@ -430,6 +441,7 @@
 			children = (
 				FFA9EFF42EF6631F0073AA65 /* OrientationAliases.swift */,
 				FF9BB75C2EC7199D000F271C /* ViewerState.swift */,
+				A1A1A1A1A1A1A1A1A1A1A1A1 /* ViewportOrientationLabels.swift */,
 				FFCCB0112F00000100000011 /* ViewerErrorPresenter.swift */,
 			);
 			path = Models;
@@ -723,6 +735,8 @@
 				70988EF6CDAD42E29ACD3393 /* SidebarView.swift in Sources */,
 				FFF457555AB14674B8AC2D84 /* CanvasView.swift in Sources */,
 				FA0DAD5D1809411D9AF1A1DD /* ViewportView.swift in Sources */,
+				B2B2B2B2B2B2B2B2B2B2B2B2 /* OrientationLabelsOverlay.swift in Sources */,
+				B1B1B1B1B1B1B1B1B1B1B1B1 /* ViewportOrientationLabels.swift in Sources */,
 				C4DE3750A595481883581D5C /* CrosshairOverlay.swift in Sources */,
 				FBEDEF8A7BD94ACE91518B32 /* MeasurementOverlay.swift in Sources */,
 				5772E5C57E714FF9BF708A4F /* Placeholder3DView.swift in Sources */,
@@ -749,6 +763,8 @@
 				FF9BB77A2EC7199D000F271C /* ViewNeuroMetrica.swift in Sources */,
 				FF9BB77B2EC7199D000F271C /* MainThreadExecutor.swift in Sources */,
 				FF9BB77C2EC7199D000F271C /* RecentFilesStore.swift in Sources */,
+				A3A3A3A3A3A3A3A3A3A3A3A3 /* MetadataDiagnostics.swift in Sources */,
+				A5A5A5A5A5A5A5A5A5A5A5A5 /* ImageDataDiagnostics.swift in Sources */,
 				FF9BB77D2EC7199D000F271C /* ViewerViewModel.swift in Sources */,
 				FF9BB77E2EC7199D000F271C /* DebugOverlayView.swift in Sources */,
 				FF9BB77F2EC7199D000F271C /* ImportViewModel.swift in Sources */,

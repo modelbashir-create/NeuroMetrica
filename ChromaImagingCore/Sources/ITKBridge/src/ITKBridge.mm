@@ -5,6 +5,10 @@
 #include <cstring>
 #include <algorithm>
 #include <sys/stat.h>
+#include <map>
+#include <sstream>
+#include <iomanip>
+#include <cmath>
 
 #include "itkImage.h"
 #include "itkImageFileReader.h"
@@ -148,14 +152,158 @@ std::string escapeJSON(const std::string &input) {
     return output;
 }
 
-std::string metadataDictionaryToJSON(const itk::MetaDataDictionary &dict) {
+std::string normalizeTagKey(const std::string &key) {
+    std::string normalized = key;
+    std::replace(normalized.begin(), normalized.end(), '|', ',');
+    return normalized;
+}
+
+bool parseDICOMDoubleArray(const std::string &raw,
+                           std::vector<double> &out,
+                           size_t expectedCount) {
+    out.clear();
+    std::string cleaned = raw;
+    std::replace(cleaned.begin(), cleaned.end(), ',', '\\');
+    std::istringstream stream(cleaned);
+    std::string token;
+    while (std::getline(stream, token, '\\')) {
+        if (token.empty()) { continue; }
+        std::istringstream valueStream(token);
+        double value = 0.0;
+        valueStream >> value;
+        if (valueStream.fail()) {
+            out.clear();
+            return false;
+        }
+        out.push_back(value);
+    }
+    if (out.size() < expectedCount) {
+        out.clear();
+        return false;
+    }
+    if (expectedCount > 0 && out.size() > expectedCount) {
+        out.resize(expectedCount);
+    }
+    return true;
+}
+
+bool parseDICOMDoubleList(const std::string &raw,
+                          std::vector<double> &out) {
+    out.clear();
+    std::string cleaned = raw;
+    std::replace(cleaned.begin(), cleaned.end(), ',', '\\');
+    std::istringstream stream(cleaned);
+    std::string token;
+    while (std::getline(stream, token, '\\')) {
+        if (token.empty()) { continue; }
+        std::istringstream valueStream(token);
+        double value = 0.0;
+        valueStream >> value;
+        if (valueStream.fail()) {
+            out.clear();
+            return false;
+        }
+        out.push_back(value);
+    }
+    return !out.empty();
+}
+
+bool extractDicomScalar(const itk::MetaDataDictionary &dict,
+                        const std::string &tag,
+                        double &out) {
+    std::string raw;
+    if (!itk::ExposeMetaData<std::string>(dict, tag, raw)) {
+        return false;
+    }
+    std::vector<double> values;
+    if (!parseDICOMDoubleArray(raw, values, 1)) {
+        return false;
+    }
+    out = values.front();
+    return true;
+}
+
+bool extractDicomVector(const itk::MetaDataDictionary &dict,
+                        const std::string &tag,
+                        size_t expectedCount,
+                        std::vector<double> &out) {
+    std::string raw;
+    if (!itk::ExposeMetaData<std::string>(dict, tag, raw)) {
+        return false;
+    }
+    return parseDICOMDoubleArray(raw, out, expectedCount);
+}
+
+bool extractDicomVectorAny(const itk::MetaDataDictionary &dict,
+                           const std::string &tag,
+                           std::vector<double> &out) {
+    std::string raw;
+    if (!itk::ExposeMetaData<std::string>(dict, tag, raw)) {
+        return false;
+    }
+    return parseDICOMDoubleList(raw, out);
+}
+
+std::string jsonNumber(double value) {
+    std::ostringstream stream;
+    stream.setf(std::ios::fixed);
+    stream << std::setprecision(17) << value;
+    return stream.str();
+}
+
+std::string metadataDictionaryToJSON(
+    const itk::MetaDataDictionary &dict,
+    const std::map<std::string, std::vector<double>> &numericOverrides = {},
+    const std::map<std::string, double> &scalarOverrides = {},
+    const std::map<std::string, bool> &boolOverrides = {}
+) {
     std::string json = "{";
     bool first = true;
 
+    for (const auto &entry : boolOverrides) {
+        if (!first) { json += ","; }
+        first = false;
+        json += "\"";
+        json += escapeJSON(entry.first);
+        json += "\":";
+        json += entry.second ? "true" : "false";
+    }
+
+    for (const auto &entry : numericOverrides) {
+        if (!first) { json += ","; }
+        first = false;
+        json += "\"";
+        json += escapeJSON(entry.first);
+        json += "\":[";
+        for (size_t i = 0; i < entry.second.size(); ++i) {
+            if (i > 0) { json += ","; }
+            json += jsonNumber(entry.second[i]);
+        }
+        json += "]";
+    }
+
+    for (const auto &entry : scalarOverrides) {
+        if (!first) { json += ","; }
+        first = false;
+        json += "\"";
+        json += escapeJSON(entry.first);
+        json += "\":";
+        json += jsonNumber(entry.second);
+    }
+
     for (auto it = dict.Begin(); it != dict.End(); ++it) {
-        const std::string &key = it->first;
+        const std::string normalizedKey = normalizeTagKey(it->first);
+        if (numericOverrides.find(normalizedKey) != numericOverrides.end()) {
+            continue;
+        }
+        if (scalarOverrides.find(normalizedKey) != scalarOverrides.end()) {
+            continue;
+        }
+        if (boolOverrides.find(normalizedKey) != boolOverrides.end()) {
+            continue;
+        }
         std::string value;
-        if (!itk::ExposeMetaData<std::string>(dict, key, value)) {
+        if (!itk::ExposeMetaData<std::string>(dict, it->first, value)) {
             continue;
         }
 
@@ -164,7 +312,7 @@ std::string metadataDictionaryToJSON(const itk::MetaDataDictionary &dict) {
         }
         first = false;
         json += "\"";
-        json += escapeJSON(key);
+        json += escapeJSON(normalizedKey);
         json += "\":\"";
         json += escapeJSON(value);
         json += "\"";
@@ -238,9 +386,219 @@ VolumeLoadResult loadDicomSeries(const char *directoryPath,
     reader->SetFileNames(fileNames);
     reader->Update();
 
+    const auto *dictArray = reader->GetMetaDataDictionaryArray();
+    std::map<std::string, std::vector<double>> numericOverrides;
+    std::map<std::string, double> scalarOverrides;
+    std::map<std::string, bool> boolOverrides;
+
+    if (dictArray && !dictArray->empty()) {
+        const auto *firstDict = dictArray->at(0);
+        std::vector<double> iop;
+        std::vector<double> ipp;
+        const bool hasIOP = firstDict
+            ? extractDicomVector(*firstDict, "0020|0037", 6, iop)
+            : false;
+        const bool hasIPP = firstDict
+            ? extractDicomVector(*firstDict, "0020|0032", 3, ipp)
+            : false;
+
+        if (hasIOP) {
+            numericOverrides["0020,0037"] = iop;
+        }
+        if (hasIPP) {
+            numericOverrides["0020,0032"] = ipp;
+        }
+
+        if (firstDict) {
+            std::vector<double> pixelSpacing;
+            if (extractDicomVector(*firstDict, "0028|0030", 2, pixelSpacing)) {
+                numericOverrides["0028,0030"] = pixelSpacing;
+            }
+
+            std::vector<double> windowCenter;
+            if (extractDicomVectorAny(*firstDict, "0028|1050", windowCenter)) {
+                numericOverrides["0028,1050"] = windowCenter;
+            }
+
+            std::vector<double> windowWidth;
+            if (extractDicomVectorAny(*firstDict, "0028|1051", windowWidth)) {
+                numericOverrides["0028,1051"] = windowWidth;
+            }
+        }
+
+        double scalarValue = 0.0;
+        if (firstDict && extractDicomScalar(*firstDict, "0018|0050", scalarValue)) {
+            scalarOverrides["0018,0050"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0018|0088", scalarValue)) {
+            scalarOverrides["0018,0088"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0028|0010", scalarValue)) {
+            scalarOverrides["0028,0010"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0028|0011", scalarValue)) {
+            scalarOverrides["0028,0011"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0028|0100", scalarValue)) {
+            scalarOverrides["0028,0100"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0028|0101", scalarValue)) {
+            scalarOverrides["0028,0101"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0028|0102", scalarValue)) {
+            scalarOverrides["0028,0102"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0028|0103", scalarValue)) {
+            scalarOverrides["0028,0103"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0028|1052", scalarValue)) {
+            scalarOverrides["0028,1052"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0028|1053", scalarValue)) {
+            scalarOverrides["0028,1053"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0028|0008", scalarValue)) {
+            scalarOverrides["0028,0008"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0020|1209", scalarValue)) {
+            scalarOverrides["0020,1209"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0020|0011", scalarValue)) {
+            scalarOverrides["0020,0011"] = scalarValue;
+        }
+        if (firstDict && extractDicomScalar(*firstDict, "0020|0013", scalarValue)) {
+            scalarOverrides["0020,0013"] = scalarValue;
+        }
+
+        if ((hasIOP || hasIPP) && dictArray->size() > 1) {
+            bool consistent = true;
+            const double epsilon = 1e-4;
+            double firstRows = 0.0;
+            double firstColumns = 0.0;
+            double firstBitsAllocated = 0.0;
+            double firstBitsStored = 0.0;
+            double firstPixelRep = 0.0;
+            bool hasRows = firstDict && extractDicomScalar(*firstDict, "0028|0010", firstRows);
+            bool hasColumns = firstDict && extractDicomScalar(*firstDict, "0028|0011", firstColumns);
+            bool hasBitsAllocated = firstDict && extractDicomScalar(*firstDict, "0028|0100", firstBitsAllocated);
+            bool hasBitsStored = firstDict && extractDicomScalar(*firstDict, "0028|0101", firstBitsStored);
+            bool hasPixelRep = firstDict && extractDicomScalar(*firstDict, "0028|0103", firstPixelRep);
+
+            std::vector<double> firstPixelSpacing;
+            bool hasPixelSpacing = firstDict && extractDicomVector(*firstDict, "0028|0030", 2, firstPixelSpacing);
+            double firstSliceThickness = 0.0;
+            double firstSpacingBetween = 0.0;
+            bool hasSliceThickness = firstDict && extractDicomScalar(*firstDict, "0018|0050", firstSliceThickness);
+            bool hasSpacingBetween = firstDict && extractDicomScalar(*firstDict, "0018|0088", firstSpacingBetween);
+
+            bool pixelDataConsistent = true;
+            bool geometryConsistent = true;
+            for (size_t i = 0; i < dictArray->size(); ++i) {
+                const auto *dict = dictArray->at(i);
+                if (!dict) {
+                    consistent = false;
+                    break;
+                }
+                if (hasIOP) {
+                    std::vector<double> currentIOP;
+                    if (!extractDicomVector(*dict, "0020|0037", 6, currentIOP)) {
+                        consistent = false;
+                        break;
+                    }
+                    for (size_t j = 0; j < currentIOP.size(); ++j) {
+                        if (std::abs(currentIOP[j] - iop[j]) > epsilon) {
+                            consistent = false;
+                            break;
+                        }
+                    }
+                }
+                if (!consistent) { break; }
+                if (hasIPP) {
+                    std::vector<double> currentIPP;
+                    if (!extractDicomVector(*dict, "0020|0032", 3, currentIPP)) {
+                        consistent = false;
+                        break;
+                    }
+                    for (size_t j = 0; j < currentIPP.size(); ++j) {
+                        if (std::abs(currentIPP[j] - ipp[j]) > epsilon) {
+                            consistent = false;
+                            break;
+                        }
+                    }
+                }
+                if (!consistent) { break; }
+
+                if (hasRows) {
+                    double current = 0.0;
+                    if (!extractDicomScalar(*dict, "0028|0010", current) || std::abs(current - firstRows) > epsilon) {
+                        pixelDataConsistent = false;
+                    }
+                }
+                if (hasColumns) {
+                    double current = 0.0;
+                    if (!extractDicomScalar(*dict, "0028|0011", current) || std::abs(current - firstColumns) > epsilon) {
+                        pixelDataConsistent = false;
+                    }
+                }
+                if (hasBitsAllocated) {
+                    double current = 0.0;
+                    if (!extractDicomScalar(*dict, "0028|0100", current) || std::abs(current - firstBitsAllocated) > epsilon) {
+                        pixelDataConsistent = false;
+                    }
+                }
+                if (hasBitsStored) {
+                    double current = 0.0;
+                    if (!extractDicomScalar(*dict, "0028|0101", current) || std::abs(current - firstBitsStored) > epsilon) {
+                        pixelDataConsistent = false;
+                    }
+                }
+                if (hasPixelRep) {
+                    double current = 0.0;
+                    if (!extractDicomScalar(*dict, "0028|0103", current) || std::abs(current - firstPixelRep) > epsilon) {
+                        pixelDataConsistent = false;
+                    }
+                }
+
+                if (hasPixelSpacing) {
+                    std::vector<double> currentSpacing;
+                    if (!extractDicomVector(*dict, "0028|0030", 2, currentSpacing)) {
+                        geometryConsistent = false;
+                    } else {
+                        for (size_t j = 0; j < currentSpacing.size(); ++j) {
+                            if (std::abs(currentSpacing[j] - firstPixelSpacing[j]) > epsilon) {
+                                geometryConsistent = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (hasSliceThickness) {
+                    double current = 0.0;
+                    if (!extractDicomScalar(*dict, "0018|0050", current) || std::abs(current - firstSliceThickness) > epsilon) {
+                        geometryConsistent = false;
+                    }
+                }
+                if (hasSpacingBetween) {
+                    double current = 0.0;
+                    if (!extractDicomScalar(*dict, "0018|0088", current) || std::abs(current - firstSpacingBetween) > epsilon) {
+                        geometryConsistent = false;
+                    }
+                }
+            }
+            boolOverrides["_orientationConsistent"] = consistent;
+            boolOverrides["_pixelDataConsistent"] = pixelDataConsistent;
+            boolOverrides["_geometryConsistent"] = geometryConsistent;
+        }
+    }
+
     VolumeLoadResult result;
     result.image = reader->GetOutput();
-    result.metadataJSON = metadataDictionaryToJSON(reader->GetImageIO()->GetMetaDataDictionary());
+    result.metadataJSON = metadataDictionaryToJSON(
+        reader->GetImageIO()->GetMetaDataDictionary(),
+        numericOverrides,
+        scalarOverrides,
+        boolOverrides
+    );
     return result;
 }
 
@@ -273,9 +631,82 @@ VolumeLoadResult loadDicomFile(const char *filePath,
     reader->SetFileName(std::string(filePath));
     reader->Update();
 
+    std::map<std::string, std::vector<double>> numericOverrides;
+    std::map<std::string, double> scalarOverrides;
+    std::vector<double> iop;
+    std::vector<double> ipp;
+    const auto &dict = reader->GetImageIO()->GetMetaDataDictionary();
+    if (extractDicomVector(dict, "0020|0037", 6, iop)) {
+        numericOverrides["0020,0037"] = iop;
+    }
+    if (extractDicomVector(dict, "0020|0032", 3, ipp)) {
+        numericOverrides["0020,0032"] = ipp;
+    }
+    std::vector<double> pixelSpacing;
+    if (extractDicomVector(dict, "0028|0030", 2, pixelSpacing)) {
+        numericOverrides["0028,0030"] = pixelSpacing;
+    }
+    std::vector<double> windowCenter;
+    if (extractDicomVectorAny(dict, "0028|1050", windowCenter)) {
+        numericOverrides["0028,1050"] = windowCenter;
+    }
+    std::vector<double> windowWidth;
+    if (extractDicomVectorAny(dict, "0028|1051", windowWidth)) {
+        numericOverrides["0028,1051"] = windowWidth;
+    }
+
+    double scalarValue = 0.0;
+    if (extractDicomScalar(dict, "0018|0050", scalarValue)) {
+        scalarOverrides["0018,0050"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0018|0088", scalarValue)) {
+        scalarOverrides["0018,0088"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0028|0010", scalarValue)) {
+        scalarOverrides["0028,0010"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0028|0011", scalarValue)) {
+        scalarOverrides["0028,0011"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0028|0100", scalarValue)) {
+        scalarOverrides["0028,0100"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0028|0101", scalarValue)) {
+        scalarOverrides["0028,0101"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0028|0102", scalarValue)) {
+        scalarOverrides["0028,0102"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0028|0103", scalarValue)) {
+        scalarOverrides["0028,0103"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0028|1052", scalarValue)) {
+        scalarOverrides["0028,1052"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0028|1053", scalarValue)) {
+        scalarOverrides["0028,1053"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0028|0008", scalarValue)) {
+        scalarOverrides["0028,0008"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0020|1209", scalarValue)) {
+        scalarOverrides["0020,1209"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0020|0011", scalarValue)) {
+        scalarOverrides["0020,0011"] = scalarValue;
+    }
+    if (extractDicomScalar(dict, "0020|0013", scalarValue)) {
+        scalarOverrides["0020,0013"] = scalarValue;
+    }
+
     VolumeLoadResult result;
     result.image = reader->GetOutput();
-    result.metadataJSON = metadataDictionaryToJSON(reader->GetImageIO()->GetMetaDataDictionary());
+    result.metadataJSON = metadataDictionaryToJSON(
+        reader->GetImageIO()->GetMetaDataDictionary(),
+        numericOverrides,
+        scalarOverrides,
+        {}
+    );
     return result;
 }
 
