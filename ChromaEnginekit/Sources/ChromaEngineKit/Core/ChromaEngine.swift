@@ -10,6 +10,7 @@
 //
 
 import Foundation
+import simd
 import ChromaImagingCore   // ITKImageIO + ITKImageDescriptor
 
 // MARK: - Error Type
@@ -117,6 +118,24 @@ public struct ChromaEngine: Sendable {
             from: volume,
             orientation: orientation,
             index: index,
+            window: window,
+            level: level
+        )
+    }
+
+    /// Extract an oblique slice defined in patient space.
+    ///
+    /// This uses the same reslicing path as standard axial/coronal/sagittal
+    /// but allows arbitrary plane orientation.
+    public func makeSlice(
+        from volume: CImageVolume,
+        plane: PatientPlane,
+        window: Float,
+        level: Float
+    ) async throws -> CIImage2D {
+        try makeSliceFromPlane(
+            volume: volume,
+            plane: plane,
             window: window,
             level: level
         )
@@ -256,7 +275,6 @@ private extension ChromaEngine {
         let sizeX = volume.sizeX
         let sizeY = volume.sizeY
         let sizeZ = volume.sizeZ
-        let components = max(volume.componentsPerPixel, 1)
 
         let width: Int
         let height: Int
@@ -283,61 +301,296 @@ private extension ChromaEngine {
             clampedIndex = min(max(index, 0), max(sizeX - 1, 0))
         }
 
-        let outputCount = width * height
+        let plane = planeForOrientation(
+            volume: volume,
+            orientation: orientation,
+            sliceIndex: clampedIndex,
+            width: width,
+            height: height
+        )
+
+        return try makeSliceFromPlane(
+            volume: volume,
+            plane: plane,
+            window: window,
+            level: level
+        )
+    }
+
+    func makeSliceFromPlane(
+        volume: CImageVolume,
+        plane: PatientPlane,
+        window: Float,
+        level: Float
+    ) throws -> CIImage2D {
+        validateDirectionMatrix(volume: volume)
+
+        let outputCount = plane.width * plane.height
         var output = Data(count: outputCount)
 
-        let lower = level - window / 2
-        let upper = level + window / 2
-        let range = max(upper - lower, 1)
+        let lower = Double(level) - Double(window) / 2.0
+        let upper = Double(level) + Double(window) / 2.0
+        let range = max(upper - lower, 1.0)
 
         output.withUnsafeMutableBytes { outPtr in
             guard let outBytes = outPtr.bindMemory(to: UInt8.self).baseAddress else { return }
 
             volume.voxelData.withUnsafeBytes { inPtr in
                 guard let base = inPtr.baseAddress else { return }
-                for y in 0..<height {
-                    for x in 0..<width {
-                        let voxelIndex: Int
-                        switch orientation {
-                        case .axial:
-                            voxelIndex = ((clampedIndex * sizeY + y) * sizeX + x) * components
-                        case .coronal:
-                            voxelIndex = ((y * sizeY + clampedIndex) * sizeX + x) * components
-                        case .sagittal:
-                            voxelIndex = ((y * sizeY + x) * sizeX + clampedIndex) * components
+                for y in 0..<plane.height {
+                    for x in 0..<plane.width {
+                        let patientPoint = plane.origin
+                            + plane.axisU * (Double(x) * plane.spacingU)
+                            + plane.axisV * (Double(y) * plane.spacingV)
+
+                        guard let continuousIndex = patientToVoxelIndex(volume: volume, point: patientPoint) else {
+                            outBytes[y * plane.width + x] = 0
+                            continue
                         }
 
-                        let value: Float
-                        switch volume.componentType {
-                        case .uint8:
-                            value = Float(base.advanced(by: voxelIndex * volume.bytesPerComponent).load(as: UInt8.self))
-                        case .uint16:
-                            value = Float(base.advanced(by: voxelIndex * volume.bytesPerComponent).load(as: UInt16.self))
-                        case .int16:
-                            value = Float(base.advanced(by: voxelIndex * volume.bytesPerComponent).load(as: Int16.self))
-                        case .float32:
-                            value = base.advanced(by: voxelIndex * volume.bytesPerComponent).load(as: Float.self)
-                        }
+                        let sample = sampleTrilinear(
+                            base: base,
+                            volume: volume,
+                            index: continuousIndex
+                        )
 
-                        let normalized = min(max((value - lower) / range, 0), 1)
-                        let outputValue = UInt8(normalized * 255)
-                        outBytes[y * width + x] = outputValue
+                        let normalized = min(max((sample - lower) / range, 0.0), 1.0)
+                        let outputValue = UInt8(normalized * 255.0)
+                        outBytes[y * plane.width + x] = outputValue
                     }
                 }
             }
         }
 
         return CIImage2D(
-            width: width,
-            height: height,
+            width: plane.width,
+            height: plane.height,
             componentsPerPixel: 1,
             componentType: .uint8,
             bytesPerComponent: 1,
-            bytesPerRow: width,
-            orientation: orientation,
-            sliceIndex: clampedIndex,
+            bytesPerRow: plane.width,
+            orientation: plane.orientationHint,
+            sliceIndex: plane.sliceIndexHint,
             data: output
         )
+    }
+
+    func planeForOrientation(
+        volume: CImageVolume,
+        orientation: SliceOrientation,
+        sliceIndex: Int,
+        width: Int,
+        height: Int
+    ) -> PatientPlane {
+        let direction = directionColumns(volume: volume)
+        let axisX = direction.x
+        let axisY = direction.y
+        let axisZ = direction.z
+
+        let origin: SIMD3<Double>
+        let axisU: SIMD3<Double>
+        let axisV: SIMD3<Double>
+        let spacingU: Double
+        let spacingV: Double
+
+        switch orientation {
+        case .axial:
+            origin = voxelToPatient(volume: volume, index: SIMD3<Double>(0, 0, Double(sliceIndex)))
+            axisU = axisX
+            axisV = axisY
+            spacingU = volume.spacingX
+            spacingV = volume.spacingY
+        case .coronal:
+            origin = voxelToPatient(volume: volume, index: SIMD3<Double>(0, Double(sliceIndex), 0))
+            axisU = axisX
+            axisV = axisZ
+            spacingU = volume.spacingX
+            spacingV = volume.spacingZ
+        case .sagittal:
+            origin = voxelToPatient(volume: volume, index: SIMD3<Double>(Double(sliceIndex), 0, 0))
+            axisU = axisY
+            axisV = axisZ
+            spacingU = volume.spacingY
+            spacingV = volume.spacingZ
+        }
+
+        return PatientPlane(
+            origin: origin,
+            axisU: axisU,
+            axisV: axisV,
+            spacingU: spacingU,
+            spacingV: spacingV,
+            width: width,
+            height: height,
+            orientationHint: orientation,
+            sliceIndexHint: sliceIndex
+        )
+    }
+
+    func patientToVoxelIndex(volume: CImageVolume, point: SIMD3<Double>) -> SIMD3<Double>? {
+        let dir = directionMatrix(volume: volume)
+        guard let inv = invert3x3(dir) else {
+            return nil
+        }
+        let origin = SIMD3<Double>(volume.originX, volume.originY, volume.originZ)
+        let relative = point - origin
+        let indexContinuous = multiply(inv, relative)
+        return SIMD3<Double>(
+            indexContinuous.x / volume.spacingX,
+            indexContinuous.y / volume.spacingY,
+            indexContinuous.z / volume.spacingZ
+        )
+    }
+
+    func voxelToPatient(volume: CImageVolume, index: SIMD3<Double>) -> SIMD3<Double> {
+        let dir = directionMatrix(volume: volume)
+        let scaled = SIMD3<Double>(
+            index.x * volume.spacingX,
+            index.y * volume.spacingY,
+            index.z * volume.spacingZ
+        )
+        let rotated = multiply(dir, scaled)
+        let origin = SIMD3<Double>(volume.originX, volume.originY, volume.originZ)
+        return origin + rotated
+    }
+
+    func sampleTrilinear(
+        base: UnsafeRawPointer,
+        volume: CImageVolume,
+        index: SIMD3<Double>
+    ) -> Double {
+        let x = index.x
+        let y = index.y
+        let z = index.z
+
+        let x0 = Int(floor(x))
+        let y0 = Int(floor(y))
+        let z0 = Int(floor(z))
+        let x1 = x0 + 1
+        let y1 = y0 + 1
+        let z1 = z0 + 1
+
+        if x0 < 0 || y0 < 0 || z0 < 0 ||
+            x1 >= volume.sizeX || y1 >= volume.sizeY || z1 >= volume.sizeZ {
+            return 0.0
+        }
+
+        let xd = x - Double(x0)
+        let yd = y - Double(y0)
+        let zd = z - Double(z0)
+
+        let c000 = voxelValue(base: base, volume: volume, i: x0, j: y0, k: z0)
+        let c100 = voxelValue(base: base, volume: volume, i: x1, j: y0, k: z0)
+        let c010 = voxelValue(base: base, volume: volume, i: x0, j: y1, k: z0)
+        let c110 = voxelValue(base: base, volume: volume, i: x1, j: y1, k: z0)
+        let c001 = voxelValue(base: base, volume: volume, i: x0, j: y0, k: z1)
+        let c101 = voxelValue(base: base, volume: volume, i: x1, j: y0, k: z1)
+        let c011 = voxelValue(base: base, volume: volume, i: x0, j: y1, k: z1)
+        let c111 = voxelValue(base: base, volume: volume, i: x1, j: y1, k: z1)
+
+        let c00 = c000 * (1 - xd) + c100 * xd
+        let c10 = c010 * (1 - xd) + c110 * xd
+        let c01 = c001 * (1 - xd) + c101 * xd
+        let c11 = c011 * (1 - xd) + c111 * xd
+
+        let c0 = c00 * (1 - yd) + c10 * yd
+        let c1 = c01 * (1 - yd) + c11 * yd
+
+        return c0 * (1 - zd) + c1 * zd
+    }
+
+    func voxelValue(
+        base: UnsafeRawPointer,
+        volume: CImageVolume,
+        i: Int,
+        j: Int,
+        k: Int
+    ) -> Double {
+        let components = max(volume.componentsPerPixel, 1)
+        let voxelIndex = ((k * volume.sizeY + j) * volume.sizeX + i) * components
+        let byteOffset = voxelIndex * volume.bytesPerComponent
+        switch volume.componentType {
+        case .uint8:
+            return Double(base.advanced(by: byteOffset).load(as: UInt8.self))
+        case .uint16:
+            return Double(base.advanced(by: byteOffset).load(as: UInt16.self))
+        case .int16:
+            return Double(base.advanced(by: byteOffset).load(as: Int16.self))
+        case .float32:
+            return Double(base.advanced(by: byteOffset).load(as: Float.self))
+        }
+    }
+
+    func directionColumns(volume: CImageVolume) -> (x: SIMD3<Double>, y: SIMD3<Double>, z: SIMD3<Double>) {
+        let dir = directionMatrix(volume: volume)
+        let x = SIMD3<Double>(dir[0][0], dir[1][0], dir[2][0])
+        let y = SIMD3<Double>(dir[0][1], dir[1][1], dir[2][1])
+        let z = SIMD3<Double>(dir[0][2], dir[1][2], dir[2][2])
+        return (x: x, y: y, z: z)
+    }
+
+    func directionMatrix(volume: CImageVolume) -> [[Double]] {
+        let d = volume.direction
+        return [
+            [d[0], d[1], d[2]],
+            [d[4], d[5], d[6]],
+            [d[8], d[9], d[10]]
+        ]
+    }
+
+    func multiply(_ matrix: [[Double]], _ vector: SIMD3<Double>) -> SIMD3<Double> {
+        let x = matrix[0][0] * vector.x + matrix[0][1] * vector.y + matrix[0][2] * vector.z
+        let y = matrix[1][0] * vector.x + matrix[1][1] * vector.y + matrix[1][2] * vector.z
+        let z = matrix[2][0] * vector.x + matrix[2][1] * vector.y + matrix[2][2] * vector.z
+        return SIMD3<Double>(x, y, z)
+    }
+
+    func invert3x3(_ matrix: [[Double]]) -> [[Double]]? {
+        let a = matrix[0][0], b = matrix[0][1], c = matrix[0][2]
+        let d = matrix[1][0], e = matrix[1][1], f = matrix[1][2]
+        let g = matrix[2][0], h = matrix[2][1], i = matrix[2][2]
+
+        let det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+        if abs(det) < 1e-12 {
+            return nil
+        }
+        let invDet = 1.0 / det
+        return [
+            [(e * i - f * h) * invDet, (c * h - b * i) * invDet, (b * f - c * e) * invDet],
+            [(f * g - d * i) * invDet, (a * i - c * g) * invDet, (c * d - a * f) * invDet],
+            [(d * h - e * g) * invDet, (b * g - a * h) * invDet, (a * e - b * d) * invDet]
+        ]
+    }
+
+    func validateDirectionMatrix(volume: CImageVolume) {
+        let dir = directionMatrix(volume: volume)
+        let x = SIMD3<Double>(dir[0][0], dir[1][0], dir[2][0])
+        let y = SIMD3<Double>(dir[0][1], dir[1][1], dir[2][1])
+        let z = SIMD3<Double>(dir[0][2], dir[1][2], dir[2][2])
+
+        let epsilon = 1e-4
+        let xNorm = simd_length(x)
+        let yNorm = simd_length(y)
+        let zNorm = simd_length(z)
+        let xy = abs(simd_dot(x, y))
+        let xz = abs(simd_dot(x, z))
+        let yz = abs(simd_dot(y, z))
+
+        if abs(xNorm - 1.0) > epsilon || abs(yNorm - 1.0) > epsilon || abs(zNorm - 1.0) > epsilon ||
+            xy > epsilon || xz > epsilon || yz > epsilon {
+            NSLog("ChromaEngine: non-orthonormal direction matrix detected (norms: %.6f/%.6f/%.6f, dots: %.6f/%.6f/%.6f)",
+                  xNorm, yNorm, zNorm, xy, xz, yz)
+            assertionFailure("Non-orthonormal direction matrix detected; MPR may be inaccurate.")
+        }
+
+        let det = dir[0][0] * (dir[1][1] * dir[2][2] - dir[1][2] * dir[2][1])
+            - dir[0][1] * (dir[1][0] * dir[2][2] - dir[1][2] * dir[2][0])
+            + dir[0][2] * (dir[1][0] * dir[2][1] - dir[1][1] * dir[2][0])
+
+        if det < 0 {
+            NSLog("ChromaEngine: left-handed direction matrix detected (det=%.6f)", det)
+            assertionFailure("Left-handed direction matrix detected; reslicing may be mirrored.")
+        }
     }
 
     func buildMetadata(

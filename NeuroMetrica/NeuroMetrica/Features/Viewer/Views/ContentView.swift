@@ -213,33 +213,24 @@ struct ContentView: View {
     private var viewModeMenu: some View {
         Menu {
             Button {
-                viewModel.setViewerMode(.twoD)
+                viewModel.selectTwoDMode()
             } label: {
-                Label(
-                    "2D",
-                    systemImage: viewerState.viewerMode == .twoD
-                        ? "checkmark"
-                        : "square"
-                )
+                menuItemLabel(title: "2D", isActive: viewerState.viewerMode == .twoD)
             }
 
             Divider()
 
             ForEach(ThreeDSubMode.allCases) { mode in
                 Button {
-                    viewModel.setViewerMode(.threeD)
-                    viewModel.setThreeDMode(mode)
+                    viewModel.selectReformatMode(mode)
                 } label: {
-                    Label(
-                        mode.rawValue,
-                        systemImage:
-                            viewerState.viewerMode == .threeD &&
-                            viewerState.threeDMode == mode
-                            ? "checkmark"
-                            : "square"
+                    menuItemLabel(
+                        title: mode.rawValue,
+                        isActive: viewerState.viewerMode == .threeD
+                            && viewerState.threeDMode == mode
                     )
                 }
-        }
+            }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: viewerState.viewerMode == .twoD ? "cube" : "cube.fill")
@@ -248,13 +239,23 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
         } primaryAction: {
-            viewModel.toggleViewerMode()
+            viewModel.enterReformatModeIfNeeded()
         }
         .help("Toggle 2D / 3D")
     }
 
     private var viewModeLabelText: String {
-        viewerState.viewerMode == .twoD ? "3D" : viewerState.threeDMode.rawValue
+        viewerState.viewerMode == .twoD ? "2D" : viewerState.threeDMode.rawValue
+    }
+
+    private func menuItemLabel(title: String, isActive: Bool) -> some View {
+        Group {
+            if isActive {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
+            }
+        }
     }
 
     // MARK: - Layout Menu (RESTORED)

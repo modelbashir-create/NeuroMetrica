@@ -65,7 +65,7 @@ enum ViewerTool: String, CaseIterable, Identifiable {
 
     var symbolName: String {
         switch self {
-        case .windowLevel: return "line.3.horizontal.decrease.circle"
+        case .windowLevel: return "circle.lefthalf.filled"
         case .pan:         return "hand.raised"
         case .fitToView:   return "arrow.up.backward.and.arrow.down.forward.rectangle"
         case .zoom:        return "magnifyingglass.circle"

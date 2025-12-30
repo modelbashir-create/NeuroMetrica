@@ -132,6 +132,26 @@ final class ViewerViewModel: ObservableObject {
         viewerState.toggleViewerMode()
     }
 
+    func selectTwoDMode() {
+        guard viewerState.viewerMode != .twoD else { return }
+        viewerState.viewerMode = .twoD
+        viewerState.threeDMode = .mpr
+    }
+
+    func selectReformatMode(_ mode: ThreeDSubMode) {
+        if viewerState.viewerMode == .threeD && viewerState.threeDMode == mode {
+            return
+        }
+        viewerState.viewerMode = .threeD
+        viewerState.threeDMode = mode
+    }
+
+    func enterReformatModeIfNeeded() {
+        if viewerState.viewerMode == .twoD {
+            viewerState.viewerMode = .threeD
+        }
+    }
+
     func setThreeDMode(_ mode: ThreeDSubMode) {
         viewerState.threeDMode = mode
     }
@@ -145,6 +165,12 @@ final class ViewerViewModel: ObservableObject {
             viewerState.lastNonZoomTool = tool
         }
         viewerState.activeTool = tool
+    }
+
+    func shouldUseWindowLevelOverride(activeTool: ViewerTool?, optionHeld: Bool) -> Bool {
+        guard optionHeld else { return false }
+        guard let tool = activeTool, tool != .windowLevel else { return false }
+        return true
     }
 
     func toggleZoomTool() {
@@ -869,6 +895,8 @@ final class ViewerViewModel: ObservableObject {
         viewerState.window = Float(appSettings.defaultWindow)
         viewerState.level = Float(appSettings.defaultLevel)
         viewerState.resetCrosshairPoints()
+        viewerState.viewerMode = .twoD
+        viewerState.threeDMode = .mpr
 
         viewerState.isLoadingVolume = false
         viewerState.lastError = nil

@@ -16,6 +16,9 @@ struct ViewerView: View {
 
     @State private var magnificationStartZoom: CGFloat?
     @State private var zoomDragStartZoom: CGFloat?
+    @State private var zoomDragTranslationOffset: CGFloat?
+    @State private var panDragTranslationOffset: CGSize?
+    @State private var isModifierWindowLevelDragging = false
 
     var body: some View {
         ZStack {
@@ -43,6 +46,7 @@ struct ViewerView: View {
         .contentShape(Rectangle())
         .gesture(isActive ? activeDragGesture : nil)
         .simultaneousGesture(isActive ? zoomGesture : nil)
+        .simultaneousGesture(isActive ? modifierWindowLevelDragGesture : nil)
     }
 
     // MARK: - Gestures
@@ -82,16 +86,60 @@ struct ViewerView: View {
         )
     }
 
+    private var modifierWindowLevelDragGesture: AnyGesture<DragGesture.Value> {
+        AnyGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    guard isActive else { return }
+                    guard isModifierWindowLevelRequested else {
+                        if isModifierWindowLevelDragging {
+                            viewModel.endWindowLevelDrag(for: viewportIndex)
+                            isModifierWindowLevelDragging = false
+                        }
+                        return
+                    }
+
+                    if !isModifierWindowLevelDragging {
+                        isModifierWindowLevelDragging = true
+                        viewModel.beginWindowLevelDrag(
+                            at: value.startLocation,
+                            viewportIndex: viewportIndex
+                        )
+                        viewModel.endPanDrag(for: viewportIndex)
+                        panDragTranslationOffset = nil
+                        zoomDragStartZoom = nil
+                        zoomDragTranslationOffset = nil
+                    }
+
+                    viewModel.updateWindowLevelDrag(
+                        to: value.location,
+                        viewportIndex: viewportIndex,
+                        isFineAdjustment: false,
+                        forceAxisLock: isAxisLockForced
+                    )
+                }
+                .onEnded { _ in
+                    guard isModifierWindowLevelDragging else { return }
+                    viewModel.endWindowLevelDrag(for: viewportIndex)
+                    isModifierWindowLevelDragging = false
+                }
+        )
+    }
+
     private var panDragGesture: AnyGesture<DragGesture.Value> {
         AnyGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
                     guard isActive else { return }
+                    guard !isModifierWindowLevelRequested else { return }
                     viewModel.beginPanDrag(for: viewportIndex)
-                    viewModel.updatePanDrag(for: viewportIndex, translation: value.translation)
+                    let adjusted = adjustedPanTranslation(for: value.translation)
+                    viewModel.updatePanDrag(for: viewportIndex, translation: adjusted)
                 }
                 .onEnded { _ in
+                    guard !isModifierWindowLevelRequested else { return }
                     viewModel.endPanDrag(for: viewportIndex)
+                    panDragTranslationOffset = nil
                 }
         )
     }
@@ -102,15 +150,18 @@ struct ViewerView: View {
                 .onChanged { value in
                     guard isActive else { return }
                     guard viewerState.activeTool == .zoom else { return }
+                    guard !isModifierWindowLevelRequested else { return }
                     if zoomDragStartZoom == nil {
                         zoomDragStartZoom = viewerState.zoom(for: viewportIndex)
                     }
                     guard let startZoom = zoomDragStartZoom else { return }
-                    let factor = pow(1.01, -value.translation.height)
+                    let adjusted = adjustedZoomTranslation(for: value.translation.height)
+                    let factor = pow(1.01, -adjusted)
                     viewModel.setZoom(for: viewportIndex, to: startZoom * factor)
                 }
                 .onEnded { _ in
                     zoomDragStartZoom = nil
+                    zoomDragTranslationOffset = nil
                 }
         )
     }
@@ -125,7 +176,7 @@ struct ViewerView: View {
 
     private var isFineAdjustmentActive: Bool {
         #if os(macOS)
-        return NSEvent.modifierFlags.contains(.option)
+        return isPrimaryWindowLevelMode && NSEvent.modifierFlags.contains(.option)
         #else
         return false
         #endif
@@ -137,6 +188,40 @@ struct ViewerView: View {
         #else
         return false
         #endif
+    }
+
+    private var isPrimaryWindowLevelMode: Bool {
+        viewerState.activeTool == nil || viewerState.activeTool == .windowLevel
+    }
+
+    private var isModifierWindowLevelRequested: Bool {
+        #if os(macOS)
+        return viewModel.shouldUseWindowLevelOverride(
+            activeTool: viewerState.activeTool,
+            optionHeld: NSEvent.modifierFlags.contains(.option)
+        )
+        #else
+        return false
+        #endif
+    }
+
+    private func adjustedPanTranslation(for translation: CGSize) -> CGSize {
+        if panDragTranslationOffset == nil {
+            panDragTranslationOffset = translation
+        }
+        guard let offset = panDragTranslationOffset else { return translation }
+        return CGSize(
+            width: translation.width - offset.width,
+            height: translation.height - offset.height
+        )
+    }
+
+    private func adjustedZoomTranslation(for translation: CGFloat) -> CGFloat {
+        if zoomDragTranslationOffset == nil {
+            zoomDragTranslationOffset = translation
+        }
+        guard let offset = zoomDragTranslationOffset else { return translation }
+        return translation - offset
     }
 
     private var zoomGesture: some Gesture {
