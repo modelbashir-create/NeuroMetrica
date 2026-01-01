@@ -51,7 +51,7 @@ ChromaImagingCore/
 │  │  │  └─ ImageIOErrors.swift
 │  │  ├─ ITK/
 │  │  │  ├─ ITKImageIO.swift
-│  │  │  ├─ ITKInfo.swift
+│  │  ├─ ITKInfo.swift
 │  │  │  └─ ITKDescriptors.swift
 │  └─ ITKBridge/
 │     ├─ include/
@@ -83,14 +83,8 @@ ChromaImagingCore/
 │        │  ├─ DescriptorBuilder.cpp
 │        │  └─ DescriptorBuilder.h
 │        └─ Utils/
-│           ├─ FileUtils.cpp
-│           ├─ FileUtils.h
 │           ├─ ITKBridgeUtils.cpp
-│           ├─ ITKBridgeUtils.h
-│           ├─ JSONUtils.cpp
-│           ├─ JSONUtils.h
-│           ├─ StringUtils.cpp
-│           └─ StringUtils.h
+│           └─ ITKBridgeUtils.h
 └─ Tests/
    └─ ImagingCoreTests/
       ├─ ImagingCoreTests.swift

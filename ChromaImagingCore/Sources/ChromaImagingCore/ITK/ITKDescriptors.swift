@@ -2,12 +2,16 @@
 //  ITKDescriptors.swift
 //  ChromaImagingCore
 //
-//  Lightweight Swift representation of an ITK image/volume.
-//  Returned by ITKImageIO and consumed by ChromaEngineKit.
+//  Responsibility:
+//  Defines the Swift-side ITK descriptor model and metadata parsing helpers.
 //
+//  Notes:
+//  Assumes C descriptor memory is owned by the bridge and must be freed explicitly.
 
 import Foundation
 import ITKBridge
+
+// MARK: - Geometry & Metadata
 
 /// Pixel type classification coming out of the ITK bridge.
 ///
@@ -160,7 +164,7 @@ public enum ITKMetadataValue: Sendable, Equatable {
     case boolean(Bool)
 }
 
-// MARK: - C bridge helpers
+// MARK: - ITK / DICOM Bridging
 
 public extension ITKImageDescriptor {
 
@@ -289,6 +293,8 @@ public extension ITKImageDescriptor {
         ITKFreeImageDescriptor(&cDescriptor)
     }
 }
+
+// MARK: - Internal Helpers
 
 private func parseMetadataJSON(_ metadataJSON: String?) -> [String: ITKMetadataValue] {
     guard let metadataJSON,

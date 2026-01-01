@@ -1,3 +1,13 @@
+//
+//  ImageIOErrors.swift
+//  ChromaImagingCore
+//
+//  Responsibility:
+//  Defines error types surfaced by the imaging core and ITK IO adapter.
+//
+//  Notes:
+//  Error cases are part of the external contract and should remain stable.
+
 import Foundation
 
 /// High-level errors surfaced by the imaging core.

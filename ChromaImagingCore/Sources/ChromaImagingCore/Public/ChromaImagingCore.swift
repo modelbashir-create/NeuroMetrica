@@ -1,8 +1,16 @@
-// ChromaImagingCore.swift
-// Public, Swifty façade for the low-level imaging core.
-// This file is the main entry point the rest of the system should import.
+//
+//  ChromaImagingCore.swift
+//  ChromaImagingCore
+//
+//  Responsibility:
+//  Declares the public NMImageIO protocol used by higher layers to load volumes.
+//
+//  Notes:
+//  This file is the only public entry point for imaging IO in this module.
 
 import Foundation
+
+// MARK: - Public API
 
 /// Abstraction for image IO.
 ///

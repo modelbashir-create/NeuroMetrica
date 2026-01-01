@@ -1,6 +1,16 @@
-/// Scalar types supported by the imaging core.
-///
-/// We can expand this later as needed (e.g. 8-bit, 32-bit int, etc.).
+//
+//  NMScalarType.swift
+//  ChromaImagingCore
+//
+//  Responsibility:
+//  Defines supported scalar element types and their byte sizes for volume buffers.
+//
+//  Notes:
+//  Byte sizes must stay consistent with ITK descriptor mapping and buffer validation.
+//
+//  Scalar types supported by the imaging core.
+//
+//  We can expand this later as needed (e.g. 8-bit, 32-bit int, etc.).
 public enum NMScalarType: Sendable {
     case int16
     case uint16

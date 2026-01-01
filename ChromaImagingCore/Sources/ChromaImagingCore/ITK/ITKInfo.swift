@@ -2,8 +2,11 @@
 //  ITKInfo.swift
 //  ChromaImagingCore
 //
-//  Swift-friendly helpers for querying ITK / bridge metadata.
+//  Responsibility:
+//  Exposes ITK bridge version and capability queries to Swift callers.
 //
+//  Notes:
+//  Assumes the ITK bridge is present and returns null-terminated strings.
 
 import Foundation
 import ITKBridge

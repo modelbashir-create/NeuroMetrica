@@ -2,15 +2,16 @@
 //  ITKImageIO.swift
 //  ChromaImagingCore
 //
-//  Swift façade around the ITK bridge for volume loading.
-//  This is the ONLY entry point higher layers should use
-//  to read DICOM / NIfTI / NRRD volumes via ITK.
+//  Responsibility:
+//  Provides the Swift-facing entry point that calls the ITK C bridge to load volumes.
 //
+//  Notes:
+//  Assumes the bridge allocates buffers that must be freed via ITKImageDescriptor.
 
 import Foundation
 import ITKBridge   // SwiftPM module created by the ITKBridge target
 
-// MARK: - High-level format hint
+// MARK: - Public API
 
 /// High-level format hint for ITK volume loading.
 public enum ITKVolumeFormatHint {
@@ -34,7 +35,7 @@ public enum ITKDicomBackend {
     case automatic
 }
 
-// MARK: - Main façade
+// MARK: - ITK / DICOM Bridging
 
 /// Main entry point for ITK-based volume loading.
 ///
@@ -87,7 +88,7 @@ public enum ITKImageIO {
         }
     }
 
-    // MARK: - Private helpers
+    // MARK: - Internal Helpers
 
     /// Load a DICOM series volume from a directory via ITKBridge.
     private static func loadDicomSeries(
@@ -161,8 +162,6 @@ public enum ITKImageIO {
 
         return ITKImageDescriptor(cDescriptor: cDescriptor)
     }
-
-    // MARK: - Path utilities
 
     /// Normalize the URL into a file-system path string that is safe to
     /// hand to the C bridge. On Apple platforms this is usually just

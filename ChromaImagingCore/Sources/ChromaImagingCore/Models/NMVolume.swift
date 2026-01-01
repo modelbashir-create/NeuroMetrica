@@ -1,4 +1,16 @@
+//
+//  NMVolume.swift
+//  ChromaImagingCore
+//
+//  Responsibility:
+//  Defines the canonical in-memory volume model used across the engine stack.
+//
+//  Notes:
+//  Assumes a 3x3 direction matrix and validates buffer size when requested.
+
 import Foundation
+
+// MARK: - Geometry & Metadata
 
 /// Core neutral volume type used across NeuroMetrica.
 ///
