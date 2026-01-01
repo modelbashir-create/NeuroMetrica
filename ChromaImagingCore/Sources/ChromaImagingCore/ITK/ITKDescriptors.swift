@@ -1,5 +1,5 @@
 //
-//  ITKImageDescriptor.swift
+//  ITKDescriptors.swift
 //  ChromaImagingCore
 //
 //  Lightweight Swift representation of an ITK image/volume.
@@ -106,7 +106,11 @@ public struct ITKImageDescriptor {
     /// Parsed metadata map (lossless numeric types preserved).
     public let metadata: [String: ITKMetadataValue]
 
+    /// Optional per-slice provenance JSON emitted by the bridge.
+    public let sliceProvenanceJSON: String?
+
     private let metadataPointer: UnsafePointer<CChar>?
+    private let sliceProvenancePointer: UnsafePointer<CChar>?
 
     // MARK: Designated init
 
@@ -125,7 +129,9 @@ public struct ITKImageDescriptor {
         debugDescription: String? = nil,
         metadataJSON: String? = nil,
         metadata: [String: ITKMetadataValue] = [:],
-        metadataPointer: UnsafePointer<CChar>? = nil
+        metadataPointer: UnsafePointer<CChar>? = nil,
+        sliceProvenanceJSON: String? = nil,
+        sliceProvenancePointer: UnsafePointer<CChar>? = nil
     ) {
         self.dimension = dimension
         self.size = size
@@ -142,6 +148,8 @@ public struct ITKImageDescriptor {
         self.metadataJSON = metadataJSON
         self.metadata = metadata
         self.metadataPointer = metadataPointer
+        self.sliceProvenanceJSON = sliceProvenanceJSON
+        self.sliceProvenancePointer = sliceProvenancePointer
     }
 }
 
@@ -223,6 +231,8 @@ public extension ITKImageDescriptor {
         let metadataPointer = UnsafePointer<CChar>(desc.metadataJSON)
         let metadataJSON = metadataPointer != nil ? String(cString: metadataPointer!) : nil
         let metadata = parseMetadataJSON(metadataJSON)
+        let slicePointer = UnsafePointer<CChar>(desc.sliceProvenanceJSON)
+        let sliceJSON = slicePointer != nil ? String(cString: slicePointer!) : nil
 
         let debug = """
         dim=\(clampedDim), size=\(sizeArray), spacing=\(spacingArray), \
@@ -247,19 +257,23 @@ public extension ITKImageDescriptor {
             debugDescription: debug,
             metadataJSON: metadataJSON,
             metadata: metadata,
-            metadataPointer: metadataPointer
+            metadataPointer: metadataPointer,
+            sliceProvenanceJSON: sliceJSON,
+            sliceProvenancePointer: slicePointer
         )
     }
 
     /// Free the bridge-owned resources (voxel buffer + metadata string).
     func freeBridgeResources() {
-        guard bufferPointer != nil || metadataPointer != nil else { return }
+        guard bufferPointer != nil || metadataPointer != nil || sliceProvenancePointer != nil else { return }
 
         var cDescriptor = ITKImageDescriptorC()
         cDescriptor.bufferHandle = bufferPointer
         cDescriptor.valueCount = UInt64(valueCount)
         cDescriptor.metadataJSON = metadataPointer
         cDescriptor.metadataJSONLength = Int32(metadataJSON?.utf8.count ?? 0)
+        cDescriptor.sliceProvenanceJSON = sliceProvenancePointer
+        cDescriptor.sliceProvenanceJSONLength = Int32(sliceProvenanceJSON?.utf8.count ?? 0)
         ITKFreeImageDescriptor(&cDescriptor)
     }
 

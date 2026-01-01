@@ -24,7 +24,10 @@ let package = Package(
             dependencies: [
                 .product(name: "ChromaImagingCore", package: "ChromaImagingCore")
             ],
-            path: "Sources/ChromaEngineKit"
+            path: "Sources/ChromaEngineKit",
+            resources: [
+                .process("Services/Rendering/Shaders")
+            ]
         ),
         .testTarget(
             name: "ChromaEngineKitTests",

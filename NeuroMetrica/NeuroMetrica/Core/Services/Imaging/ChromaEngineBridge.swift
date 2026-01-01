@@ -114,6 +114,7 @@ actor ChromaEngineBridge {
     private var engine: ChromaEngine
     
     private var volumes: [UUID: VolumeRecord] = [:]
+    private var rawSliceCache: [String: CIRawSlice2D] = [:]
     
     // MARK: - Init
     
@@ -242,18 +243,24 @@ actor ChromaEngineBridge {
         }
         
         do {
-            // In the future, this method can switch between:
-            // - ITK CPU WW/WL + reslice
-            // - Native CPU WW/WL (WindowLevelCPU)
-            // - Native GPU path (Metal/MPS)
-            let slice = try await engine.makeSlice(
-                from: record.engineVolume,
-                orientation: orientation,
-                index: index,
+            let key = rawSliceCacheKey(handle: handle, orientation: orientation, index: index)
+            let rawSlice: CIRawSlice2D
+            if let cached = rawSliceCache[key] {
+                rawSlice = cached
+            } else {
+                rawSlice = try engine.makeRawSlice2D(
+                    from: record.engineVolume,
+                    orientation: orientation,
+                    index: index
+                )
+                rawSliceCache[key] = rawSlice
+            }
+
+            return engine.applyWindowLevel(
+                to: rawSlice,
                 window: window,
                 level: level
             )
-            return slice
         } catch {
             throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
         }
@@ -261,7 +268,11 @@ actor ChromaEngineBridge {
     
     /// Clean up a volume when a ViewModel is done with it.
     func unloadVolume(_ handle: VolumeHandle) {
-        volumes.removeValue(forKey: handle.id)
+        if let record = volumes.removeValue(forKey: handle.id) {
+            engine.invalidateGPUCache(for: record.engineVolume)
+        }
+        let prefix = handle.id.uuidString + "|"
+        rawSliceCache = rawSliceCache.filter { !$0.key.hasPrefix(prefix) }
     }
     
     /// Optionally return the descriptor for an existing handle (for inspector/overlays).
@@ -365,5 +376,9 @@ actor ChromaEngineBridge {
         } else {
             return .dicomFile
         }
+    }
+
+    private func rawSliceCacheKey(handle: VolumeHandle, orientation: SliceOrientation, index: Int) -> String {
+        "\(handle.id.uuidString)|\(orientation.rawValue)|\(index)"
     }
 }

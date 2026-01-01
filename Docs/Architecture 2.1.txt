@@ -1,7 +1,19 @@
-# NeuroMetrica Workspace Architecture 2.1 (Current)
+# NeuroMetrica Workspace Architecture 2.2 (Frozen)
 
 This document is the source of truth for structure, MVVM boundaries, and file responsibilities.
 It is written to be AI-agent friendly: explicit trees, per-file roles, and clear ownership rules.
+
+Architecture 2.2 introduces no behavioral, API, or runtime changes. It exists only to record the current workspace structure following the ChromaImagingCore refactor.
+
+Architecture 2.2 is the authoritative reference for future development, testing, audits, and regulatory documentation.
+
+This workspace uses a dual-style architecture by design. The App target and Swift packages follow Apple and Swift best practices (MVVM, SwiftPM layout, public/internal separation). The ITKBridge native layer intentionally follows a medical PACS-style decomposition, prioritizing traceability, auditability, and explicit DICOM semantics over Apple idioms. This split is intentional and correct, and PACS-style structure is confined to imaging IO and native code only.
+
+Architecture 2.2 guarantees that all DICOM semantics (grouping, ordering, geometry validation, provenance) are confined to ITKBridge. Geometry validation and diagnostics are read-only and must never modify image data, slice order, orientation, or spacing. ITK is the authoritative source of truth for image geometry and pixel data, and Swift layers must consume geometry exactly as provided.
+
+Architecture 2.2 reasserts strict layering across App → Core → Engine → Imaging packages. Violating these boundaries requires a future architecture revision (2.3+) and must not be treated as an incremental refactor.
+
+Architecture 2.2 is frozen. Any cross-layer changes or semantic shifts require a new architecture version and explicit documentation.
 
 Guiding rules
 - Strict MVVM in the app target: Views depend on ViewModels and state, never on engine or IO.
@@ -182,6 +194,7 @@ Core/Services/Imaging/
   - Primary boundary between app ViewModels and engine packages.
   - Loads volumes, creates slices, hides ITK/Metal details.
   - Maintains a volume registry and provides WW/WL slices for the viewer.
+  - Invalidates GPU cache when volumes unload.
 
 Core/Utils/Extensions/
 - ViewNeuroMetrica.swift
@@ -312,6 +325,14 @@ ChromaEnginekit/
 - Sources/ChromaEngineKit/
   - Core/
     - ChromaEngine.swift
+    - ChromaEngine+IO.swift
+    - ChromaEngine+SliceCPU.swift
+    - ChromaEngine+VolumeCPU.swift
+    - ChromaEngine+MPR.swift
+    - ChromaEngine+Geometry.swift
+    - ChromaEngine+Metadata.swift
+    - ChromaEngine+Debug.swift
+    - ChromaEngine+Utils.swift
     - ChromaEngineConfig.swift
     - ChromaEngineError.swift (empty placeholder)
     - EngineVolumeDescriptor.swift
@@ -319,11 +340,23 @@ ChromaEnginekit/
   - Models/
     - CImageVolume.swift
     - CIImage2D.swift
+    - CIRawSlice2D.swift
+    - CISliceProvenance.swift
+    - PatientPlane.swift
     - CIMetadata.swift
     - SliceOrientation.swift
+  - Extensions/
+    - CIImage2D+CGImage.swift
   - IO/
     - ITKVolumeLoader.swift (empty placeholder)
     - VolumeLoader.swift (empty placeholder)
+  - Services/
+    - Rendering/
+      - MetalSliceRenderer.swift
+      - MetalSliceRenderService.swift
+      - MetalSliceDebugHarness.swift
+      - Shaders/
+        - MetalSliceKernels.metal
   - Backends/
     - BackendProtocols.swift
     - ITK/
@@ -347,7 +380,31 @@ Responsibilities (per file)
 
 Core/
 - ChromaEngine.swift
-  - High-level engine facade: volume IO via ITK, slice extraction with WW/WL.
+  - High-level engine facade: ITK descriptor -> CImageVolume conversion, metadata parsing, slice extraction.
+  - CPU path remains authoritative; GPU is optional and must fall back safely.
+  - Debug-only GPU/CPU comparison hook for parity validation.
+  - Slice output contract: CIImage2D grayscale uint8, componentsPerPixel=1, bytesPerRow=width.
+  - WW/WL operates on raw stored voxel values (no rescale slope/intercept).
+  - GPU Geometry Contract:
+    - GPU consumes CImageVolume.voxelData in ITK-produced order with native spacing/origin/direction.
+    - No reordering, canonicalization, axis flipping, or geometry correction in GPU paths.
+    - Validation metadata is read-only and used only for logging/diagnostics.
+- ChromaEngine+IO.swift
+  - ITK → engine boundary: loading, descriptor conversion, voxel buffer copy.
+- ChromaEngine+SliceCPU.swift
+  - CPU slice extraction + WW/WL mapping.
+- ChromaEngine+VolumeCPU.swift
+  - CPU reference volume rendering (GPU parity baseline).
+- ChromaEngine+MPR.swift
+  - Patient-space reslicing + oblique slice math.
+- ChromaEngine+Geometry.swift
+  - Direction/orientation math + validation helpers (read-only).
+- ChromaEngine+Metadata.swift
+  - Metadata parsing, series diagnostics, geometry validation parsing.
+- ChromaEngine+Debug.swift
+  - Debug-only logging + CPU/GPU parity sampling.
+- ChromaEngine+Utils.swift
+  - Shared utilities (parsing/formatting + safe indexing).
 - ChromaEngineConfig.swift
   - Engine configuration (DICOM backend selection, standard config).
 - ChromaEngineError.swift
@@ -359,19 +416,46 @@ Core/
 
 Models/
 - CImageVolume.swift
-  - Canonical in-memory 3D/4D volume representation.
+  - Canonical in-memory 3D/4D volume representation (spacing/origin/direction authoritative).
 - CIImage2D.swift
   - Canonical 2D slice representation for engine output.
+- CIRawSlice2D.swift
+  - Raw slice buffer prior to window/level mapping.
+- CISliceProvenance.swift
+  - Per-slice provenance records derived from DICOM tags.
+- PatientPlane.swift
+  - Patient-space plane definition for MPR.
 - CIMetadata.swift
-  - Normalized DICOM/NIfTI/NRRD metadata model.
+  - Normalized DICOM/NIfTI/NRRD metadata model + raw tag map for diagnostics.
+  - Holds slice ordering/consistency flags and geometry reliability annotations (via additionalTags).
 - SliceOrientation.swift
   - Canonical orientation enum (axial/coronal/sagittal).
+Extensions/
+- CIImage2D+CGImage.swift
+  - Converts engine CIImage2D to CGImage for app layer.
 
 IO/
 - ITKVolumeLoader.swift
   - Placeholder for explicit ITK-backed volume loading helper.
 - VolumeLoader.swift
   - Placeholder for generic loading abstraction (future routing).
+
+Services/Rendering/
+- MetalSliceRenderer.swift
+  - Engine-only Metal slice renderer (no UI). Consumes voxel buffer + geometry + WW/WL.
+  - Provides multi-axis GPU path (axial/coronal/sagittal) with CPU fallback managed by ChromaEngine.
+  - Provides minimal GPU volume rendering in native IJK space (axial/coronal/sagittal).
+- MetalSliceRenderService.swift
+  - Serializes GPU access per volume, manages persistent GPU volume buffers.
+  - Owns prepare(volume:) + renderSlice(request:) lifecycle separation.
+  - Also routes renderVolume(request:) through the same prepared-volume cache.
+  - Deterministic GPU fallback reason strings (debug-accessible).
+  - GPU supports scalar volumes only (componentsPerPixel=1; UInt8/Int16/UInt16/Float32); others fall back.
+  - Shaders/
+    - MetalSliceKernels.metal
+      - Metal compute kernels for GPU slice rendering and volume rendering (axial/coronal/sagittal).
+  - MetalSliceDebugHarness.swift
+    - Debug-only GPU fallback checks and CPU/GPU parity validation harness.
 
 Backends/
 - BackendProtocols.swift
@@ -397,7 +481,7 @@ Verification/
 
 Tests/
 - ChromaEngineKitTests.swift
-  - Placeholder test target file.
+  - Engine-level tests for CPU/GPU parity and metadata parsing.
 - ChromaImagingKitTests.swift
   - Test skeleton referencing a NIfTI loader (future enablement).
 
@@ -410,20 +494,45 @@ ChromaImagingCore/
 - Package.swift
 - README.md
 - Sources/ChromaImagingCore/
-  - ChromaImagingCore.swift
-  - Errors/
-    - ITKImageIOError.swift (empty placeholder)
+  - Public/
+    - ChromaImagingCore.swift
   - ITK/
     - ITKImageIO.swift
     - ITKInfo.swift
     - Descriptors/
       - ITKImageDescriptor.swift
+  - Models/
+    - NMScalarType.swift
+    - NMVolume.swift
+  - Errors/
+    - NMImageIOError.swift
+    - ITKImageIOError.swift (empty placeholder)
   - Utils/
     - LoggingUtils.swift (empty placeholder)
     - PathUtils.swift (empty placeholder)
 - Sources/ITKBridge/
   - include/ITKBridge.h
-  - src/ITKBridge.mm
+  - src/Core/
+    - ITKBridgePublicAPI.mm
+    - ITKBridgeInternal.h
+  - src/Utils/
+    - FileUtils.h/.cpp
+    - StringUtils.h/.cpp
+    - JSONUtils.h/.cpp
+  - src/DICOM/
+    - DicomTagExtractors.h/.cpp
+    - SeriesGrouping.h/.cpp
+    - SliceOrdering.h/.cpp
+    - GeometryValidation.h/.cpp
+  - src/Diagnostics/
+    - SeriesDiagnostics.h/.cpp
+    - SliceProvenance.h/.cpp
+  - src/Loaders/
+    - DicomSeriesLoader.h/.cpp
+    - SingleFileLoader.h/.cpp
+  - src/Descriptor/
+    - DescriptorBuilder.h/.cpp
+    - DescriptorMemory.h/.cpp
 - ThirdParty/ITK/ITK.xcframework
 - Tests/ImagingCoreTests/
   - ImagingCoreTests.swift
@@ -436,16 +545,22 @@ Responsibilities (per file)
   - Placeholder for package-level documentation.
 
 Sources/ChromaImagingCore/
-- ChromaImagingCore.swift
-  - Public Swift API: NMVolume, NMImageIO protocol, core errors, scalar types.
+- Public/ChromaImagingCore.swift
+  - Public Swift API: NMImageIO protocol and top-level package entry points.
 - Errors/ITKImageIOError.swift
   - Placeholder for dedicated imaging-core error definitions.
+- Errors/NMImageIOError.swift
+  - Public error surface for imaging IO (input/format/load failures).
 - ITK/ITKImageIO.swift
   - Swift facade around ITKBridge for loading DICOM and single-file volumes.
 - ITK/ITKInfo.swift
   - ITK version and feature availability helpers.
 - ITK/Descriptors/ITKImageDescriptor.swift
   - Swift descriptor mirroring ITK bridge output; manages bridge buffer lifetime.
+- Models/NMScalarType.swift
+  - Public scalar type enum used by NMVolume.
+- Models/NMVolume.swift
+  - Canonical volume model used across the engine and app layers.
 - Utils/LoggingUtils.swift
   - Placeholder for logging helpers within the package.
 - Utils/PathUtils.swift
@@ -454,8 +569,36 @@ Sources/ChromaImagingCore/
 Sources/ITKBridge/
 - include/ITKBridge.h
   - C/ObjC++ interface for ITK-based volume loading and descriptor API.
-- src/ITKBridge.mm
-  - ITK-backed implementation (DICOM series, single-file volumes, metadata JSON).
+- src/Core/ITKBridgePublicAPI.mm
+  - C ABI boundary: argument validation, error handling, calls into loaders and descriptor builder.
+- src/Core/ITKBridgeInternal.h
+  - Shared internal types for loaders/diagnostics/descriptor assembly.
+- src/Utils/FileUtils.*
+  - Filesystem checks and path helpers (no ITK/DICOM semantics).
+- src/Utils/StringUtils.*
+  - String escaping/normalization and error buffer helpers.
+- src/Utils/JSONUtils.*
+  - JSON field/value helpers (no ITK/DICOM semantics).
+- src/DICOM/DicomTagExtractors.*
+  - DICOM tag extraction and numeric parsing helpers.
+- src/DICOM/SeriesGrouping.*
+  - Tag-based grouping logic and candidate bookkeeping.
+- src/DICOM/SliceOrdering.*
+  - Slice ordering derivation with fallback methods (IPP/IOP → SliceLocation → file index).
+- src/DICOM/GeometryValidation.*
+  - Read-only geometry validation (ordering consistency, spacing, orientation).
+- src/Diagnostics/SeriesDiagnostics.*
+  - Series/subseries diagnostics and selection tracing JSON.
+- src/Diagnostics/SliceProvenance.*
+  - Per-slice provenance JSON (UIDs, IPP/IOP).
+- src/Loaders/DicomSeriesLoader.*
+  - Orchestrates grouping → ordering → validation → ITK read for series.
+- src/Loaders/SingleFileLoader.*
+  - Orchestrates single-file ITK reads (NIfTI, DICOM file).
+- src/Descriptor/DescriptorBuilder.*
+  - Builds metadata JSON and fills ITKImageDescriptorC from ITK output.
+- src/Descriptor/DescriptorMemory.*
+  - Descriptor allocation/free and zeroing; owns C buffer lifetime.
 
 ThirdParty/
 - ITK.xcframework

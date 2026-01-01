@@ -34,34 +34,6 @@ public enum ITKDicomBackend {
     case automatic
 }
 
-// MARK: - Errors
-
-/// Errors specific to ITKImageIO. These will usually be wrapped
-/// or mapped into higher-level engine errors (ChromaEngineError).
-public enum ITKImageIOError: Error, CustomStringConvertible, LocalizedError {
-    case fileNotFound(URL)
-    case unsupportedPath(URL)
-    case bridgeUnavailable(String)
-    case loadFailed(message: String)
-
-    public var description: String {
-        switch self {
-        case .fileNotFound(let url):
-            return "ITKImageIO: file or directory not found at path: \(url.path)"
-        case .unsupportedPath(let url):
-            return "ITKImageIO: unsupported path: \(url.path)"
-        case .bridgeUnavailable(let msg):
-            return "ITKImageIO: bridge unavailable – \(msg)"
-        case .loadFailed(let message):
-            return "ITKImageIO: load failed – \(message)"
-        }
-    }
-
-    public var errorDescription: String? {
-        description
-    }
-}
-
 // MARK: - Main façade
 
 /// Main entry point for ITK-based volume loading.

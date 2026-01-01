@@ -1,53 +1,4 @@
-// ChromaImagingCore.swift
-// Public, Swifty façade for the low-level imaging core.
-// This file is the main entry point the rest of the system should import.
-
 import Foundation
-
-// MARK: - Core Error Types
-
-/// High-level errors surfaced by the imaging core.
-///
-/// These are intentionally generic so that callers (NeuroMetrica app,
-/// ChromaEngineKit) never have to know about ITK / GDCM / C++ details.
-public enum NMImageIOError: Error, Sendable {
-    /// The provided URLs were empty or invalid for the requested operation.
-    case invalidInput(description: String)
-    /// The underlying engine (ITK / GDCM / etc.) failed to load the volume.
-    case loadFailed(description: String)
-    /// The loaded volume metadata and raw buffer size do not match.
-    case inconsistentData(expectedBytes: Int, actualBytes: Int)
-    /// The scalar type / layout is currently unsupported by this build.
-    case unsupportedFormat(description: String)
-}
-
-
-// MARK: - Scalar Types
-
-/// Scalar types supported by the imaging core.
-///
-/// We can expand this later as needed (e.g. 8-bit, 32-bit int, etc.).
-public enum NMScalarType: Sendable {
-    case int16
-    case uint16
-    case float32
-    case float64
-
-    /// Number of bytes per scalar component.
-    public var bytesPerComponent: Int {
-        switch self {
-        case .int16, .uint16:
-            return 2
-        case .float32:
-            return 4
-        case .float64:
-            return 8
-        }
-    }
-}
-
-
-// MARK: - Canonical Volume Type
 
 /// Core neutral volume type used across NeuroMetrica.
 ///
@@ -132,30 +83,5 @@ public struct NMVolume: Sendable {
                 )
             }
         }
-    }
-}
-
-
-// MARK: - Image IO Abstraction
-
-/// Abstraction for image IO.
-///
-/// The ITK-backed implementation (`ITKImageIO`) will conform to this.
-/// ChromaEngineKit can also provide alternative backends in the future.
-public protocol NMImageIO: Sendable {
-    /// Load a volume from one or more URLs.
-    ///
-    /// - For DICOM, `urls` may be:
-    ///   - a directory containing a series, or
-    ///   - an explicit list of file URLs for a series.
-    /// - For NIfTI / NRRD, `urls` is typically a single file URL.
-    func loadVolume(from urls: [URL]) async throws -> NMVolume
-}
-
-public extension NMImageIO {
-    /// Convenience overload for the common single-file case.
-    @inlinable
-    func loadVolume(from url: URL) async throws -> NMVolume {
-        try await loadVolume(from: [url])
     }
 }

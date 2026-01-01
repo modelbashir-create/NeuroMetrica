@@ -1,5 +1,5 @@
 import XCTest
-@testable import ImagingCore
+@testable import ChromaImagingCore
 
 final class ImagingCoreTests: XCTestCase {
     func testVolumeInit() throws {
@@ -14,7 +14,7 @@ final class ImagingCoreTests: XCTestCase {
         let dataSize = dims.x * dims.y * dims.z * MemoryLayout<Int16>.size
         let data = Data(count: dataSize)
 
-        let volume = NMVolume(
+        let volume = try NMVolume(
             dimensions: dims,
             spacing: spacing,
             origin: origin,

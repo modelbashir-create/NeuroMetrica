@@ -97,6 +97,12 @@ typedef struct ITKImageDescriptorC {
 
     /// Length in bytes of metadataJSON (excluding null terminator).
     int32_t metadataJSONLength;
+
+    /// Optional JSON array (UTF-8) describing per-slice provenance.
+    const char *sliceProvenanceJSON;
+
+    /// Length in bytes of sliceProvenanceJSON (excluding null terminator).
+    int32_t sliceProvenanceJSONLength;
 } ITKImageDescriptorC;
 
 

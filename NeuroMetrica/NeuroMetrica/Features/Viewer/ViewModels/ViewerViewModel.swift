@@ -41,6 +41,11 @@ final class ViewerViewModel: ObservableObject {
     private var panDragStates: [Int: PanDragState] = [:]
     private var crosshairDragStates: [Int: CrosshairDragState] = [:]
     private var viewportGeometries: [Int: ViewportGeometry] = [:]
+    private var sliceTasks: [Int: Task<Void, Never>] = [:]
+    private var sliceRequestTokens: [Int: Int] = [:]
+    private var windowLevelUpdateTask: Task<Void, Never>?
+    private var lastWindowLevelUpdateTime: UInt64 = 0
+    private let windowLevelThrottleHz: Double = 60.0
 
     private struct WindowLevelDragState {
         let startWindow: Float
@@ -434,7 +439,7 @@ final class ViewerViewModel: ObservableObject {
         guard clampedWindow != viewerState.window || clampedLevel != viewerState.level else { return }
         viewerState.window = clampedWindow
         viewerState.level = clampedLevel
-        refreshViewportSlices()
+        scheduleWindowLevelRefresh()
     }
 
     func beginWindowLevelDrag(at location: CGPoint, viewportIndex: Int) {
@@ -528,6 +533,43 @@ final class ViewerViewModel: ObservableObject {
         return delta.sign == .minus ? -adjusted : adjusted
     }
 
+    private func scheduleWindowLevelRefresh() {
+        guard !windowLevelDragStates.isEmpty else {
+            performWindowLevelRefresh()
+            return
+        }
+
+        let now = DispatchTime.now().uptimeNanoseconds
+        let minInterval = UInt64(1_000_000_000 / max(windowLevelThrottleHz, 1))
+        let elapsed = now > lastWindowLevelUpdateTime ? (now - lastWindowLevelUpdateTime) : minInterval
+        if elapsed >= minInterval {
+            lastWindowLevelUpdateTime = now
+            performWindowLevelRefresh()
+            return
+        }
+
+        windowLevelUpdateTask?.cancel()
+        let delay = minInterval - elapsed
+        windowLevelUpdateTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: delay)
+            guard !Task.isCancelled else { return }
+            guard let self else { return }
+            self.lastWindowLevelUpdateTime = DispatchTime.now().uptimeNanoseconds
+            self.performWindowLevelRefresh()
+        }
+    }
+
+    private func performWindowLevelRefresh() {
+        let activeDragIndices = windowLevelDragStates.keys
+        if activeDragIndices.isEmpty {
+            refreshViewportSlices()
+        } else {
+            for viewportIndex in activeDragIndices {
+                updateSlice(for: viewportIndex)
+            }
+        }
+    }
+
     private func applyPresetSnap(window: Float, level: Float) -> (window: Float, level: Float) {
         let tolerance = Float(appSettings.windowLevelPresetSnapTolerance)
         let strength = Float(appSettings.windowLevelPresetSnapStrength)
@@ -560,6 +602,11 @@ final class ViewerViewModel: ObservableObject {
 
     func endWindowLevelDrag(for viewportIndex: Int) {
         windowLevelDragStates[viewportIndex] = nil
+        if windowLevelDragStates.isEmpty {
+            windowLevelUpdateTask?.cancel()
+            windowLevelUpdateTask = nil
+            performWindowLevelRefresh()
+        }
     }
 
     // MARK: - Zoom
@@ -943,25 +990,34 @@ final class ViewerViewModel: ObservableObject {
             if viewerState.isImagingViewport(index) {
                 updateSlice(for: index)
             } else {
+                sliceTasks[index]?.cancel()
+                sliceTasks[index] = nil
                 viewportImages[index] = nil
             }
         }
     }
 
     private func updateSlice(for index: Int) {
+        sliceTasks[index]?.cancel()
+        sliceTasks[index] = nil
+        let token = (sliceRequestTokens[index] ?? 0) + 1
+        sliceRequestTokens[index] = token
+
         let snapshotHandle = viewerState.volumeHandle
         let snapshotOrientation = viewerState.orientation(for: index)
         let snapshotIndex = engineSliceIndex(for: snapshotOrientation)
         let snapshotWindow = viewerState.window
         let snapshotLevel = viewerState.level
 
-        Task {
+        let task = Task {
             guard let handle = snapshotHandle else {
                 viewportImages[index] = nil
                 return
             }
 
             do {
+                guard !Task.isCancelled else { return }
+                guard sliceRequestTokens[index] == token else { return }
                 let slice = try await engineBridge.makeSlice(
                     from: handle,
                     orientation: snapshotOrientation,
@@ -969,13 +1025,21 @@ final class ViewerViewModel: ObservableObject {
                     window: snapshotWindow,
                     level: snapshotLevel
                 )
-                let image = slice.toSwiftUIImage()
+                guard !Task.isCancelled else { return }
+                guard sliceRequestTokens[index] == token else { return }
+                let cgImage = await Task.detached(priority: .userInitiated) {
+                    slice.makeCGImage()
+                }.value
+                guard !Task.isCancelled else { return }
+                guard sliceRequestTokens[index] == token else { return }
+                let image = cgImage.map { Image(decorative: $0, scale: 1.0, orientation: .up) }
                 viewportImages[index] = image
                 if viewerState.lastErrorContext == .renderSlice {
                     viewerState.lastError = nil
                     viewerState.lastErrorContext = nil
                 }
             } catch {
+                guard !Task.isCancelled else { return }
                 viewportImages[index] = nil
                 let presentation = ViewerErrorPresenter.presentation(for: error, context: .renderSlice)
                 viewerState.lastError = presentation
@@ -983,6 +1047,7 @@ final class ViewerViewModel: ObservableObject {
                 AppLogger.error("Slice rendering failed for viewport \(index)", error: error)
             }
         }
+        sliceTasks[index] = task
     }
 
     private func sliceCount(for orientation: SliceOrientation) -> Int {
