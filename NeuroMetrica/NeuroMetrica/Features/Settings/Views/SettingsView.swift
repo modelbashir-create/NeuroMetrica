@@ -5,19 +5,6 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section(header: Text("Processing")) {
-                Picker("Processing Backend", selection: $viewModel.settings.processingBackend) {
-                    ForEach(ProcessingBackend.allCases) { backend in
-                        Text(backend.displayName).tag(backend)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                Text("GPU runs Metal-based slicing and window/level. CPU uses the reference pipeline.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-
             Section(header: Text("DICOM")) {
                 Picker("DICOM Backend", selection: $viewModel.settings.dicomBackendPreference) {
                     ForEach(DicomBackendPreference.allCases) { backend in
@@ -34,6 +21,18 @@ struct SettingsView: View {
                 Toggle("Enable Debug Overlay", isOn: $viewModel.settings.showDebugOverlay)
                 Toggle("Show PHI in Metadata", isOn: $viewModel.settings.showPHIInDiagnostics)
                     .disabled(!viewModel.settings.showDebugOverlay)
+
+                if viewModel.settings.showDebugOverlay {
+                    Picker("Slice Render Path", selection: $viewModel.settings.renderingBackendPreference) {
+                        ForEach(RenderingBackendPreference.allCases) { backend in
+                            Text(backend.displayName).tag(backend)
+                        }
+                    }
+
+                    Text("Developer runtime control for slice-like image generation in 2D, MPR, and projection modes. Automatic tries GPU when available and falls back to CPU.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {

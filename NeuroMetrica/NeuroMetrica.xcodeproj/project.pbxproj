@@ -36,6 +36,7 @@
 		FF9BB76D2EC7199D000F271C /* ImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7542EC7199D000F271C /* ImportView.swift */; };
 		FF9BB76E2EC7199D000F271C /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73A2EC7199D000F271C /* AppSettings.swift */; };
 		FF9BB76F2EC7199D000F271C /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7622EC7199D000F271C /* ViewerView.swift */; };
+		FFAA10012F6A0001 /* TriPlanarMPRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFAA10002F6A0001 /* TriPlanarMPRView.swift */; };
 		FF9BB7702EC7199D000F271C /* ChromaEngineBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB73F2EC7199D000F271C /* ChromaEngineBridge.swift */; };
 		FF9BB7712EC7199D000F271C /* ImportSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7502EC7199D000F271C /* ImportSource.swift */; };
 		FF9BB7722EC7199D000F271C /* NeuroMetricaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9BB7372EC7199D000F271C /* NeuroMetricaApp.swift */; };
@@ -102,6 +103,7 @@
 		FF3DD3C52EF8DDA400AF5665 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1033F69326094C25AFF6C615 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		FF7A019D2EC7EDB600CD988F /* CIImage2DImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CIImage2DImage.swift; sourceTree = "<group>"; };
+		FFAA10002F6A0001 /* TriPlanarMPRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriPlanarMPRView.swift; sourceTree = "<group>"; };
 		FF9BB7362EC7199D000F271C /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
 		FF9BB7372EC7199D000F271C /* NeuroMetricaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeuroMetricaApp.swift; sourceTree = "<group>"; };
 		FF9BB7392EC7199D000F271C /* AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppError.swift; sourceTree = "<group>"; };
@@ -461,6 +463,7 @@
 				FF3DD3C52EF8DDA400AF5665 /* ContentView.swift */,
 				59A391AFD81649F5AF098763 /* Sidebar */,
 				D773678E8D6448FD92551738 /* Canvas */,
+				FFAA10002F6A0001 /* TriPlanarMPRView.swift */,
 				794F8080B62645F0AD3BD70A /* Viewport */,
 				0A87AB8067F442B194B00BD2 /* Inspector */,
 				101EE9E736334108824E7B6F /* Sheets */,
@@ -734,6 +737,7 @@
 				FF3DD3C62EF8DDAA00AF5665 /* ContentView.swift in Sources */,
 				70988EF6CDAD42E29ACD3393 /* SidebarView.swift in Sources */,
 				FFF457555AB14674B8AC2D84 /* CanvasView.swift in Sources */,
+				FFAA10012F6A0001 /* TriPlanarMPRView.swift in Sources */,
 				FA0DAD5D1809411D9AF1A1DD /* ViewportView.swift in Sources */,
 				B2B2B2B2B2B2B2B2B2B2B2B2 /* OrientationLabelsOverlay.swift in Sources */,
 				B1B1B1B1B1B1B1B1B1B1B1B1 /* ViewportOrientationLabels.swift in Sources */,

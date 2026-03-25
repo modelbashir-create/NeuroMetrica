@@ -1,4 +1,5 @@
 import SwiftUI
+import ChromaEngineKit
 
 // MARK: - Inspector View (iOS 26 Design)
 
@@ -88,6 +89,10 @@ struct DisplayTabContent: View {
             WWLControlsView(viewModel: viewModel)
                 .disabled(viewerState.isLoadingVolume)
 
+            GroupBox("Loaded Metadata") {
+                MetadataSummarySection()
+            }
+
             GroupBox("Metadata Status") {
                 MetadataStatusSection(viewModel: viewModel)
             }
@@ -145,6 +150,73 @@ struct MetadataStatusSection: View {
                     }
                 }
             }
+        }
+    }
+}
+
+struct MetadataSummarySection: View {
+    @Environment(ViewerState.self) private var viewerState
+
+    var body: some View {
+        if hasMetadataSummary {
+            VStack(alignment: .leading, spacing: 10) {
+                metadataRow("Series", currentSeries)
+                metadataRow("Study", currentStudy)
+                metadataRow("Patient", viewerState.patientDisplayName)
+                metadataRow("Patient Details", viewerState.patientDetails)
+                metadataRow("Modality", currentModality)
+                metadataRow("Acquired", viewerState.acquisitionDateTimeDisplay)
+                metadataRow("Series UID", viewerState.metadata?.seriesInstanceUID ?? "—")
+                metadataRow("Study UID", viewerState.metadata?.studyInstanceUID ?? "—")
+            }
+        } else {
+            Text("No metadata loaded")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var hasMetadataSummary: Bool {
+        viewerState.metadata != nil
+            || viewerState.activeSeries != nil
+            || !(viewerState.currentSeriesLabel?.isEmpty ?? true)
+            || !(viewerState.currentStudyLabel?.isEmpty ?? true)
+    }
+
+    private var currentSeries: String {
+        if let label = viewerState.currentSeriesLabel, !label.isEmpty {
+            return label
+        }
+        return viewerState.seriesTitle
+    }
+
+    private var currentStudy: String {
+        if let label = viewerState.currentStudyLabel, !label.isEmpty {
+            return label
+        }
+        if let study = viewerState.metadata?.studyDescription, !study.isEmpty {
+            return study
+        }
+        return "—"
+    }
+
+    private var currentModality: String {
+        if let modality = viewerState.metadata?.modality, !modality.isEmpty {
+            return modality
+        }
+        if let modality = viewerState.activeSeries?.modality, !modality.isEmpty {
+            return modality
+        }
+        return "—"
+    }
+
+    @ViewBuilder
+    private func metadataRow(_ label: String, _ value: String) -> some View {
+        LabeledContent(label) {
+            Text(value.isEmpty ? "—" : value)
+                .multilineTextAlignment(.trailing)
+                .foregroundStyle(.primary)
         }
     }
 }

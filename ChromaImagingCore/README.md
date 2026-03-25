@@ -21,6 +21,15 @@ What this package does not do:
 - GPU/Metal processing
 - Machine learning or inference
 
+## How to Edit Safely
+- Public/ChromaImagingCore.swift: Public NMImageIO protocol. Keep API stable; do not add IO logic here.
+- Models/NMVolume.swift + Models/NMScalarType.swift: Canonical data model and size math. Avoid changing layout assumptions.
+- Errors/ImageIOErrors.swift: Error contract for callers. Preserve meanings and cases.
+- ITK/ITKImageIO.swift: Swift entry point to the C bridge. Keep load behavior and error mapping intact.
+- ITK/ITKDescriptors.swift: C descriptor mapping + metadata parsing. Preserve memory ownership expectations.
+- ITK/ITKInfo.swift: Version/capability queries only. No IO logic.
+- Sources/ITKBridge/*: C/ObjC++ bridge and ITK loaders. Avoid changing signatures or descriptor behavior unless coordinated.
+
 ## High-Level Architecture
 - Public/
   - Entry point and public-facing protocol for image I/O.
@@ -51,7 +60,7 @@ ChromaImagingCore/
 │  │  │  └─ ImageIOErrors.swift
 │  │  ├─ ITK/
 │  │  │  ├─ ITKImageIO.swift
-│  │  ├─ ITKInfo.swift
+│  │  │  ├─ ITKInfo.swift
 │  │  │  └─ ITKDescriptors.swift
 │  └─ ITKBridge/
 │     ├─ include/

@@ -87,39 +87,63 @@ final class ImportViewModel: ObservableObject, @unchecked Sendable {
 
     // Canvas/sidebar drop handler: routes dropped URLs through the existing import/open flow.
     func handleDroppedURLs(_ urls: [URL]) {
-        guard let url = filePickerService.normalizeSelection(urls) else { return }
+        let targets = filePickerService.loadTargets(from: urls)
+        guard !targets.isEmpty else { return }
         Task {
-            await volumeRouter.openVolume(from: url)
+            await volumeRouter.openVolumes(from: targets)
         }
     }
 
     // Canvas/sidebar drop handler: loads a file URL and routes it through the existing import/open flow.
     func handleDroppedProviders(_ providers: [NSItemProvider]) -> Bool {
         let typeIdentifiers = (FilePickerService.allowedContentTypes + [UTType.fileURL]).map(\.identifier)
-        guard let provider = providers.first(where: { item in
-            typeIdentifiers.contains(where: { item.hasItemConformingToTypeIdentifier($0) })
-        }) else {
-            return false
-        }
-
-        guard let typeIdentifier = typeIdentifiers.first(where: { provider.hasItemConformingToTypeIdentifier($0) }) else {
-            return false
-        }
-
-        provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] url, error in
-            guard let self else { return }
-            Task { @MainActor in
-                if let error {
-                    AppLogger.error("Drop item load failed", error: error)
-                    return
-                }
-                guard let url else { return }
-                let resolvedURL = self.persistDropFile(from: url) ?? url
-                self.handleDroppedURLs([resolvedURL])
+        let matchingProviders = providers.compactMap { provider -> (NSItemProvider, String)? in
+            guard let typeIdentifier = typeIdentifiers.first(where: { provider.hasItemConformingToTypeIdentifier($0) }) else {
+                return nil
             }
+            return (provider, typeIdentifier)
+        }
+
+        guard !matchingProviders.isEmpty else {
+            return false
+        }
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            var resolvedURLs: [URL] = []
+            for (provider, typeIdentifier) in matchingProviders {
+                if let url = await self.loadDroppedURL(from: provider, typeIdentifier: typeIdentifier) {
+                    resolvedURLs.append(url)
+                }
+            }
+            self.handleDroppedURLs(resolvedURLs)
         }
 
         return true
+    }
+
+    private func loadDroppedURL(from provider: NSItemProvider, typeIdentifier: String) async -> URL? {
+        await withCheckedContinuation { continuation in
+            provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] url, error in
+                guard let self else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                Task { @MainActor in
+                    if let error {
+                        AppLogger.error("Drop item load failed", error: error)
+                        continuation.resume(returning: nil)
+                        return
+                    }
+                    guard let url else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
+                    let resolvedURL = self.persistDropFile(from: url) ?? url
+                    continuation.resume(returning: resolvedURL)
+                }
+            }
+        }
     }
 
     // Canvas/sidebar drop handler: copy transient drop URLs into app temp so the loader can access them.

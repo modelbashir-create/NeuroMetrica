@@ -15,9 +15,15 @@ struct CanvasView: View {
             (viewerState.hasVolume ? HeritagePACSTheme.canvasBackground : canvasSystemBackground)
 
             if viewerState.hasVolume {
-                viewportLayout
-                    .padding(viewportPadding)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if viewerState.viewerMode == .mpr {
+                    TriPlanarMPRView(viewModel: viewModel)
+                        .padding(viewportPadding)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    viewportLayout
+                        .padding(viewportPadding)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             } else {
                 emptyStateDropZone
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

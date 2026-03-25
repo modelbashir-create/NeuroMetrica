@@ -316,21 +316,25 @@ std::string geometryValidationToJSON(const GeometryValidationResult &validation)
     bool firstField = true;
     std::string json = "{";
     json += jsonStringField("sliceOrder", validation.sliceOrder, firstField);
-    json += "\"spacing\":{";
+
+    std::string spacingJSON = "{";
     bool spacingFirst = true;
-    json += jsonObjectField("uniform", validation.spacingUniform ? "true" : "false", spacingFirst);
-    json += jsonObjectField("min", jsonNumber(validation.spacingMin), spacingFirst);
-    json += jsonObjectField("max", jsonNumber(validation.spacingMax), spacingFirst);
-    json += "}";
-    json += ",\"direction\":{";
+    spacingJSON += jsonObjectField("uniform", validation.spacingUniform ? "true" : "false", spacingFirst);
+    spacingJSON += jsonObjectField("min", jsonNumber(validation.spacingMin), spacingFirst);
+    spacingJSON += jsonObjectField("max", jsonNumber(validation.spacingMax), spacingFirst);
+    spacingJSON += "}";
+    json += jsonObjectField("spacing", spacingJSON, firstField);
+
+    std::string directionJSON = "{";
     bool directionFirst = true;
-    json += jsonObjectField("orthonormal", validation.directionOrthonormal ? "true" : "false", directionFirst);
-    json += jsonObjectField("determinant", jsonNumber(validation.directionDeterminant), directionFirst);
-    json += jsonObjectField("leftHanded", validation.leftHanded ? "true" : "false", directionFirst);
-    json += "}";
+    directionJSON += jsonObjectField("orthonormal", validation.directionOrthonormal ? "true" : "false", directionFirst);
+    directionJSON += jsonObjectField("determinant", jsonNumber(validation.directionDeterminant), directionFirst);
+    directionJSON += jsonObjectField("leftHanded", validation.leftHanded ? "true" : "false", directionFirst);
+    directionJSON += "}";
+    json += jsonObjectField("direction", directionJSON, firstField);
+
     json += jsonObjectField("usedDefaults", validation.usedDefaults ? "true" : "false", firstField);
     json += jsonStringField("validationStatus", validation.validationStatus, firstField);
     json += "}";
     return json;
 }
-

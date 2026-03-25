@@ -315,12 +315,12 @@ private func parseMetadataJSON(_ metadataJSON: String?) -> [String: ITKMetadataV
             result[key] = .string(stringValue)
             continue
         }
-        if let numberValue = value as? NSNumber {
-            result[key] = .number(numberValue.doubleValue)
-            continue
-        }
         if let boolValue = value as? Bool {
             result[key] = .boolean(boolValue)
+            continue
+        }
+        if let numberValue = value as? NSNumber {
+            result[key] = .number(numberValue.doubleValue)
             continue
         }
         if let arrayValue = value as? [NSNumber] {

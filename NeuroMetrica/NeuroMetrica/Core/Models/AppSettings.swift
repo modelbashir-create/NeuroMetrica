@@ -9,28 +9,6 @@
 import Foundation
 import Combine
 
-/// High-level choice of which processing backend to use in the viewer.
-///
-/// NOTE:
-/// - `.native`       → use ChromaEngineKit's native backends (Metal / vDSP).
-/// - `.itk`          → use ITK-backed backends where available.
-/// - `.verification` → run both in parallel for developer comparison.
-public enum ProcessingBackend: String, CaseIterable, Identifiable, Codable {
-    case native
-    case itk
-    case verification
-
-    public var id: String { rawValue }
-
-    public var displayName: String {
-        switch self {
-        case .native:       return "Native"
-        case .itk:          return "ITK"
-        case .verification: return "Verify (Both)"
-        }
-    }
-}
-
 /// Preferred DICOM IO backend.
 ///
 /// - dcmtk: Prefer DCMTK; fall back to GDCM if unavailable.
@@ -47,6 +25,26 @@ public enum DicomBackendPreference: String, CaseIterable, Identifiable, Codable 
             return "DCMTK (Preferred)"
         case .gdcm:
             return "GDCM"
+        }
+    }
+}
+
+/// Preferred rendering backend for slice/MPR rendering.
+public enum RenderingBackendPreference: String, CaseIterable, Identifiable, Codable {
+    case automatic
+    case cpu
+    case gpu
+
+    public var id: String { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .automatic:
+            return "Automatic"
+        case .cpu:
+            return "CPU (Safe)"
+        case .gpu:
+            return "GPU (Experimental)"
         }
     }
 }
@@ -227,11 +225,13 @@ final class AppSettings: ObservableObject {
         didSet { userDefaults.set(showPHIInDiagnostics, forKey: Keys.showPHIInDiagnostics) }
     }
 
-    /// Which processing backend the viewer should use.
-    @Published var processingBackend: ProcessingBackend = .native
-
     /// Preferred DICOM IO backend.
     @Published var dicomBackendPreference: DicomBackendPreference = .dcmtk
+
+    /// Preferred rendering backend.
+    @Published var renderingBackendPreference: RenderingBackendPreference = .automatic {
+        didSet { userDefaults.set(renderingBackendPreference.rawValue, forKey: Keys.renderingBackendPreference) }
+    }
 
     // MARK: - Developer Tools (scroll tuning)
 
@@ -320,6 +320,10 @@ final class AppSettings: ObservableObject {
         sliceScrollUseShiftFastMode = loadBool(key: Keys.sliceScrollUseShiftFastMode, defaultValue: sliceScrollUseShiftFastMode)
         showDebugOverlay = loadBool(key: Keys.showDebugOverlay, defaultValue: showDebugOverlay)
         showPHIInDiagnostics = loadBool(key: Keys.showPHIInDiagnostics, defaultValue: showPHIInDiagnostics)
+        renderingBackendPreference = loadEnum(
+            key: Keys.renderingBackendPreference,
+            defaultValue: renderingBackendPreference
+        )
         windowLevelDragLevelScale = loadDouble(
             key: Keys.windowLevelDragLevelScale,
             defaultValue: windowLevelDragLevelScale
@@ -374,6 +378,7 @@ private enum Keys {
     static let windowLevelDragFineAdjustmentScale = "appSettings.windowLevelDragFineAdjustmentScale"
     static let showDebugOverlay = "appSettings.showDebugOverlay"
     static let showPHIInDiagnostics = "appSettings.showPHIInDiagnostics"
+    static let renderingBackendPreference = "appSettings.renderingBackendPreference"
 }
 
 private extension AppSettings {
@@ -389,6 +394,14 @@ private extension AppSettings {
 
     func loadBool(key: String, defaultValue: Bool) -> Bool {
         guard let value = userDefaults.object(forKey: key) as? Bool else { return defaultValue }
+        return value
+    }
+
+    func loadEnum<T: RawRepresentable>(key: String, defaultValue: T) -> T where T.RawValue == String {
+        guard let raw = userDefaults.string(forKey: key),
+              let value = T(rawValue: raw) else {
+            return defaultValue
+        }
         return value
     }
 

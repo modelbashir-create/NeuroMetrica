@@ -96,6 +96,8 @@ extension ChromaEngine {
             componentsPerPixel: descriptor.componentsPerPixel,
             bytesPerComponent: descriptor.componentBytes,
             isSigned: descriptor.isSigned,
+            rescaleSlope: metadata.rescaleSlope ?? 1.0,
+            rescaleIntercept: metadata.rescaleIntercept ?? 0.0,
             voxelData: data
         )
 

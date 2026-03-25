@@ -85,6 +85,12 @@ public struct CImageVolume: Sendable, Equatable {
     /// Whether the scalar component type is signed.
     public let isSigned: Bool
 
+    /// Modality rescale slope (DICOM 0028,1053), applied before WW/WL.
+    public let rescaleSlope: Double
+
+    /// Modality rescale intercept (DICOM 0028,1052), applied before WW/WL.
+    public let rescaleIntercept: Double
+
     // MARK: - Storage
 
     /// Total number of scalar components in the volume.
@@ -132,6 +138,8 @@ public struct CImageVolume: Sendable, Equatable {
     ///   - componentsPerPixel: Number of scalar components per voxel.
     ///   - bytesPerComponent: Size (in bytes) of one scalar component.
     ///   - isSigned: Whether the scalar component type is signed.
+    ///   - rescaleSlope: Modality rescale slope (default 1.0).
+    ///   - rescaleIntercept: Modality rescale intercept (default 0.0).
     ///   - voxelData: Contiguous voxel buffer.
     public init(
         dimension: Int,
@@ -152,6 +160,8 @@ public struct CImageVolume: Sendable, Equatable {
         componentsPerPixel: Int,
         bytesPerComponent: Int,
         isSigned: Bool,
+        rescaleSlope: Double = 1.0,
+        rescaleIntercept: Double = 0.0,
         voxelData: Data
     ) {
         precondition(dimension == 3 || dimension == 4, "Only 3D/4D volumes are supported")
@@ -190,6 +200,8 @@ public struct CImageVolume: Sendable, Equatable {
         self.componentsPerPixel = componentsPerPixel
         self.bytesPerComponent = bytesPerComponent
         self.isSigned = isSigned
+        self.rescaleSlope = rescaleSlope
+        self.rescaleIntercept = rescaleIntercept
 
         self.valueCount = valueCount
         self.voxelData = voxelData

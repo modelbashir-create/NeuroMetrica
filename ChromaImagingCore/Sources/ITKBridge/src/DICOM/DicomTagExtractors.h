@@ -35,4 +35,3 @@ bool parseDICOMDoubleArray(const std::string &raw,
 
 bool parseDICOMDoubleList(const std::string &raw,
                           std::vector<double> &out);
-

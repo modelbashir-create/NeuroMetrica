@@ -26,13 +26,13 @@ extension ChromaEngine {
             patientSex: parsed.tags["0010,0040"],
             patientBirthDate: parsed.tags["0010,0030"],
             patientAge: parsed.tags["0010,1010"],
-            studyInstanceUID: parsed.tags["0020,000D"],
-            seriesInstanceUID: parsed.tags["0020,000E"],
+            studyInstanceUID: parsed.tags["0020,000d"],
+            seriesInstanceUID: parsed.tags["0020,000e"],
             frameOfReferenceUID: parsed.tags["0020,0052"],
             studyID: parsed.tags["0020,0010"],
             accessionNumber: parsed.tags["0008,0050"],
             studyDescription: parsed.tags["0008,1030"],
-            seriesDescription: parsed.tags["0008,103E"],
+            seriesDescription: parsed.tags["0008,103e"],
             modality: parsed.tags["0008,0060"],
             bodyPartExamined: parsed.tags["0018,0015"],
             studyDate: parsed.tags["0008,0020"],
@@ -167,23 +167,24 @@ private extension ChromaEngine {
         var geometryConsistentAcrossSlices: Bool?
 
         for (key, value) in metadata {
+            let normalizedKey = key.lowercased()
             switch value {
             case .string(let stringValue):
-                tags[key] = stringValue
-                switch key {
+                tags[normalizedKey] = stringValue
+                switch normalizedKey {
                 case "0002,0010":
                     transferSyntaxUID = stringValue
-                case "_multiFrameWarning":
+                case "_multiframewarning":
                     multiFrameWarning = stringValue
                 default:
                     break
                 }
             case .number(let numberValue):
-                tags[key] = formatNumber(numberValue)
-                switch key {
-                case "_spacingReference":
+                tags[normalizedKey] = formatNumber(numberValue)
+                switch normalizedKey {
+                case "_spacingreference":
                     spacingReferenceMm = numberValue
-                case "_spacingMaxError":
+                case "_spacingmaxerror":
                     maxSpacingErrorMm = numberValue
                 case "0020,0011": seriesNumber = Int(numberValue.rounded())
                 case "0020,0013": instanceNumber = Int(numberValue.rounded())
@@ -202,8 +203,8 @@ private extension ChromaEngine {
                 default: break
                 }
             case .array(let arrayValue):
-                tags[key] = formatNumberArray(arrayValue)
-                switch key {
+                tags[normalizedKey] = formatNumberArray(arrayValue)
+                switch normalizedKey {
                 case "0020,0037":
                     if arrayValue.count == 6 {
                         row = Array(arrayValue.prefix(3))
@@ -221,26 +222,26 @@ private extension ChromaEngine {
                     if arrayValue.count >= 2 {
                         pixelSpacing = CIPixelSpacing(row: arrayValue[0], column: arrayValue[1])
                     }
-                case "_sliceOrder":
+                case "_sliceorder":
                     sliceOrderToRawIndex = arrayValue.map { Int($0.rounded()) }
                 default:
                     break
                 }
             case .boolean(let boolValue):
-                tags[key] = boolValue ? "true" : "false"
-                switch key {
-                case "_orientationConsistent":
+                tags[normalizedKey] = boolValue ? "true" : "false"
+                switch normalizedKey {
+                case "_orientationconsistent":
                     consistent = boolValue
                     orientationConsistentFlag = boolValue
-                case "_spacingUniform":
+                case "_spacinguniform":
                     spacingUniform = boolValue
-                case "_leftHanded":
+                case "_lefthanded":
                     leftHandedDirection = boolValue
-                case "_multiFrame":
+                case "_multiframe":
                     multiFrameDetected = boolValue
-                case "_pixelDataConsistent":
+                case "_pixeldataconsistent":
                     pixelDataConsistentAcrossSlices = boolValue
-                case "_geometryConsistent":
+                case "_geometryconsistent":
                     geometryConsistentAcrossSlices = boolValue
                 default:
                     break

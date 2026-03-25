@@ -20,6 +20,8 @@ final class MetalSliceRenderService {
     }
 
     private let queue = DispatchQueue(label: "ChromaEngine.GPUSliceRenderQueue")
+    private let queueKey = DispatchSpecificKey<UInt8>()
+    private let queueContext: UInt8 = 1
     private let renderer: MetalSliceRenderer?
     private var cache: [VolumeCacheKey: CachedVolume] = [:]
 #if DEBUG
@@ -27,33 +29,24 @@ final class MetalSliceRenderService {
 #endif
 
     init(renderer: MetalSliceRenderer? = MetalSliceRenderer()) {
+        queue.setSpecific(key: queueKey, value: queueContext)
         self.renderer = renderer
     }
 
     func prepare(volume: CImageVolume) throws -> MetalPreparedVolume {
-        try queue.sync {
-            logPrepareDiagnostics(volume)
-            let key = makeKey(from: volume)
-            if let cached = cache[key] {
-                return cached.prepared
-            }
-            guard let renderer = renderer else {
-                throw MetalSliceRendererError.metalUnavailable
-            }
-            let prepared = try renderer.prepare(volume: volume)
-            cache[key] = CachedVolume(prepared: prepared, lastUsed: Date())
-            return prepared
+        try withRendererQueue {
+            try prepareLocked(volume: volume)
         }
     }
 
     func renderSlice(request: MetalSliceRenderRequest) throws -> CIImage2D {
-        try queue.sync {
+        try withRendererQueue {
 #if DEBUG
             if let forced = debugForcedError {
                 throw forced
             }
 #endif
-            let prepared = try prepare(volume: request.volume)
+            let prepared = try prepareLocked(volume: request.volume)
             guard let renderer = renderer else {
                 throw MetalSliceRendererError.metalUnavailable
             }
@@ -62,13 +55,13 @@ final class MetalSliceRenderService {
     }
 
     func renderVolume(request: MetalVolumeRenderRequest) throws -> CIImage2D {
-        try queue.sync {
+        try withRendererQueue {
 #if DEBUG
             if let forced = debugForcedError {
                 throw forced
             }
 #endif
-            let prepared = try prepare(volume: request.volume)
+            let prepared = try prepareLocked(volume: request.volume)
             guard let renderer = renderer else {
                 throw MetalSliceRendererError.metalUnavailable
             }
@@ -77,7 +70,7 @@ final class MetalSliceRenderService {
     }
 
     func invalidate(volume: CImageVolume) {
-        queue.sync {
+        withRendererQueue {
             let key = makeKey(from: volume)
             cache.removeValue(forKey: key)
 #if DEBUG
@@ -87,7 +80,7 @@ final class MetalSliceRenderService {
     }
 
     func invalidateAll() {
-        queue.sync {
+        withRendererQueue {
             cache.removeAll()
 #if DEBUG
             NSLog("ChromaEngine GPU cache invalidated (all volumes)")
@@ -97,7 +90,7 @@ final class MetalSliceRenderService {
 
 #if DEBUG
     func setDebugForcedError(_ error: MetalSliceRendererError?) {
-        queue.sync {
+        withRendererQueue {
             debugForcedError = error
         }
     }
@@ -120,5 +113,27 @@ final class MetalSliceRenderService {
         let strideAssumptions = "x-fastest,y,z,t,component; expectedBytes=\(expectedBytes)"
         NSLog("ChromaEngine GPU prepare: voxels=%d type=%@ dims=%@ stride=%@",
               volume.valueCount, dataType, dims, strideAssumptions)
+    }
+
+    private func prepareLocked(volume: CImageVolume) throws -> MetalPreparedVolume {
+        logPrepareDiagnostics(volume)
+        let key = makeKey(from: volume)
+        if let cached = cache[key] {
+            cache[key] = CachedVolume(prepared: cached.prepared, lastUsed: Date())
+            return cached.prepared
+        }
+        guard let renderer = renderer else {
+            throw MetalSliceRendererError.metalUnavailable
+        }
+        let prepared = try renderer.prepare(volume: volume)
+        cache[key] = CachedVolume(prepared: prepared, lastUsed: Date())
+        return prepared
+    }
+
+    private func withRendererQueue<T>(_ body: () throws -> T) rethrows -> T {
+        if DispatchQueue.getSpecific(key: queueKey) == queueContext {
+            return try body()
+        }
+        return try queue.sync(execute: body)
     }
 }

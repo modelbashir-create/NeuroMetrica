@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import SwiftUI
+import simd
 import ChromaEngineKit
 #if os(macOS)
 import AppKit
@@ -16,6 +17,9 @@ final class ViewerViewModel: ObservableObject {
 
     /// Render-ready SwiftUI images by viewport index.
     @Published private(set) var viewportImages: [Int: Image] = [:]
+
+    /// Render-ready SwiftUI images by MPR pane.
+    @Published private(set) var mprPaneImages: [MPRPane: Image] = [:]
 
     /// Convenience for the active viewport image.
     var currentImage: Image? {
@@ -46,6 +50,25 @@ final class ViewerViewModel: ObservableObject {
     private var windowLevelUpdateTask: Task<Void, Never>?
     private var lastWindowLevelUpdateTime: UInt64 = 0
     private let windowLevelThrottleHz: Double = 60.0
+
+    private var mprPaneTasks: [MPRPane: Task<Void, Never>] = [:]
+    private var mprPlaneCache: [MPRPane: PatientPlane] = [:]
+    private var mprImageCache: [MPRCacheKey: Image] = [:]
+    private var mprRefreshTask: Task<Void, Never>?
+    private var mprScrollAccumulators: [MPRPane: CGFloat] = [:]
+#if DEBUG
+    private var mprDebugRequestedPanes: Set<MPRPane> = []
+#endif
+
+    private struct MPRCacheKey: Hashable {
+        let pane: MPRPane
+        let qx: Int
+        let qy: Int
+        let qz: Int
+        let window: Int
+        let level: Int
+        let interpolation: MPRInterpolation
+    }
 
     private struct WindowLevelDragState {
         let startWindow: Float
@@ -110,6 +133,7 @@ final class ViewerViewModel: ObservableObject {
         applyDefaultsFromSettings()
         Task {
             await engineBridge.updateDicomBackendPreference(appSettings.dicomBackendPreference)
+            await engineBridge.updateRenderingBackendPreference(appSettings.renderingBackendPreference)
         }
     }
 
@@ -141,9 +165,18 @@ final class ViewerViewModel: ObservableObject {
         guard viewerState.viewerMode != .twoD else { return }
         viewerState.viewerMode = .twoD
         viewerState.threeDMode = .mpr
+        clearMPRState()
+        refreshViewportSlices()
     }
 
     func selectReformatMode(_ mode: ThreeDSubMode) {
+        if mode == .mpr {
+            guard viewerState.viewerMode != .mpr else { return }
+            activateMPRMode()
+            refreshMPRSlices()
+            return
+        }
+
         if viewerState.viewerMode == .threeD && viewerState.threeDMode == mode {
             return
         }
@@ -153,7 +186,8 @@ final class ViewerViewModel: ObservableObject {
 
     func enterReformatModeIfNeeded() {
         if viewerState.viewerMode == .twoD {
-            viewerState.viewerMode = .threeD
+            activateMPRMode()
+            refreshMPRSlices()
         }
     }
 
@@ -213,6 +247,21 @@ final class ViewerViewModel: ObservableObject {
         viewerState.showSettingsSheet = presented
     }
 
+    func resetViewPresentation() {
+        guard !viewerState.isLoadingVolume else { return }
+        guard let descriptor = currentDescriptor else { return }
+
+        applyDefaultPresentationState(for: descriptor)
+        viewerState.lastError = nil
+        viewerState.lastErrorContext = nil
+
+        if viewerState.viewerMode == .mpr {
+            refreshMPRSlices()
+        } else {
+            refreshViewportSlices()
+        }
+    }
+
     func updateViewportGeometry(for index: Int, viewSize: CGSize, contentRect: CGRect) {
         viewportGeometries[index] = ViewportGeometry(viewSize: viewSize, contentRect: contentRect)
     }
@@ -243,6 +292,12 @@ final class ViewerViewModel: ObservableObject {
             seriesLabel: nil
         )
         await loadVolume(request)
+    }
+
+    func openVolumes(from urls: [URL]) async {
+        for url in urls {
+            await openVolume(from: url)
+        }
     }
 
     func openStudy(_ study: Study) async {
@@ -560,6 +615,11 @@ final class ViewerViewModel: ObservableObject {
     }
 
     private func performWindowLevelRefresh() {
+        if viewerState.viewerMode == .mpr {
+            refreshMPRSlices()
+            return
+        }
+
         let activeDragIndices = windowLevelDragStates.keys
         if activeDragIndices.isEmpty {
             refreshViewportSlices()
@@ -750,6 +810,335 @@ final class ViewerViewModel: ObservableObject {
         crosshairDragStates[viewportIndex] = nil
     }
 
+    // MARK: - MPR Tri-Planar
+
+    func mprImage(for pane: MPRPane) -> Image? {
+        mprPaneImages[pane]
+    }
+
+    func mprAspectRatio(for pane: MPRPane) -> CGFloat? {
+        guard let plane = mprPlaneCache[pane] else { return nil }
+        let width = Double(plane.width) * plane.spacingU
+        let height = Double(plane.height) * plane.spacingV
+        guard width > 0, height > 0 else { return nil }
+        return CGFloat(width / height)
+    }
+
+    func mprOverlaySliceDisplay(for pane: MPRPane) -> String {
+        let orientation = viewerState.mprOrientationMap[pane] ?? pane.orientation
+        let totalSlices = max(mprSliceCount(for: orientation), 1)
+        let currentSlice = min(max((mprPlaneCache[pane]?.sliceIndexHint ?? 0) + 1, 1), totalSlices)
+        return "\(orientation.rawValue) \(String(format: "%02d", currentSlice))/\(totalSlices)"
+    }
+
+    func mprCrosshairViewPoint(
+        for pane: MPRPane,
+        viewSize: CGSize,
+        contentRect: CGRect,
+        aspectRatio: CGFloat?
+    ) -> CGPoint? {
+        guard let plane = mprPlaneCache[pane] else { return nil }
+        guard let point = viewerState.mprCrosshairPoint else { return nil }
+
+        let delta = point - plane.origin
+        let u = (delta.x * plane.axisU.x + delta.y * plane.axisU.y + delta.z * plane.axisU.z) / plane.spacingU
+        let v = (delta.x * plane.axisV.x + delta.y * plane.axisV.y + delta.z * plane.axisV.z) / plane.spacingV
+        let imagePoint = CGPoint(x: u, y: v)
+        let imageSize = CGSize(width: CGFloat(plane.width), height: CGFloat(plane.height))
+        return imagePointToViewPoint(
+            imagePoint,
+            viewSize: viewSize,
+            imageSize: imageSize,
+            aspectRatio: aspectRatio,
+            zoom: 1.0,
+            pan: .zero,
+            contentRect: contentRect
+        )
+    }
+
+    func setMPRCrosshairFromViewPoint(
+        _ viewPoint: CGPoint,
+        pane: MPRPane,
+        viewSize: CGSize,
+        contentRect: CGRect,
+        aspectRatio: CGFloat?
+    ) {
+        guard let plane = mprPlaneCache[pane] else { return }
+        let imageSize = CGSize(width: CGFloat(plane.width), height: CGFloat(plane.height))
+        let imagePoint = viewPointToImagePoint(
+            viewPoint,
+            viewSize: viewSize,
+            imageSize: imageSize,
+            aspectRatio: aspectRatio,
+            zoom: 1.0,
+            pan: .zero,
+            contentRect: contentRect
+        )
+        let patientPoint = plane.origin
+            + plane.axisU * (Double(imagePoint.x) * plane.spacingU)
+            + plane.axisV * (Double(imagePoint.y) * plane.spacingV)
+        setMPRCrosshairPoint(patientPoint)
+    }
+
+    func setMPRCrosshairPoint(_ point: SIMD3<Double>) {
+        guard let handle = viewerState.volumeHandle else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let clamped = try await engineBridge.clampPatientPoint(for: handle, point: point)
+                await MainActor.run {
+                    self.viewerState.mprCrosshairPoint = clamped
+                    self.scheduleMPRRefresh()
+                }
+            } catch {
+                await MainActor.run {
+                    AppLogger.error("MPR crosshair clamp failed", error: error)
+                }
+            }
+        }
+    }
+
+    func stepMPRSlice(by delta: Int, pane: MPRPane) {
+        guard delta != 0 else { return }
+        guard let descriptor = currentDescriptor else { return }
+        guard let currentPoint = viewerState.mprCrosshairPoint else { return }
+        let axis = normalAxis(for: pane, descriptor: descriptor)
+        let spacing = normalSpacing(for: pane, descriptor: descriptor)
+        let newPoint = currentPoint + axis * (Double(delta) * spacing)
+        setMPRCrosshairPoint(newPoint)
+    }
+
+    func handleMPRScroll(
+        deltaY: CGFloat,
+        pane: MPRPane,
+        isPrecise: Bool,
+        isFast: Bool
+    ) {
+        let steps = consumeMPRScrollSteps(deltaY: deltaY, pane: pane, isPrecise: isPrecise, isFast: isFast)
+        guard steps != 0 else { return }
+        stepMPRSlice(by: steps, pane: pane)
+    }
+
+    func refreshMPRSlices() {
+        guard viewerState.viewerMode == .mpr else { return }
+        guard viewerState.volumeHandle != nil else {
+            mprPaneImages = [:]
+            return
+        }
+
+#if DEBUG
+        mprDebugRequestedPanes = []
+#endif
+        for pane in MPRPane.allCases {
+            updateMPRSlice(for: pane)
+        }
+    }
+
+    private func clearMPRState() {
+        for task in mprPaneTasks.values {
+            task.cancel()
+        }
+        mprPaneTasks = [:]
+        mprPaneImages = [:]
+        mprPlaneCache = [:]
+        mprImageCache = [:]
+        mprRefreshTask?.cancel()
+        mprRefreshTask = nil
+    }
+
+    private func handleRenderingBackendChange() {
+        for task in sliceTasks.values {
+            task.cancel()
+        }
+        sliceTasks = [:]
+        viewportImages = [:]
+        sliceRequestTokens = [:]
+        clearMPRState()
+
+        if viewerState.viewerMode == .mpr {
+            refreshMPRSlices()
+        } else {
+            refreshViewportSlices()
+        }
+    }
+
+    private func scheduleMPRRefresh() {
+        mprRefreshTask?.cancel()
+        mprRefreshTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 16_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self?.refreshMPRSlices()
+            }
+        }
+    }
+
+    private func updateMPRSlice(for pane: MPRPane) {
+#if DEBUG
+        mprDebugRequestedPanes.insert(pane)
+#endif
+        mprPaneTasks[pane]?.cancel()
+        mprPaneTasks[pane] = nil
+
+        guard let handle = viewerState.volumeHandle else {
+            mprPaneImages[pane] = nil
+            return
+        }
+        guard let crosshairPoint = viewerState.mprCrosshairPoint else {
+            mprPaneImages[pane] = nil
+            return
+        }
+
+        let snapshotWindow = viewerState.window
+        let snapshotLevel = viewerState.level
+        let interpolation = viewerState.mprInterpolation
+        let orientation = viewerState.mprOrientationMap[pane] ?? pane.orientation
+        let cacheKey = makeMPRCacheKey(pane: pane, point: crosshairPoint)
+
+        let task = Task {
+            do {
+                let plane = try await engineBridge.makeCanonicalPlane(
+                    for: handle,
+                    orientation: orientation,
+                    crosshairPoint: crosshairPoint
+                )
+
+                if let cached = mprImageCache[cacheKey] {
+                    await MainActor.run {
+                        mprPlaneCache[pane] = plane
+                        mprPaneImages[pane] = cached
+                    }
+                    return
+                }
+
+                let slice = try await engineBridge.makeSlice(
+                    from: handle,
+                    plane: plane,
+                    window: snapshotWindow,
+                    level: snapshotLevel,
+                    interpolation: interpolation
+                )
+                let cgImage = await Task.detached(priority: .userInitiated) {
+                    slice.makeCGImage()
+                }.value
+                let image = cgImage.map { Image(decorative: $0, scale: 1.0, orientation: .up) }
+
+                await MainActor.run {
+                    mprPlaneCache[pane] = plane
+                    if let image {
+                        mprImageCache[cacheKey] = image
+                        mprPaneImages[pane] = image
+                    } else {
+                        mprPaneImages[pane] = nil
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    mprPaneImages[pane] = nil
+                    AppLogger.error("MPR slice rendering failed for \(pane)", error: error)
+                }
+            }
+        }
+
+        mprPaneTasks[pane] = task
+    }
+
+    private func makeMPRCacheKey(pane: MPRPane, point: SIMD3<Double>) -> MPRCacheKey {
+        let quantized = quantizePoint(point, step: 1e-3)
+        return MPRCacheKey(
+            pane: pane,
+            qx: quantized.x,
+            qy: quantized.y,
+            qz: quantized.z,
+            window: Int((viewerState.window * 10).rounded()),
+            level: Int((viewerState.level * 10).rounded()),
+            interpolation: viewerState.mprInterpolation
+        )
+    }
+
+    private func quantizePoint(_ point: SIMD3<Double>, step: Double) -> SIMD3<Int> {
+        let scale = 1.0 / max(step, 1e-6)
+        return SIMD3<Int>(
+            Int((point.x * scale).rounded()),
+            Int((point.y * scale).rounded()),
+            Int((point.z * scale).rounded())
+        )
+    }
+
+    private func consumeMPRScrollSteps(
+        deltaY: CGFloat,
+        pane: MPRPane,
+        isPrecise: Bool,
+        isFast: Bool
+    ) -> Int {
+        let baseThreshold = CGFloat(appSettings.sliceScrollBaseThreshold)
+        let fastMultiplier = CGFloat(appSettings.sliceScrollFastMultiplier)
+        let maxSlicesPerEvent = appSettings.sliceScrollMaxSlicesPerEvent
+        let useShiftFastMode = appSettings.sliceScrollUseShiftFastMode
+
+        let clampedBase = min(max(baseThreshold, 20), 80)
+        let clampedFast = min(max(fastMultiplier, 2), 6)
+        let clampedMax = min(max(maxSlicesPerEvent, 2), 12)
+
+        let normalizedDeltaY = -deltaY
+        let coarseThreshold = max(clampedBase / 4, 6)
+        let preciseThreshold = max(clampedBase * 0.3, 4)
+        let scrollThreshold = isPrecise ? preciseThreshold : coarseThreshold
+        let speedScale = min(max(abs(normalizedDeltaY) / max(clampedBase, 1), 0.5), 3)
+        let threshold = (scrollThreshold / speedScale) / ((isFast && useShiftFastMode) ? clampedFast : 1)
+
+        var accumulator = (mprScrollAccumulators[pane] ?? 0) + normalizedDeltaY
+        var steps = 0
+
+        while abs(accumulator) >= threshold && abs(steps) < clampedMax {
+            let step = accumulator > 0 ? 1 : -1
+            steps += step
+            accumulator -= threshold * CGFloat(step)
+        }
+
+        mprScrollAccumulators[pane] = accumulator
+        return steps
+    }
+
+    private func normalAxis(for pane: MPRPane, descriptor: VolumeDescriptor) -> SIMD3<Double> {
+        let dir = descriptor.direction
+        let axisX = SIMD3<Double>(dir[0], dir[4], dir[8])
+        let axisY = SIMD3<Double>(dir[1], dir[5], dir[9])
+        let axisZ = SIMD3<Double>(dir[2], dir[6], dir[10])
+
+        switch viewerState.mprOrientationMap[pane] ?? pane.orientation {
+        case .axial:
+            return axisZ
+        case .coronal:
+            return axisY
+        case .sagittal:
+            return axisX
+        }
+    }
+
+    private func normalSpacing(for pane: MPRPane, descriptor: VolumeDescriptor) -> Double {
+        switch viewerState.mprOrientationMap[pane] ?? pane.orientation {
+        case .axial:
+            return descriptor.spacingZ
+        case .coronal:
+            return descriptor.spacingY
+        case .sagittal:
+            return descriptor.spacingX
+        }
+    }
+
+    private func mprSliceCount(for orientation: SliceOrientation) -> Int {
+        guard let descriptor = currentDescriptor else { return 0 }
+        switch orientation {
+        case .axial:
+            return descriptor.sizeZ
+        case .coronal:
+            return descriptor.sizeY
+        case .sagittal:
+            return descriptor.sizeX
+        }
+    }
+
     func zoomFitView(for viewportIndex: Int) {
         let targetZoom = ViewerState.defaultZoom
         let geometry = viewportGeometries[viewportIndex]
@@ -915,7 +1304,71 @@ final class ViewerViewModel: ObservableObject {
         return nearVertical || nearHorizontal
     }
 
+    private func defaultMPRCrosshairPoint(for descriptor: VolumeDescriptor) -> SIMD3<Double> {
+        let d = descriptor.direction
+        let direction = [
+            [d[0], d[1], d[2]],
+            [d[4], d[5], d[6]],
+            [d[8], d[9], d[10]]
+        ]
+
+        let spacing = SIMD3<Double>(descriptor.spacingX, descriptor.spacingY, descriptor.spacingZ)
+        let origin = SIMD3<Double>(descriptor.originX, descriptor.originY, descriptor.originZ)
+        let centerIndex = SIMD3<Double>(
+            Double(max(descriptor.sizeX - 1, 0)) * 0.5,
+            Double(max(descriptor.sizeY - 1, 0)) * 0.5,
+            Double(max(descriptor.sizeZ - 1, 0)) * 0.5
+        )
+
+        let scaled = SIMD3<Double>(
+            centerIndex.x * spacing.x,
+            centerIndex.y * spacing.y,
+            centerIndex.z * spacing.z
+        )
+        let rotated = SIMD3<Double>(
+            direction[0][0] * scaled.x + direction[0][1] * scaled.y + direction[0][2] * scaled.z,
+            direction[1][0] * scaled.x + direction[1][1] * scaled.y + direction[1][2] * scaled.z,
+            direction[2][0] * scaled.x + direction[2][1] * scaled.y + direction[2][2] * scaled.z
+        )
+
+        return origin + rotated
+    }
+
+    private func applyDefaultPresentationState(for descriptor: VolumeDescriptor) {
+        resetTransientViewerState()
+        stopAllCine()
+        clearMPRState()
+
+        for index in 0...LayoutMode.fourUp.maxViewportIndex {
+            viewerState.resetZoom(for: index)
+            viewerState.resetPan(for: index)
+        }
+
+        viewerState.activeViewportIndex = viewerState.clampedActiveIndex
+        viewerState.applyDefaultOrientations(for: viewerState.layoutMode)
+        updateSliceRange()
+        viewerState.sliceIndex = viewerState.sliceCount > 0 ? (viewerState.sliceCount / 2) : 0
+        viewerState.window = Float(appSettings.defaultWindow)
+        viewerState.level = Float(appSettings.defaultLevel)
+        viewerState.resetCrosshairPoints()
+        viewerState.mprCrosshairPoint = defaultMPRCrosshairPoint(for: descriptor)
+        viewerState.mprActivePane = .axial
+        viewerState.mprOrientationMap = ViewerState.defaultMPROrientationMap
+    }
+
+    private func resetTransientViewerState() {
+        scrollAccumulators = [:]
+        windowLevelDragStates = [:]
+        panDragStates = [:]
+        crosshairDragStates = [:]
+        windowLevelUpdateTask?.cancel()
+        windowLevelUpdateTask = nil
+        lastWindowLevelUpdateTime = 0
+        mprScrollAccumulators = [:]
+    }
+
     private func installVolume(_ descriptor: VolumeDescriptor) {
+        let shouldPreserveMPR = viewerState.viewerMode == .mpr
         currentDescriptor = descriptor
         viewerState.volumeHandle = descriptor.handle
         viewerState.metadata = descriptor.metadata
@@ -929,20 +1382,8 @@ final class ViewerViewModel: ObservableObject {
             viewerState.currentStudyLabel = study.title
         }
         pendingActiveSeries = nil
-        viewerState.orientation = .axial
-        updateSliceRange()
-
-        if viewerState.sliceCount > 0 {
-            let middle = viewerState.sliceCount / 2
-            viewerState.sliceIndex = min(max(middle, 0), viewerState.sliceCount - 1)
-        } else {
-            viewerState.sliceIndex = 0
-        }
-
-        viewerState.window = Float(appSettings.defaultWindow)
-        viewerState.level = Float(appSettings.defaultLevel)
-        viewerState.resetCrosshairPoints()
-        viewerState.viewerMode = .twoD
+        applyDefaultPresentationState(for: descriptor)
+        viewerState.viewerMode = shouldPreserveMPR ? .mpr : .twoD
         viewerState.threeDMode = .mpr
 
         viewerState.isLoadingVolume = false
@@ -952,10 +1393,22 @@ final class ViewerViewModel: ObservableObject {
         viewerState.loadingSeriesID = nil
         viewerState.errorStudyID = nil
         viewerState.errorSeriesID = nil
-        refreshViewportSlices()
+        if viewerState.viewerMode == .mpr {
+            refreshMPRSlices()
+        } else {
+            refreshViewportSlices()
+        }
 
         if let study {
             recentFilesStore.upsertStudy(study)
+        }
+    }
+
+    private func activateMPRMode() {
+        viewerState.viewerMode = .mpr
+        viewerState.threeDMode = .mpr
+        if viewerState.mprCrosshairPoint == nil, let descriptor = currentDescriptor {
+            viewerState.mprCrosshairPoint = defaultMPRCrosshairPoint(for: descriptor)
         }
     }
 
@@ -1076,7 +1529,7 @@ final class ViewerViewModel: ObservableObject {
     }
 
     private func stopAllCine() {
-        for index in cineTasks.keys {
+        for index in 0...LayoutMode.fourUp.maxViewportIndex {
             stopCine(for: index)
         }
     }
@@ -1107,6 +1560,16 @@ final class ViewerViewModel: ObservableObject {
                 guard let self else { return }
                 Task {
                     await self.engineBridge.updateDicomBackendPreference(preference)
+                }
+            }
+            .store(in: &cancellables)
+
+        appSettings.$renderingBackendPreference
+            .sink { [weak self] preference in
+                guard let self else { return }
+                Task { @MainActor in
+                    await self.engineBridge.updateRenderingBackendPreference(preference)
+                    self.handleRenderingBackendChange()
                 }
             }
             .store(in: &cancellables)
@@ -1252,6 +1715,16 @@ final class ViewerViewModel: ObservableObject {
     func imageDataReport() -> ImageDataReport? {
         currentDescriptor?.imageDataReport
     }
+
+#if DEBUG
+    func debugRequestedMPRPanes() -> Set<MPRPane> {
+        mprDebugRequestedPanes
+    }
+
+    func installVolumeForTesting(_ descriptor: VolumeDescriptor) {
+        installVolume(descriptor)
+    }
+#endif
 
     private func loadVolume(_ request: ViewerLoadRequest) async {
         viewerState.isLoadingVolume = true

@@ -193,12 +193,17 @@ struct ContentView: View {
 
         ToolbarItemGroup(placement: .navigation) {
             viewModeMenu
-            layoutMenu
+            if viewerState.viewerMode == .mpr {
+                mprLayoutMenu
+            } else {
+                layoutMenu
+            }
         }
 
         ToolbarItemGroup(placement: .principal) {
 
             viewerToolsGroup
+            resetViewButton
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
@@ -224,11 +229,7 @@ struct ContentView: View {
                 Button {
                     viewModel.selectReformatMode(mode)
                 } label: {
-                    menuItemLabel(
-                        title: mode.rawValue,
-                        isActive: viewerState.viewerMode == .threeD
-                            && viewerState.threeDMode == mode
-                    )
+                    menuItemLabel(title: mode.rawValue, isActive: isReformatModeActive(mode))
                 }
             }
         } label: {
@@ -245,7 +246,21 @@ struct ContentView: View {
     }
 
     private var viewModeLabelText: String {
-        viewerState.viewerMode == .twoD ? "2D" : viewerState.threeDMode.rawValue
+        switch viewerState.viewerMode {
+        case .twoD:
+            return "2D"
+        case .mpr:
+            return "MPR"
+        case .threeD:
+            return viewerState.threeDMode.rawValue
+        }
+    }
+
+    private func isReformatModeActive(_ mode: ThreeDSubMode) -> Bool {
+        if mode == .mpr {
+            return viewerState.viewerMode == .mpr
+        }
+        return viewerState.viewerMode == .threeD && viewerState.threeDMode == mode
     }
 
     private func menuItemLabel(title: String, isActive: Bool) -> some View {
@@ -268,15 +283,12 @@ struct ContentView: View {
                         viewModel.setLayout(mode)
                     }
                 } label: {
-                    Label {
-                        Text(mode.rawValue)
-                    } icon: {
-                        Image(systemName: layoutIcon(for: mode))
-                    }
+                    layoutIcon(for: mode)
+                        .accessibilityLabel(mode.rawValue)
                 }
             }
         } label: {
-            Image(systemName: layoutIcon(for: viewerState.layoutMode))
+            layoutIcon(for: viewerState.layoutMode)
         } primaryAction: {
             withAnimation(.smooth) {
                 viewModel.cycleLayout()
@@ -285,12 +297,48 @@ struct ContentView: View {
         .help("Cycle layout")
     }
 
-    private func layoutIcon(for mode: LayoutMode) -> String {
+    private var mprLayoutMenu: some View {
+        Menu {
+            ForEach(MPRLayoutMode.allCases) { mode in
+                Button {
+                    withAnimation(.smooth) {
+                        viewerState.mprLayoutMode = mode
+                    }
+                } label: {
+                    mprLayoutIcon(for: mode)
+                        .accessibilityLabel(mode.rawValue)
+                }
+            }
+        } label: {
+            mprLayoutIcon(for: viewerState.mprLayoutMode)
+        } primaryAction: {
+            withAnimation(.smooth) {
+                viewerState.mprLayoutMode = viewerState.mprLayoutMode.next
+            }
+        }
+        .help("Cycle MPR layout")
+        .disabled(viewerState.viewerMode != .mpr)
+    }
+
+    private func mprLayoutIcon(for mode: MPRLayoutMode) -> Image {
         switch mode {
-        case .oneUp:   return "rectangle"
-        case .twoUp:   return "rectangle.split.2x1"
-        case .threeUp: return "rectangle.split.1x2"
-        case .fourUp:  return "rectangle.split.2x2"
+        case .triPlanar:
+            return Image(systemName: "rectangle.split.3x1")
+        case .threeUp:
+            return Image("3upicon")
+        }
+    }
+
+    private func layoutIcon(for mode: LayoutMode) -> Image {
+        switch mode {
+        case .oneUp:
+            return Image(systemName: "rectangle")
+        case .twoUp:
+            return Image(systemName: "rectangle.split.2x1")
+        case .threeUp:
+            return Image("3upicon")
+        case .fourUp:
+            return Image(systemName: "rectangle.split.2x2")
         }
     }
 
@@ -319,6 +367,17 @@ struct ContentView: View {
                 .disabled(viewerState.isLoadingVolume)
             }
         }
+    }
+
+    private var resetViewButton: some View {
+        Button {
+            viewModel.resetViewPresentation()
+        } label: {
+            Image(systemName: "arrow.counterclockwise")
+        }
+        .help("Reset View")
+        .accessibilityLabel("Reset View")
+        .disabled(!viewerState.hasVolume || viewerState.isLoadingVolume)
     }
 
     // MARK: - Primary Actions

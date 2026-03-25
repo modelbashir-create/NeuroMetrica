@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Observation
+import simd
 import ChromaEngineKit   // for VolumeHandle + SliceOrientation
 
 // MARK: - Layout & Viewer Enums
@@ -35,9 +36,10 @@ enum LayoutMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// 2D vs 3D viewer mode
+/// 2D vs MPR vs 3D viewer mode
 enum ViewerMode: String, CaseIterable, Identifiable {
     case twoD   = "2D"
+    case mpr = "MPR"
     case threeD = "3D"
 
     var id: String { rawValue }
@@ -50,6 +52,71 @@ enum ThreeDSubMode: String, CaseIterable, Identifiable {
     case mip = "MIP"
 
     var id: String { rawValue }
+}
+
+enum MPRPane: String, CaseIterable, Identifiable {
+    case axial
+    case coronal
+    case sagittal
+
+    var id: String { rawValue }
+
+    var orientation: SliceOrientation {
+        switch self {
+        case .axial:
+            return .axial
+        case .coronal:
+            return .coronal
+        case .sagittal:
+            return .sagittal
+        }
+    }
+}
+
+enum MPRLayoutMode: String, CaseIterable, Identifiable {
+    case triPlanar = "Side-by-side"
+    case threeUp = "3-up"
+
+    var id: String { rawValue }
+
+    var next: MPRLayoutMode {
+        switch self {
+        case .triPlanar:
+            return .threeUp
+        case .threeUp:
+            return .triPlanar
+        }
+    }
+}
+
+enum MPRPatientAxis: String, CaseIterable {
+    case x
+    case y
+    case z
+
+    var color: Color {
+        switch self {
+        case .x:
+            return .red
+        case .y:
+            return .green
+        case .z:
+            return .blue
+        }
+    }
+}
+
+struct MPRCrosshairStyle {
+    static func axes(for pane: MPRPane) -> (axisU: MPRPatientAxis, axisV: MPRPatientAxis) {
+        switch pane {
+        case .axial:
+            return (.x, .y)
+        case .coronal:
+            return (.x, .z)
+        case .sagittal:
+            return (.y, .z)
+        }
+    }
 }
 
 /// Active tool in the viewer toolbar
@@ -174,6 +241,32 @@ final class ViewerState {
     var window: Float = 350
     var level: Float = 40
 
+    // MARK: MPR (Tri-planar) State
+
+    /// Shared patient-space crosshair point for tri-planar MPR.
+    var mprCrosshairPoint: SIMD3<Double>? = nil
+
+    /// Active pane for compact layouts.
+    var mprActivePane: MPRPane = .axial
+
+    /// Layout mode for MPR views. Only tri-planar is currently enabled.
+    var mprLayoutMode: MPRLayoutMode = .triPlanar
+
+    /// Mapping of tri-planar panes to orientations (axial/coronal/sagittal).
+    static let defaultMPROrientationMap: [MPRPane: SliceOrientation] = [
+        .axial: .axial,
+        .coronal: .coronal,
+        .sagittal: .sagittal
+    ]
+
+    var mprOrientationMap: [MPRPane: SliceOrientation] = ViewerState.defaultMPROrientationMap
+
+    /// Interpolation mode for MPR (default = linear).
+    var mprInterpolation: MPRInterpolation = .linear
+
+    /// Reserved slab thickness (mm) for future thick MPR support.
+    var mprSlabThickness: Double = 0.0
+
     // MARK: Zoom state
 
     static let defaultZoom: CGFloat = 1.0
@@ -228,11 +321,17 @@ final class ViewerState {
         if let series = activeSeries, !series.seriesDescription.isEmpty {
             return series.seriesDescription
         }
+        if let label = currentSeriesTitleFallback {
+            return label
+        }
         if let description = metadata?.seriesDescription, !description.isEmpty {
             return description
         }
         if let study = metadata?.studyDescription, !study.isEmpty {
             return study
+        }
+        if let studyLabel = currentStudyLabel, !studyLabel.isEmpty {
+            return studyLabel
         }
         return metadata?.modality ?? "Series"
     }
@@ -240,6 +339,9 @@ final class ViewerState {
     var seriesSubtitle: String {
         if let series = activeSeries {
             return "SER \(series.seriesNumber)  \(series.modality)"
+        }
+        if let label = currentSeriesSubtitleFallback {
+            return label
         }
         let modality = metadata?.modality ?? "—"
         let seriesNumber = metadata?.additionalTags["0020,0011"] ?? "—"
@@ -257,21 +359,60 @@ final class ViewerState {
     }
 
     var patientDisplayName: String {
-        guard let name = metadata?.patientName, !name.isEmpty else {
-            return "UNKNOWN"
+        if let name = metadata?.patientName, !name.isEmpty {
+            return name
         }
-        return name
+        if let studyLabel = currentStudyLabel, !studyLabel.isEmpty {
+            return studyLabel
+        }
+        return "UNKNOWN"
     }
 
     var patientDetails: String {
         let id = metadata?.patientID?.isEmpty == false ? metadata?.patientID ?? "—" : "—"
         let sex = metadata?.patientSex?.isEmpty == false ? metadata?.patientSex ?? "—" : "—"
         let age = metadata?.patientAge?.isEmpty == false ? metadata?.patientAge ?? "—" : "—"
+        if id == "—" && sex == "—" && age == "—" {
+            return metadata?.studyDescription ?? "—"
+        }
         return "ID \(id) • \(sex)/\(age)"
     }
 
     var acquisitionDateTimeDisplay: String {
-        metadata?.acquisitionDateTime ?? "—"
+        if let acquisition = metadata?.acquisitionDateTime, !acquisition.isEmpty {
+            return acquisition
+        }
+        if let studyDate = metadata?.studyDate, !studyDate.isEmpty {
+            return studyDate
+        }
+        return "—"
+    }
+
+    private var currentSeriesTitleFallback: String? {
+        guard let label = currentSeriesLabel?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !label.isEmpty else {
+            return nil
+        }
+        if let range = label.range(of: " (SER ") {
+            return String(label[..<range.lowerBound])
+        }
+        return label
+    }
+
+    private var currentSeriesSubtitleFallback: String? {
+        guard let label = currentSeriesLabel?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !label.isEmpty else {
+            return nil
+        }
+        if let range = label.range(of: " (SER "),
+           label.hasSuffix(")") {
+            let suffixStart = label.index(after: range.lowerBound)
+            return String(label[suffixStart..<label.index(before: label.endIndex)])
+        }
+        if let studyLabel = currentStudyLabel, !studyLabel.isEmpty {
+            return studyLabel
+        }
+        return label
     }
 
     /// Reset only the imaging-related state (used when closing a study)
@@ -284,6 +425,11 @@ final class ViewerState {
         sliceCount = 0
         window = 350
         level = 40
+        mprCrosshairPoint = nil
+        mprActivePane = .axial
+        mprOrientationMap = Self.defaultMPROrientationMap
+        mprInterpolation = .linear
+        mprSlabThickness = 0.0
         viewportZooms = [:]
         viewportPans = [:]
         isLoadingVolume = false

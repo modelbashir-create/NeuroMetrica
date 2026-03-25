@@ -124,4 +124,3 @@ std::string vectorKey(const std::vector<double> &values, int precision) {
     }
     return stream.str();
 }
-

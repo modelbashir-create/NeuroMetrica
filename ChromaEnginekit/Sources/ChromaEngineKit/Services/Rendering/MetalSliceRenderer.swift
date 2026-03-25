@@ -36,6 +36,18 @@ private struct SliceRenderParams {
     var scalarType: UInt32
     var window: Float
     var level: Float
+    var origin: SIMD4<Float>
+    var spacing: SIMD4<Float>
+    var axisX: SIMD4<Float>
+    var axisY: SIMD4<Float>
+    var axisZ: SIMD4<Float>
+    var invRow0: SIMD4<Float>
+    var invRow1: SIMD4<Float>
+    var invRow2: SIMD4<Float>
+    var rescaleSlope: Float
+    var rescaleIntercept: Float
+    var interpolationMode: UInt32
+    var validDirection: UInt32
 }
 
 private struct VolumeRenderParams {
@@ -61,6 +73,8 @@ public struct MetalPreparedVolume: @unchecked Sendable {
     public let spacing: SIMD3<Double>
     public let origin: SIMD3<Double>
     public let direction: [Double]
+    public let rescaleSlope: Double
+    public let rescaleIntercept: Double
     public let componentType: CIPixelComponentType
     public let componentsPerPixel: Int
     public let bytesPerComponent: Int
@@ -72,19 +86,28 @@ public struct MetalSliceRenderRequest: Sendable {
     public let index: Int
     public let window: Float
     public let level: Float
+    public let rescaleSlope: Float
+    public let rescaleIntercept: Float
+    public let interpolation: MPRInterpolation
 
     public init(
         volume: CImageVolume,
         orientation: SliceOrientation,
         index: Int,
         window: Float,
-        level: Float
+        level: Float,
+        rescaleSlope: Float = 1.0,
+        rescaleIntercept: Float = 0.0,
+        interpolation: MPRInterpolation = .linear
     ) {
         self.volume = volume
         self.orientation = orientation
         self.index = index
         self.window = window
         self.level = level
+        self.rescaleSlope = rescaleSlope
+        self.rescaleIntercept = rescaleIntercept
+        self.interpolation = interpolation
     }
 }
 
@@ -154,6 +177,8 @@ public final class MetalSliceRenderer: @unchecked Sendable {
             spacing: SIMD3<Double>(volume.spacingX, volume.spacingY, volume.spacingZ),
             origin: SIMD3<Double>(volume.originX, volume.originY, volume.originZ),
             direction: volume.direction,
+            rescaleSlope: volume.rescaleSlope,
+            rescaleIntercept: volume.rescaleIntercept,
             componentType: volume.componentType,
             componentsPerPixel: volume.componentsPerPixel,
             bytesPerComponent: volume.bytesPerComponent
@@ -192,6 +217,13 @@ public final class MetalSliceRenderer: @unchecked Sendable {
         let bytesPerVoxel = preparedVolume.componentsPerPixel * preparedVolume.bytesPerComponent
         // CPU parity (applyWindowLevelInternal):
         // lower = level - window/2, upper = level + window/2, range = max(upper-lower, 1).
+        let direction = preparedVolume.direction
+        let dirRows = makeDirectionRows(direction)
+        let axisX = SIMD3<Double>(dirRows.row0.x, dirRows.row1.x, dirRows.row2.x)
+        let axisY = SIMD3<Double>(dirRows.row0.y, dirRows.row1.y, dirRows.row2.y)
+        let axisZ = SIMD3<Double>(dirRows.row0.z, dirRows.row1.z, dirRows.row2.z)
+        let inverse = invertDirection(dirRows)
+
         var params = SliceRenderParams(
             sizeX: UInt32(sizeX),
             sizeY: UInt32(sizeY),
@@ -202,7 +234,19 @@ public final class MetalSliceRenderer: @unchecked Sendable {
             bytesPerVoxel: UInt32(bytesPerVoxel),
             scalarType: scalarType.rawValue,
             window: request.window,
-            level: request.level
+            level: request.level,
+            origin: SIMD4<Float>(Float(preparedVolume.origin.x), Float(preparedVolume.origin.y), Float(preparedVolume.origin.z), 0.0),
+            spacing: SIMD4<Float>(Float(preparedVolume.spacing.x), Float(preparedVolume.spacing.y), Float(preparedVolume.spacing.z), 0.0),
+            axisX: SIMD4<Float>(Float(axisX.x), Float(axisX.y), Float(axisX.z), 0.0),
+            axisY: SIMD4<Float>(Float(axisY.x), Float(axisY.y), Float(axisY.z), 0.0),
+            axisZ: SIMD4<Float>(Float(axisZ.x), Float(axisZ.y), Float(axisZ.z), 0.0),
+            invRow0: SIMD4<Float>(Float(inverse.row0.x), Float(inverse.row0.y), Float(inverse.row0.z), 0.0),
+            invRow1: SIMD4<Float>(Float(inverse.row1.x), Float(inverse.row1.y), Float(inverse.row1.z), 0.0),
+            invRow2: SIMD4<Float>(Float(inverse.row2.x), Float(inverse.row2.y), Float(inverse.row2.z), 0.0),
+            rescaleSlope: request.rescaleSlope,
+            rescaleIntercept: request.rescaleIntercept,
+            interpolationMode: request.interpolation == .linear ? 0 : 1,
+            validDirection: inverse.valid ? 1 : 0
         )
 
         guard let paramsBuffer = device.makeBuffer(bytes: &params,
@@ -469,6 +513,60 @@ public final class MetalSliceRenderer: @unchecked Sendable {
         case .sagittal:
             return (width: sizeY, height: sizeZ)
         }
+    }
+
+    private struct DirectionRows {
+        let row0: SIMD3<Double>
+        let row1: SIMD3<Double>
+        let row2: SIMD3<Double>
+    }
+
+    private struct InverseDirection {
+        let row0: SIMD3<Double>
+        let row1: SIMD3<Double>
+        let row2: SIMD3<Double>
+        let valid: Bool
+    }
+
+    private func makeDirectionRows(_ direction: [Double]) -> DirectionRows {
+        let row0 = SIMD3<Double>(direction[0], direction[1], direction[2])
+        let row1 = SIMD3<Double>(direction[4], direction[5], direction[6])
+        let row2 = SIMD3<Double>(direction[8], direction[9], direction[10])
+        return DirectionRows(row0: row0, row1: row1, row2: row2)
+    }
+
+    private func invertDirection(_ rows: DirectionRows) -> InverseDirection {
+        let a = rows.row0.x, b = rows.row0.y, c = rows.row0.z
+        let d = rows.row1.x, e = rows.row1.y, f = rows.row1.z
+        let g = rows.row2.x, h = rows.row2.y, i = rows.row2.z
+
+        let det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+        if abs(det) < 1e-12 {
+            return InverseDirection(
+                row0: SIMD3<Double>(0, 0, 0),
+                row1: SIMD3<Double>(0, 0, 0),
+                row2: SIMD3<Double>(0, 0, 0),
+                valid: false
+            )
+        }
+        let invDet = 1.0 / det
+        let row0 = SIMD3<Double>(
+            (e * i - f * h) * invDet,
+            (c * h - b * i) * invDet,
+            (b * f - c * e) * invDet
+        )
+        let row1 = SIMD3<Double>(
+            (f * g - d * i) * invDet,
+            (a * i - c * g) * invDet,
+            (c * d - a * f) * invDet
+        )
+        let row2 = SIMD3<Double>(
+            (d * h - e * g) * invDet,
+            (b * g - a * h) * invDet,
+            (a * e - b * d) * invDet
+        )
+
+        return InverseDirection(row0: row0, row1: row1, row2: row2, valid: true)
     }
 
     private func clampIndex(_ index: Int, orientation: SliceOrientation, sizeX: Int, sizeY: Int, sizeZ: Int) -> Int {

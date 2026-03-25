@@ -8,6 +8,11 @@ import simd
 
 // MARK: - MPR
 
+public enum MPRInterpolation: String, Sendable {
+    case linear
+    case nearest
+}
+
 extension ChromaEngine {
 
     /// Extract an oblique slice defined in patient space.
@@ -20,24 +25,86 @@ extension ChromaEngine {
         window: Float,
         level: Float
     ) async throws -> CIImage2D {
-        try makeSliceMPR(
+        try makeSliceMPRInternal(
             volume: volume,
             plane: plane,
             window: window,
-            level: level
+            level: level,
+            rescaleSlope: 1.0,
+            rescaleIntercept: 0.0,
+            interpolation: .linear
+        )
+    }
+
+    /// Extract a patient-space axial/coronal/sagittal slice with rescale + WW/WL.
+    ///
+    /// This is the CPU-authoritative path for geometry correctness.
+    public func makeSlicePatientSpace(
+        from volume: CImageVolume,
+        orientation: SliceOrientation,
+        index: Int,
+        window: Float,
+        level: Float,
+        rescaleSlope: Double = 1.0,
+        rescaleIntercept: Double = 0.0,
+        interpolation: MPRInterpolation = .linear
+    ) throws -> CIImage2D {
+        let clampedIndex: Int
+        switch orientation {
+        case .axial:
+            clampedIndex = min(max(index, 0), max(volume.sizeZ - 1, 0))
+        case .coronal:
+            clampedIndex = min(max(index, 0), max(volume.sizeY - 1, 0))
+        case .sagittal:
+            clampedIndex = min(max(index, 0), max(volume.sizeX - 1, 0))
+        }
+
+        let outputWidth: Int
+        let outputHeight: Int
+        switch orientation {
+        case .axial:
+            outputWidth = volume.sizeX
+            outputHeight = volume.sizeY
+        case .coronal:
+            outputWidth = volume.sizeX
+            outputHeight = volume.sizeZ
+        case .sagittal:
+            outputWidth = volume.sizeY
+            outputHeight = volume.sizeZ
+        }
+
+        let plane = planeForOrientation(
+            volume: volume,
+            orientation: orientation,
+            sliceIndex: clampedIndex,
+            width: outputWidth,
+            height: outputHeight
+        )
+
+        return try makeSliceMPRInternal(
+            volume: volume,
+            plane: plane,
+            window: window,
+            level: level,
+            rescaleSlope: rescaleSlope,
+            rescaleIntercept: rescaleIntercept,
+            interpolation: interpolation
         )
     }
 }
 
 // MARK: - Private helpers
 
-private extension ChromaEngine {
+extension ChromaEngine {
 
-    func makeSliceMPR(
+    func makeSliceMPRInternal(
         volume: CImageVolume,
         plane: PatientPlane,
         window: Float,
-        level: Float
+        level: Float,
+        rescaleSlope: Double,
+        rescaleIntercept: Double,
+        interpolation: MPRInterpolation
     ) throws -> CIImage2D {
         let outputCount = plane.width * plane.height
         var output = Data(count: outputCount)
@@ -53,22 +120,37 @@ private extension ChromaEngine {
                 guard let base = inPtr.baseAddress else { return }
                 for y in 0..<plane.height {
                     for x in 0..<plane.width {
+                        // Patient-space pixel center → world coordinate.
+                        // patient = origin + (axisU * u_mm) + (axisV * v_mm)
                         let patientPoint = plane.origin
                             + plane.axisU * (Double(x) * plane.spacingU)
                             + plane.axisV * (Double(y) * plane.spacingV)
 
+                        // World coordinate → continuous voxel index (IJK).
+                        // index = inv(direction) * (patient - origin) / spacing
                         guard let continuousIndex = patientToVoxelIndex(volume: volume, point: patientPoint) else {
                             outBytes[y * plane.width + x] = 0
                             continue
                         }
 
-                        let sample = sampleTrilinear(
-                            base: base,
-                            volume: volume,
-                            index: continuousIndex
-                        )
+                        let sample: Double
+                        switch interpolation {
+                        case .linear:
+                            sample = sampleTrilinear(
+                                base: base,
+                                volume: volume,
+                                index: continuousIndex
+                            )
+                        case .nearest:
+                            sample = sampleNearest(
+                                base: base,
+                                volume: volume,
+                                index: continuousIndex
+                            )
+                        }
 
-                        let normalized = min(max((sample - lower) / range, 0.0), 1.0)
+                        let rescaled = sample * rescaleSlope + rescaleIntercept
+                        let normalized = min(max((rescaled - lower) / range, 0.0), 1.0)
                         let outputValue = UInt8(normalized * 255.0)
                         outBytes[y * plane.width + x] = outputValue
                     }
@@ -180,14 +262,14 @@ private extension ChromaEngine {
         let x0 = Int(floor(x))
         let y0 = Int(floor(y))
         let z0 = Int(floor(z))
-        let x1 = x0 + 1
-        let y1 = y0 + 1
-        let z1 = z0 + 1
-
         if x0 < 0 || y0 < 0 || z0 < 0 ||
-            x1 >= volume.sizeX || y1 >= volume.sizeY || z1 >= volume.sizeZ {
+            x0 >= volume.sizeX || y0 >= volume.sizeY || z0 >= volume.sizeZ {
             return 0.0
         }
+
+        let x1 = min(x0 + 1, volume.sizeX - 1)
+        let y1 = min(y0 + 1, volume.sizeY - 1)
+        let z1 = min(z0 + 1, volume.sizeZ - 1)
 
         let xd = x - Double(x0)
         let yd = y - Double(y0)
@@ -211,6 +293,23 @@ private extension ChromaEngine {
         let c1 = c01 * (1 - yd) + c11 * yd
 
         return c0 * (1 - zd) + c1 * zd
+    }
+
+    func sampleNearest(
+        base: UnsafeRawPointer,
+        volume: CImageVolume,
+        index: SIMD3<Double>
+    ) -> Double {
+        let i = Int((index.x).rounded())
+        let j = Int((index.y).rounded())
+        let k = Int((index.z).rounded())
+
+        if i < 0 || j < 0 || k < 0 ||
+            i >= volume.sizeX || j >= volume.sizeY || k >= volume.sizeZ {
+            return 0.0
+        }
+
+        return voxelValue(base: base, volume: volume, i: i, j: j, k: k)
     }
 
     func voxelValue(

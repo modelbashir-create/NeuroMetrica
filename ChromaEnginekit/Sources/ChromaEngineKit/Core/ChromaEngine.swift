@@ -145,17 +145,33 @@ public struct ChromaEngine: Sendable {
         window: Float,
         level: Float
     ) throws -> CIImage2D {
+        let rescaleSlope = volume.rescaleSlope
+        let rescaleIntercept = volume.rescaleIntercept
+        let interpolation: MPRInterpolation = .linear
+
         if config.useGPUSliceRendering {
             let request = MetalSliceRenderRequest(
                 volume: volume,
                 orientation: orientation,
                 index: index,
                 window: window,
-                level: level
+                level: level,
+                rescaleSlope: Float(rescaleSlope),
+                rescaleIntercept: Float(rescaleIntercept),
+                interpolation: interpolation
             )
             #if DEBUG
             if config.enableGPUDebugComparison {
-                let cpuSlice = try makeSlice2DCPU(from: volume, orientation: orientation, index: index, window: window, level: level)
+                let cpuSlice = try makeSlicePatientSpace(
+                    from: volume,
+                    orientation: orientation,
+                    index: index,
+                    window: window,
+                    level: level,
+                    rescaleSlope: rescaleSlope,
+                    rescaleIntercept: rescaleIntercept,
+                    interpolation: interpolation
+                )
                 do {
                     let gpuSlice = try ChromaEngine.sharedMetalService.renderSlice(request: request)
                     logRenderPath("GPU", reason: nil)
@@ -185,7 +201,16 @@ public struct ChromaEngine: Sendable {
         } else {
             logRenderPath("CPU", reason: "gpu_disabled")
         }
-        return try makeSlice2DCPU(from: volume, orientation: orientation, index: index, window: window, level: level)
+        return try makeSlicePatientSpace(
+            from: volume,
+            orientation: orientation,
+            index: index,
+            window: window,
+            level: level,
+            rescaleSlope: rescaleSlope,
+            rescaleIntercept: rescaleIntercept,
+            interpolation: interpolation
+        )
     }
 
     /// Minimal volume rendering in native IJK space (no canonicalization).

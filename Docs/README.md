@@ -2,7 +2,7 @@
   <img src="../regularicon.png" alt="NeuroMetrica app icon" width="180" />
 </p>
 
-NeuroMetrica is a solo-developed, neurosurgery focused imaging and planning workspace built for Apple silicon (iPad, Mac, and iPhone). The long-term goal is to give clinicians powerful on device AI tools by integrating strong, pre-trained neuroimaging models into a mobile software viewer.
+NeuroMetrica is a solo-developed, neurosurgery focused imaging and planning workspace built for Apple silicon (iPad, Mac, and iPhone). The long-term goal is to give clinicians powerful on device AI tools by integrating strong, pre-trained neuroimaging models into a mobile software viewer, while also growing into a serious Apple-native imaging workstation with the classic viewing, reformatting, ROI, and 3D tools clinicians expect from established desktop software.
 The core design goal is to build a federated learning platform for medical imaging rather than a cloud only model server.
 Federated learning:
 
@@ -21,6 +21,24 @@ Why this approach
 Planned teacher models (server-side)
 
 On the server, NeuroMetrica will use a small group of teachers of pre-trained models. A single on-device student model (I call the model Red Eyes) is distilled from these teachers and then updated via federated learning.
+The planned first-paper architecture is:
+* multiple task-specific teacher models on the server
+* one shared on-device student backbone
+* separate student heads for the primary task families
+* measurements derived from segmentation where possible instead of training a separate measurement model
+
+The current task-family plan is:
+* Segmentation family
+  * tumor segmentation
+  * edema segmentation
+  * anatomy / ROI segmentation where it shares the same pipeline
+* Classification family
+  * lesion presence / absence
+  * other lightweight study-level classification outputs if they fit the same student
+* Measurement / quantification family
+  * tumor volume and related quantitative outputs derived from segmentation outputs when possible
+
+This keeps the on-device model more transparent and consistent than shipping many separate models, while still allowing strong teacher models to supervise different heads during distillation.
 Brain MRI
 * SynthSeg (https://github.com/BBillot/SynthSeg)
     * Robust brain structure segmentation across scanners, resolutions, and MRI contrasts.
@@ -46,11 +64,20 @@ Spine
         * A vertebrae head (per-vertebra labels on CT).
         * Optional additional spine/CT heads (e.g., spinal canal, ribs) if needed.
 The long-term idea is:
-Server: run these heavier teacher models on NVIDIA GPUs, train and refine a single multi-head student. Device: run the compressed student model on iPad/Mac (ExecuTorch + Core ML), keep federated learning always on, and optionally offer cloud “teacher mode” as an opt-in for users who want the strongest possible server-side based results.
+Server: run these heavier teacher models on NVIDIA GPUs and train/refine a single multi-head student.
+Device: run the compressed student model on iPad/Mac (ExecuTorch + Core ML), keep federated learning always on, and optionally offer cloud teacher mode as an opt-in for users who want the strongest possible server-side results.
 
 Why I’m building this
 
 I’m using NeuroMetrica as a sandbox to experiment, push modern Apple hardware (find a use case for those neural engines), and teach myself more about medical imaging.
+
+Backend planning shorthand used in the project docs:
+
+- `[ITK]` = ITK / reference backend only for now
+- `[Native]` = Apple-native backend only
+- `[ITK -> Native]` = implement in ITK / reference path first, then build the native path later only if it is justified by performance, UX, or product goals
+
+The detailed, tagged feature roadmap lives in `VERTICAL_SLICES.md`.
 
 DEV JOURNAL/COMMENTS 
 
@@ -168,43 +195,91 @@ Goal: feels like a serious 2D workstation clinicians can actually plan with, not
   - ☐ Image matrix size and voxel spacing
 - ☐ Info panel layout does not interfere with reading (can be hidden quickly)
 
+### V2.6 – Workstation Parity Layer
+
+- ☐ **Sync Images** across linked 2D viewports / series
+- ☐ Broader ROI / annotation tools:
+  - ☐ Angle
+  - ☐ Point
+  - ☐ Area
+  - ☐ Closed Path
+  - ☐ Curved Line
+  - ☐ Text
+  - ☐ Arrow
+  - ☐ Scribble
+- ☐ Projection / re-slicing tools for **MIP / Mean / MinIP**
+- ☐ Adjustable **thick slab** controls for non-curved 2D/MPR workflows
+
+### V2.7 – AI Review & Correction Foundation
+
+- ☐ Display **model output overlays** in 2D and basic MPR workflows
+- ☐ Provide a basic **correction / edit workflow** for the first FL task family
+- ☐ Save corrected outputs locally in a reusable format
+- ☐ Log correction metadata for FL ingestion:
+  - ☐ case / study identifier
+  - ☐ model version
+  - ☐ prediction timestamp
+  - ☐ correction timestamp
+  - ☐ correction type / status
+
 ---
 
-## V3 – 3D MIP & VR Foundation
+## V3A – Advanced MPR & Projection Foundation
 
-Goal: first 3D-capable release. Introduce fast GPU-based MIP and a basic VR viewer that feels familiar to OsiriX-style 3D windows, but implemented with modern Apple-silicon acceleration.
+Goal: extend the 2D workstation into a serious advanced viewing environment with stronger MPR, projection, and slab tools before the full 3D workspace takes over.
 
-### V3.1 – 3D Modes & Viewer
+### V3A.1 – MPR Maturation
+
+- ☐ Mature **3D MPR view** as a first-class viewing mode, not just a transitional scaffold
+
+### V3A.2 – Projection & Slab Modes
+
+- ☐ Implement a GPU-capable **MIP** pipeline using `VolumeMapper` / Metal compute where native acceleration is justified
+- ☐ Support MIP along AX / COR / SAG axes
+- ☐ Support additional projection modes: **Mean** and **MinIP**
+- ☐ Integrate WW/WL with projection rendering so presets and sliders affect advanced views as expected
+- ☐ Support adjustable **thick slab** controls for projection-based views
+
+## V3B – 3D Workspace Foundation
+
+Goal: first true 3D-capable release. Introduce a dedicated 3D workspace with familiar navigation and a basic VR viewer implemented for Apple-silicon acceleration.
+
+### V3B.1 – 3D Modes & Viewer
 
 - ☐ Add a dedicated 3D viewer mode / workspace (enterable from the 2D viewer)
 - ☐ Support modes: **Slice**, **MIP**, and **Basic VR** (volume rendering prototype)
 - ☐ Clear UI toggle between 2D viewer and 3D viewer
 
-### V3.2 – 3D Navigation & Camera
+### V3B.2 – 3D Navigation & Camera
 
 - ☐ Rotate the volume in 3D (click–drag / trackpad gesture)
 - ☐ Zoom/pan within the 3D viewer
 - ☐ Camera presets for standard orientations (Axial / Coronal / Sagittal)
 - ☐ Simple orientation widget (e.g. a cube or compass) that reflects camera orientation
 
-### V3.3 – MIP Implementation (GPU)
-
-- ☐ Implement a GPU-based **MIP** pipeline using `VolumeMapper` / Metal compute
-- ☐ Support MIP along AX / COR / SAG axes
-- ☐ Integrate WW/WL with MIP rendering so presets and sliders affect 3D as expected
-
-### V3.4 – Basic Volume Rendering (VR Prototype)
+### V3B.3 – Basic Volume Rendering (VR Prototype)
 
 - ☐ Implement a first-pass VR renderer (ray casting or similar) on GPU
 - ☐ Use a simple transfer function (grayscale + single opacity curve)
 - ☐ Add a basic quality vs performance control (e.g. resolution / sampling slider)
 - ☐ Ensure VR works interactively on modern Apple silicon Macs
 
-### V3.5 – Cropping & Performance
+### V3B.4 – Cropping & Performance
 
 - ☐ Add a non-destructive 3D cropping box (limit the rendered region)
 - ☐ Keep volume data resident on GPU for 3D modes to reduce upload overhead
 - ☐ Establish baseline performance targets for typical CT/MR volumes in 3D
+
+## V3C – Curved / Centerline MPR
+
+Goal: build the dedicated curved/centerline workflow and exports that support a centerline-specific publication track and later visionOS expansion.
+
+### V3C.1 – Curved / Centerline Reformatting
+
+- ☐ Implement **Curved 3D MPR** / curved planar reformat workflow
+- ☐ Support **curved path navigation**
+- ☐ Support generation of transverse slices along the curved path
+- ☐ Export the **curved planar view** and all associated **transverse slices**
 
 ---
 
@@ -215,13 +290,15 @@ Goal: make the 3D environment clinically useful by adding sculpting, “bone rem
 ### V4.1 – Sculpting & Masks
 
 - ☐ Add 3D sculpting tools (e.g. scissors/brush) that operate on **masks**, not raw voxel data
+- ☐ Add direct **brush** tools for interactive 3D masking / cleanup
 - ☐ Support operations like: hide region, keep only region, undo/revert
 - ☐ Implement preset-based “bone removal” using HU ranges (for CT) via masks
+- ☐ Add simple **auto-removal** tools for common cleanup workflows
 - ☐ Ensure sculpting is non-destructive and can be toggled on/off
 
 ### V4.2 – Transfer Functions & 3D Presets
 
-- ☐ Add a **transfer function editor** (color + opacity) with a histogram view
+- ☐ Add a **transfer function / CLUT editor** (color + opacity) with a histogram view
 - ☐ Support saving/loading 3D rendering presets (VR/MIP settings, transfer function, shading)
 - ☐ Group presets by modality / anatomy (e.g. Brain, CTA, Spine)
 - ☐ Show presets as thumbnails generated from the current volume pose
@@ -258,6 +335,12 @@ Goal: layer intelligence on top of the mature 2D/3D viewer so Neurometrica compe
 - ☐ Allow viewing registered volumes in fused 2D and 3D modes
 - ☐ Save and re-use registration transforms when possible
 - ☐ Provide basic tools to inspect registration quality (e.g. checkerboard, edge overlay)
+
+### V5.3 – Specialty Measurements
+
+- ☐ **Cobb Angle**
+- ☐ **CTR**
+- ☐ Additional specialty ROI / measurement templates driven by concrete clinical workflows
 
 ### V5.3 – Automation & Smart Suggestions
 

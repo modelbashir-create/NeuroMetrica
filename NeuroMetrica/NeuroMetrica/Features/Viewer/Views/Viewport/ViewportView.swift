@@ -59,7 +59,12 @@ struct ViewportView: View {
                     zoom: zoom,
                     pan: pan
                 ) {
-                    CrosshairOverlay(contentRect: contentRect, position: crosshairPoint)
+                        CrosshairOverlay(
+                            contentRect: contentRect,
+                            position: crosshairPoint,
+                            horizontalColor: .secondary,
+                            verticalColor: .secondary
+                        )
                         .gesture(crosshairDragGesture(
                             viewSize: size,
                             contentRect: contentRect,
@@ -187,10 +192,10 @@ struct ViewportView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(viewerState.seriesTitle)
                     .font(.caption)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(HeritagePACSTheme.overlayTextPrimary)
                 Text(viewerState.seriesSubtitle)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
             }
             .padding(6)
             .applyGlassEffect(tint: .clear)
@@ -201,13 +206,13 @@ struct ViewportView: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(viewerState.patientDisplayName)
                     .font(.caption.bold())
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(HeritagePACSTheme.overlayTextPrimary)
                 Text(viewerState.patientDetails)
                     .font(.caption2)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(HeritagePACSTheme.overlayTextPrimary)
                 Text(viewerState.acquisitionDateTimeDisplay)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
             }
             .padding(6)
             .applyGlassEffect(tint: .clear)
@@ -221,7 +226,7 @@ struct ViewportView: View {
                 Text("SLICE \(String(format: "%02d", viewerState.clampedSliceIndex + 1))/\(viewerState.seriesImagesDisplay)")
                     .font(.caption2.monospaced())
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
             .padding(6)
             .applyGlassEffect(tint: .clear)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
@@ -230,11 +235,11 @@ struct ViewportView: View {
             // Bottom-right: Status
             HStack(spacing: 6) {
                 Circle()
-                    .fill(Color.accentColor)
+                    .fill(HeritagePACSTheme.statusOK)
                     .frame(width: 6, height: 6)
                 Text(viewerState.hasVolume ? "ONLINE" : "NO DATA")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
             }
             .padding(6)
             .applyGlassEffect(tint: .clear)

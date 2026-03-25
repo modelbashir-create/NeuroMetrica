@@ -33,7 +33,7 @@ struct ImportView: View {
         .fileImporter(
             isPresented: $viewModel.isFileImporterPresented,
             allowedContentTypes: viewModel.allowedContentTypes,
-            allowsMultipleSelection: false
+            allowsMultipleSelection: true
         ) { result in
             viewModel.handleFileImport(result: result)
         }
