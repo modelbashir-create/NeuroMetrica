@@ -5,17 +5,16 @@ struct SliceNavigationView: View {
     @ObservedObject var viewModel: ViewerViewModel
 
     var body: some View {
+        let activeIndex = viewerState.clampedActiveIndex
+        let sliceInfo = viewModel.sliceInfo(for: activeIndex)
+
         VStack(alignment: .leading, spacing: 8) {
-            // Snapshot values — avoid constructing controls that assert on empty ranges
-            let sliceCount = viewerState.sliceCount
+            let sliceCount = sliceInfo?.sliceCount ?? 0
             let hasSlices = sliceCount > 0
             let hasSlider = sliceCount > 1
             let upper = hasSlider ? (sliceCount - 1) : 0
-            let currentIndex = hasSlices
-                ? min(max(viewerState.sliceIndex, 0), upper)
-                : 0
+            let currentIndex = sliceInfo.map { min(max($0.displayIndex, 0), upper) } ?? 0
 
-            // Label: "Slice X / N" or "No slices"
             HStack {
                 Text(hasSlices ? "Slice \(currentIndex + 1) / \(sliceCount)" : "No slices")
                     .font(.subheadline)
@@ -23,8 +22,6 @@ struct SliceNavigationView: View {
                 Spacer()
             }
 
-            // Only construct a Slider when there are slices — some SwiftUI slider variants
-            // assert if the range/content is degenerate.
             if hasSlider {
                 Slider(
                     value: Binding(
@@ -34,8 +31,8 @@ struct SliceNavigationView: View {
                                 max(Int(newValue.rounded()), 0),
                                 upper
                             )
-                            if clamped != viewerState.sliceIndex {
-                                viewModel.setSliceIndex(clamped)
+                            if clamped != currentIndex {
+                                viewModel.setSliceIndex(clamped, for: activeIndex)
                             }
                         }
                     ),
@@ -45,13 +42,12 @@ struct SliceNavigationView: View {
                 .accessibilityLabel("Slice")
                 .accessibilityValue("\(currentIndex + 1) of \(sliceCount)")
             } else {
-                // Invisible spacer to keep layout consistent without creating a Slider when empty
                 Rectangle()
                     .opacity(0)
                     .frame(height: 24)
                     .accessibilityHidden(true)
             }
         }
-        .disabled(!viewerState.isImagingViewport(viewerState.clampedActiveIndex))
+        .disabled(!viewerState.isImagingViewport(activeIndex))
     }
 }

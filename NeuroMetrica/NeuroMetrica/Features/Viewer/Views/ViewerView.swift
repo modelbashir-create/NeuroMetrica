@@ -254,7 +254,7 @@ struct ViewerView: View {
                     return
                 }
 
-                guard viewerState.sliceCount > 0 else { return }
+                guard viewModel.hasSlices(for: viewportIndex) else { return }
                 viewModel.handleScrollEvent(
                     deltaY: deltaY,
                     viewportIndex: viewportIndex,

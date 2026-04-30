@@ -8,6 +8,7 @@ struct HeritagePACSTheme {
     // Core surfaces - heritage black for medical imaging (clinically required)
     static let canvasBackground   = Color.black
     static let viewportBackground = Color(red: 0.02, green: 0.02, blue: 0.04)
+    static let viewportBorder     = Color(red: 0.16, green: 0.17, blue: 0.22)
 
     // Active viewport accent
     static let activeViewportBorder = Color(red: 0.30, green: 0.80, blue: 0.40)

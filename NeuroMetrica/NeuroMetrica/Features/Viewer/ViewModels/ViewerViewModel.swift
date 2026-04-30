@@ -95,10 +95,12 @@ final class ViewerViewModel: ObservableObject {
         let contentRect: CGRect
     }
 
-    private struct WindowLevelPreset {
-        let name: String
-        let window: Float
-        let level: Float
+    struct ViewportSliceInfo: Equatable {
+        let patientPoint: SIMD3<Double>
+        let plane: PatientPlane
+        let displayIndex: Int
+        let engineIndex: Int
+        let sliceCount: Int
     }
 
     private enum WindowLevelLimits {
@@ -108,10 +110,12 @@ final class ViewerViewModel: ObservableObject {
         static let maxLevel: Float = 3072
     }
 
-    private let windowLevelPresets: [WindowLevelPreset] = [
-        WindowLevelPreset(name: "Brain", window: 80, level: 40),
-        WindowLevelPreset(name: "Lung", window: 1500, level: -600),
-        WindowLevelPreset(name: "Bone", window: 2500, level: 500)
+    private let standardWindowLevelPresets: [ViewerWindowLevelPreset] = [
+        ViewerWindowLevelPreset(id: "standard-brain", name: "Brain", window: 80, level: 40, source: .standard),
+        ViewerWindowLevelPreset(id: "standard-lung", name: "Lung", window: 1500, level: -600, source: .standard),
+        ViewerWindowLevelPreset(id: "standard-subdural", name: "Subdural", window: 200, level: 80, source: .standard),
+        ViewerWindowLevelPreset(id: "standard-stroke", name: "Stroke", window: 40, level: 40, source: .standard),
+        ViewerWindowLevelPreset(id: "standard-bone", name: "Bone", window: 2500, level: 500, source: .standard)
     ]
 
     private let crosshairHitRadius: CGFloat = 7
@@ -131,24 +135,20 @@ final class ViewerViewModel: ObservableObject {
 
         observeSettings()
         applyDefaultsFromSettings()
-        Task {
-            await engineBridge.updateDicomBackendPreference(appSettings.dicomBackendPreference)
-            await engineBridge.updateRenderingBackendPreference(appSettings.renderingBackendPreference)
-        }
     }
 
     // MARK: - UI Shell Actions
 
     func setLayout(_ mode: LayoutMode) {
         viewerState.setLayout(mode)
-        updateSliceRange()
+        ensureViewportSliceStatesForCurrentLayout()
         refreshViewportSlices()
         stopCineForNonImagingViewports()
     }
 
     func cycleLayout() {
         viewerState.cycleLayout()
-        updateSliceRange()
+        ensureViewportSliceStatesForCurrentLayout()
         refreshViewportSlices()
         stopCineForNonImagingViewports()
     }
@@ -228,7 +228,7 @@ final class ViewerViewModel: ObservableObject {
     func setActiveViewportIndex(_ index: Int) {
         let previous = viewerState.clampedActiveIndex
         viewerState.activeViewportIndex = index
-        updateSliceRange()
+        ensureViewportSliceStateInitialized(for: index)
         updateSlice(for: index)
 
         if !viewerState.isImagingViewport(index) {
@@ -275,6 +275,7 @@ final class ViewerViewModel: ObservableObject {
         let seriesID: String?
         let studyLabel: String?
         let seriesLabel: String?
+        let dicomSelection: DicomImportSelection?
     }
 
     var canRetryLastLoad: Bool {
@@ -282,6 +283,10 @@ final class ViewerViewModel: ObservableObject {
     }
 
     func openVolume(from url: URL) async {
+        await openVolume(from: url, dicomSelection: nil)
+    }
+
+    func openVolume(from url: URL, dicomSelection: DicomImportSelection?) async {
         pendingActiveSeries = nil
         let request = ViewerLoadRequest(
             url: url,
@@ -289,7 +294,8 @@ final class ViewerViewModel: ObservableObject {
             studyID: url.absoluteString,
             seriesID: nil,
             studyLabel: url.lastPathComponent,
-            seriesLabel: nil
+            seriesLabel: nil,
+            dicomSelection: dicomSelection
         )
         await loadVolume(request)
     }
@@ -308,7 +314,8 @@ final class ViewerViewModel: ObservableObject {
             studyID: study.id,
             seriesID: nil,
             studyLabel: study.title,
-            seriesLabel: nil
+            seriesLabel: nil,
+            dicomSelection: nil
         )
         await loadVolume(request)
     }
@@ -322,7 +329,8 @@ final class ViewerViewModel: ObservableObject {
             studyID: study?.id ?? series.sourceURL.absoluteString,
             seriesID: series.id,
             studyLabel: study?.title,
-            seriesLabel: seriesLabel
+            seriesLabel: seriesLabel,
+            dicomSelection: nil
         )
         await loadVolume(request)
     }
@@ -339,18 +347,40 @@ final class ViewerViewModel: ObservableObject {
         let activeIndex = viewerState.clampedActiveIndex
         guard orientation != viewerState.orientation(for: activeIndex) else { return }
         viewerState.setOrientation(orientation, for: activeIndex)
-        updateSliceRange()
+        ensureViewportSliceStateInitialized(for: activeIndex)
         updateSlice(for: activeIndex)
     }
 
+    func sliceInfo(for viewportIndex: Int) -> ViewportSliceInfo? {
+        guard let descriptor = currentDescriptor else { return nil }
+        return makeSliceInfo(for: viewportIndex, descriptor: descriptor)
+    }
+
+    func hasSlices(for viewportIndex: Int) -> Bool {
+        (sliceInfo(for: viewportIndex)?.sliceCount ?? 0) > 0
+    }
+
     func setSliceIndex(_ index: Int) {
+        setSliceIndex(index, for: viewerState.clampedActiveIndex)
+    }
+
+    func setSliceIndex(_ index: Int, for viewportIndex: Int) {
         guard !viewerState.isLoadingVolume else { return }
-        guard viewerState.sliceCount > 0 else { return }
-        let upper = max(viewerState.sliceCount - 1, 0)
+        guard let descriptor = currentDescriptor else { return }
+        guard let currentSliceInfo = makeSliceInfo(for: viewportIndex, descriptor: descriptor) else { return }
+
+        let upper = max(currentSliceInfo.sliceCount - 1, 0)
         let clamped = min(max(index, 0), upper)
-        guard clamped != viewerState.sliceIndex else { return }
-        viewerState.sliceIndex = clamped
-        refreshViewportSlices()
+        guard clamped != currentSliceInfo.displayIndex else { return }
+
+        let updatedPoint = patientPoint(
+            for: descriptor,
+            orientation: viewerState.orientation(for: viewportIndex),
+            displayIndex: clamped,
+            referencePoint: currentSliceInfo.patientPoint
+        )
+        viewerState.setPatientPoint(updatedPoint, for: viewportIndex)
+        updateSlice(for: viewportIndex)
     }
 
     func stepSlice(by delta: Int) {
@@ -360,9 +390,9 @@ final class ViewerViewModel: ObservableObject {
     func stepSlice(by delta: Int, for viewportIndex: Int) {
         guard !viewerState.isLoadingVolume else { return }
         guard viewerState.isImagingViewport(viewportIndex) else { return }
-        guard viewerState.sliceCount > 0 else { return }
+        guard let sliceInfo = sliceInfo(for: viewportIndex) else { return }
 
-        setSliceIndex(viewerState.sliceIndex + delta)
+        setSliceIndex(sliceInfo.displayIndex + delta, for: viewportIndex)
     }
 
     func consumeScrollForSlices(
@@ -428,14 +458,14 @@ final class ViewerViewModel: ObservableObject {
 
     func jumpToFirstSlice() {
         guard !viewerState.isLoadingVolume else { return }
-        guard viewerState.sliceCount > 0 else { return }
-        setSliceIndex(0)
+        guard hasSlices(for: viewerState.clampedActiveIndex) else { return }
+        setSliceIndex(0, for: viewerState.clampedActiveIndex)
     }
 
     func jumpToLastSlice() {
         guard !viewerState.isLoadingVolume else { return }
-        guard viewerState.sliceCount > 0 else { return }
-        setSliceIndex(max(viewerState.sliceCount - 1, 0))
+        guard let sliceInfo = sliceInfo(for: viewerState.clampedActiveIndex) else { return }
+        setSliceIndex(max(sliceInfo.sliceCount - 1, 0), for: viewerState.clampedActiveIndex)
     }
 
     func toggleCine(for viewportIndex: Int) {
@@ -452,7 +482,7 @@ final class ViewerViewModel: ObservableObject {
     func startCine(for viewportIndex: Int) {
         guard !viewerState.isLoadingVolume else { return }
         guard viewerState.isImagingViewport(viewportIndex) else { return }
-        guard viewerState.sliceCount > 1 else { return }
+        guard let sliceInfo = sliceInfo(for: viewportIndex), sliceInfo.sliceCount > 1 else { return }
         viewerState.setCinePlaying(true, for: viewportIndex)
 
         cineTasks[viewportIndex]?.cancel()
@@ -489,12 +519,38 @@ final class ViewerViewModel: ObservableObject {
 
     func setWindowLevel(window: Float, level: Float) {
         guard !viewerState.isLoadingVolume else { return }
-        let clampedWindow = min(max(window, WindowLevelLimits.minWindow), WindowLevelLimits.maxWindow)
-        let clampedLevel = min(max(level, WindowLevelLimits.minLevel), WindowLevelLimits.maxLevel)
+        let resolved = clampWindowLevel(window: window, level: level)
+        let clampedWindow = resolved.window
+        let clampedLevel = resolved.level
         guard clampedWindow != viewerState.window || clampedLevel != viewerState.level else { return }
         viewerState.window = clampedWindow
         viewerState.level = clampedLevel
         scheduleWindowLevelRefresh()
+    }
+
+    func windowLevelPresetSections() -> [ViewerWindowLevelPresetSection] {
+        var sections: [ViewerWindowLevelPresetSection] = []
+        if !viewerState.dicomWindowLevelPresets.isEmpty {
+            sections.append(
+                ViewerWindowLevelPresetSection(
+                    id: "dicom",
+                    title: "DICOM",
+                    presets: viewerState.dicomWindowLevelPresets
+                )
+            )
+        }
+        sections.append(
+            ViewerWindowLevelPresetSection(
+                id: "standard",
+                title: "Standard",
+                presets: standardWindowLevelPresets
+            )
+        )
+        return sections
+    }
+
+    func applyWindowLevelPreset(_ preset: ViewerWindowLevelPreset) {
+        setWindowLevel(window: preset.window, level: preset.level)
     }
 
     func beginWindowLevelDrag(at location: CGPoint, viewportIndex: Int) {
@@ -635,10 +691,10 @@ final class ViewerViewModel: ObservableObject {
         let strength = Float(appSettings.windowLevelPresetSnapStrength)
         guard tolerance > 0, strength > 0 else { return (window, level) }
 
-        var bestPreset: WindowLevelPreset?
+        var bestPreset: ViewerWindowLevelPreset?
         var bestScore: Float = .greatestFiniteMagnitude
 
-        for preset in windowLevelPresets {
+        for preset in availableWindowLevelPresets() {
             let windowDelta = abs(window - preset.window) / max(preset.window, 1)
             let levelDelta = abs(level - preset.level) / max(abs(preset.level), 1)
             let maxDelta = max(windowDelta, levelDelta)
@@ -727,8 +783,9 @@ final class ViewerViewModel: ObservableObject {
         zoom: CGFloat,
         pan: CGSize
     ) -> CGPoint? {
-        guard let imageSize = imagePixelSize(for: viewportIndex) else { return nil }
-        let imagePoint = viewerState.crosshairPoint(for: viewportIndex, imageSize: imageSize)
+        guard let sliceInfo = sliceInfo(for: viewportIndex) else { return nil }
+        let imageSize = CGSize(width: CGFloat(sliceInfo.plane.width), height: CGFloat(sliceInfo.plane.height))
+        let imagePoint = imagePoint(for: sliceInfo.patientPoint, on: sliceInfo.plane)
         return imagePointToViewPoint(
             imagePoint,
             viewSize: viewSize,
@@ -751,10 +808,11 @@ final class ViewerViewModel: ObservableObject {
     ) -> Bool {
         guard viewerState.isImagingViewport(viewportIndex) else { return false }
         guard contentRect.contains(viewPoint) else { return false }
-        guard let imageSize = imagePixelSize(for: viewportIndex) else { return false }
+        guard let sliceInfo = sliceInfo(for: viewportIndex) else { return false }
+        let imageSize = CGSize(width: CGFloat(sliceInfo.plane.width), height: CGFloat(sliceInfo.plane.height))
 
         let crosshairViewPoint = imagePointToViewPoint(
-            viewerState.crosshairPoint(for: viewportIndex, imageSize: imageSize),
+            imagePoint(for: sliceInfo.patientPoint, on: sliceInfo.plane),
             viewSize: viewSize,
             imageSize: imageSize,
             aspectRatio: aspectRatio,
@@ -792,7 +850,8 @@ final class ViewerViewModel: ObservableObject {
     ) {
         guard viewerState.isImagingViewport(viewportIndex) else { return }
         guard crosshairDragStates[viewportIndex]?.isActive == true else { return }
-        guard let imageSize = imagePixelSize(for: viewportIndex) else { return }
+        guard let sliceInfo = sliceInfo(for: viewportIndex) else { return }
+        let imageSize = CGSize(width: CGFloat(sliceInfo.plane.width), height: CGFloat(sliceInfo.plane.height))
 
         let imagePoint = viewPointToImagePoint(
             viewPoint,
@@ -803,7 +862,10 @@ final class ViewerViewModel: ObservableObject {
             pan: pan,
             contentRect: contentRect
         )
-        viewerState.setCrosshairPoint(imagePoint, for: viewportIndex, imageSize: imageSize)
+        let patientPoint = sliceInfo.plane.origin
+            + sliceInfo.plane.axisU * (Double(imagePoint.x) * sliceInfo.plane.spacingU)
+            + sliceInfo.plane.axisV * (Double(imagePoint.y) * sliceInfo.plane.spacingV)
+        viewerState.setPatientPoint(patientPoint, for: viewportIndex)
     }
 
     func endCrosshairDrag(for viewportIndex: Int) {
@@ -1143,13 +1205,14 @@ final class ViewerViewModel: ObservableObject {
         let targetZoom = ViewerState.defaultZoom
         let geometry = viewportGeometries[viewportIndex]
         let aspectRatio = displayAspectRatio(for: viewportIndex)
-        guard let geometry, let imageSize = imagePixelSize(for: viewportIndex) else {
+        guard let geometry, let sliceInfo = sliceInfo(for: viewportIndex) else {
             viewerState.resetZoom(for: viewportIndex)
             viewerState.resetPan(for: viewportIndex)
             return
         }
+        let imageSize = CGSize(width: CGFloat(sliceInfo.plane.width), height: CGFloat(sliceInfo.plane.height))
 
-        let crosshairPoint = viewerState.crosshairPoint(for: viewportIndex, imageSize: imageSize)
+        let crosshairPoint = imagePoint(for: sliceInfo.patientPoint, on: sliceInfo.plane)
         let basePoint = imagePointToViewPoint(
             crosshairPoint,
             viewSize: geometry.viewSize,
@@ -1334,10 +1397,14 @@ final class ViewerViewModel: ObservableObject {
         return origin + rotated
     }
 
-    private func applyDefaultPresentationState(for descriptor: VolumeDescriptor) {
+    private func applyDefaultPresentationState(
+        for descriptor: VolumeDescriptor,
+        reloadWindowLevelBaseline: Bool = false
+    ) {
         resetTransientViewerState()
         stopAllCine()
         clearMPRState()
+        let centerPoint = defaultMPRCrosshairPoint(for: descriptor)
 
         for index in 0...LayoutMode.fourUp.maxViewportIndex {
             viewerState.resetZoom(for: index)
@@ -1346,12 +1413,17 @@ final class ViewerViewModel: ObservableObject {
 
         viewerState.activeViewportIndex = viewerState.clampedActiveIndex
         viewerState.applyDefaultOrientations(for: viewerState.layoutMode)
-        updateSliceRange()
-        viewerState.sliceIndex = viewerState.sliceCount > 0 ? (viewerState.sliceCount / 2) : 0
-        viewerState.window = Float(appSettings.defaultWindow)
-        viewerState.level = Float(appSettings.defaultLevel)
-        viewerState.resetCrosshairPoints()
-        viewerState.mprCrosshairPoint = defaultMPRCrosshairPoint(for: descriptor)
+        viewerState.resetViewportSliceStates()
+        if reloadWindowLevelBaseline {
+            let resolvedWindowLevelState = resolvedWindowLevelState(for: descriptor.metadata)
+            viewerState.baselineWindow = resolvedWindowLevelState.baseline.window
+            viewerState.baselineLevel = resolvedWindowLevelState.baseline.level
+            viewerState.dicomWindowLevelPresets = resolvedWindowLevelState.dicomPresets
+        }
+        viewerState.window = viewerState.baselineWindow
+        viewerState.level = viewerState.baselineLevel
+        ensureViewportSliceStatesForCurrentLayout(preferredPoint: centerPoint)
+        viewerState.mprCrosshairPoint = centerPoint
         viewerState.mprActivePane = .axial
         viewerState.mprOrientationMap = ViewerState.defaultMPROrientationMap
     }
@@ -1382,7 +1454,7 @@ final class ViewerViewModel: ObservableObject {
             viewerState.currentStudyLabel = study.title
         }
         pendingActiveSeries = nil
-        applyDefaultPresentationState(for: descriptor)
+        applyDefaultPresentationState(for: descriptor, reloadWindowLevelBaseline: true)
         viewerState.viewerMode = shouldPreserveMPR ? .mpr : .twoD
         viewerState.threeDMode = .mpr
 
@@ -1412,30 +1484,91 @@ final class ViewerViewModel: ObservableObject {
         }
     }
 
-    private func updateSliceRange() {
-        guard let descriptor = currentDescriptor else {
-            viewerState.sliceCount = 0
-            viewerState.sliceIndex = 0
-            return
+    private func ensureViewportSliceStatesForCurrentLayout(preferredPoint: SIMD3<Double>? = nil) {
+        guard let descriptor = currentDescriptor else { return }
+        for index in viewerState.activeViewportIndices where viewerState.isImagingViewport(index) {
+            ensureViewportSliceStateInitialized(
+                for: index,
+                descriptor: descriptor,
+                preferredPoint: preferredPoint
+            )
+        }
+    }
+
+    private func ensureViewportSliceStateInitialized(for viewportIndex: Int, preferredPoint: SIMD3<Double>? = nil) {
+        guard let descriptor = currentDescriptor else { return }
+        _ = ensureViewportSliceStateInitialized(
+            for: viewportIndex,
+            descriptor: descriptor,
+            preferredPoint: preferredPoint
+        )
+    }
+
+    @discardableResult
+    private func ensureViewportSliceStateInitialized(
+        for viewportIndex: Int,
+        descriptor: VolumeDescriptor,
+        preferredPoint: SIMD3<Double>? = nil
+    ) -> SIMD3<Double> {
+        if let point = viewerState.patientPoint(for: viewportIndex) {
+            let clamped = ChromaEngineBridge.clampPatientPoint(descriptor: descriptor, point: point)
+            if clamped != point {
+                viewerState.setPatientPoint(clamped, for: viewportIndex)
+            }
+            return clamped
         }
 
-        let sliceCount: Int
-        switch viewerState.orientation {
-        case .axial:
-            sliceCount = descriptor.sizeZ
-        case .coronal:
-            sliceCount = descriptor.sizeY
-        case .sagittal:
-            sliceCount = descriptor.sizeX
-        }
+        let seedPoint = preferredPoint ?? defaultMPRCrosshairPoint(for: descriptor)
+        let defaultPoint = defaultViewportPatientPoint(
+            for: descriptor,
+            orientation: viewerState.orientation(for: viewportIndex),
+            referencePoint: seedPoint
+        )
+        viewerState.setPatientPoint(defaultPoint, for: viewportIndex)
+        return defaultPoint
+    }
 
-        viewerState.sliceCount = max(sliceCount, 0)
+    private func defaultViewportPatientPoint(
+        for descriptor: VolumeDescriptor,
+        orientation: SliceOrientation,
+        referencePoint: SIMD3<Double>
+    ) -> SIMD3<Double> {
+        let count = sliceCount(for: descriptor, orientation: orientation)
+        let centeredDisplayIndex = count > 0 ? (count / 2) : 0
+        return patientPoint(
+            for: descriptor,
+            orientation: orientation,
+            displayIndex: centeredDisplayIndex,
+            referencePoint: referencePoint
+        )
+    }
 
-        if viewerState.sliceCount == 0 {
-            viewerState.sliceIndex = 0
-        } else if viewerState.sliceIndex >= viewerState.sliceCount {
-            viewerState.sliceIndex = max(viewerState.sliceCount - 1, 0)
-        }
+    private func makeSliceInfo(
+        for viewportIndex: Int,
+        descriptor: VolumeDescriptor
+    ) -> ViewportSliceInfo? {
+        guard viewerState.isImagingViewport(viewportIndex) else { return nil }
+
+        let orientation = viewerState.orientation(for: viewportIndex)
+        let count = sliceCount(for: descriptor, orientation: orientation)
+        guard count > 0 else { return nil }
+
+        let patientPoint = ensureViewportSliceStateInitialized(for: viewportIndex, descriptor: descriptor)
+        let plane = ChromaEngineBridge.makeCanonicalPlane(
+            descriptor: descriptor,
+            orientation: orientation,
+            crosshairPoint: patientPoint
+        )
+        let engineIndex = min(max(plane.sliceIndexHint, 0), count - 1)
+        let displayIndex = max(count - 1, 0) - engineIndex
+
+        return ViewportSliceInfo(
+            patientPoint: patientPoint,
+            plane: plane,
+            displayIndex: displayIndex,
+            engineIndex: engineIndex,
+            sliceCount: count
+        )
     }
 
     private func refreshViewportSlices() {
@@ -1456,9 +1589,14 @@ final class ViewerViewModel: ObservableObject {
         let token = (sliceRequestTokens[index] ?? 0) + 1
         sliceRequestTokens[index] = token
 
+        guard let descriptor = currentDescriptor,
+              let sliceInfo = makeSliceInfo(for: index, descriptor: descriptor) else {
+            viewportImages[index] = nil
+            return
+        }
+
         let snapshotHandle = viewerState.volumeHandle
-        let snapshotOrientation = viewerState.orientation(for: index)
-        let snapshotIndex = engineSliceIndex(for: snapshotOrientation)
+        let snapshotPlane = sliceInfo.plane
         let snapshotWindow = viewerState.window
         let snapshotLevel = viewerState.level
 
@@ -1473,10 +1611,10 @@ final class ViewerViewModel: ObservableObject {
                 guard sliceRequestTokens[index] == token else { return }
                 let slice = try await engineBridge.makeSlice(
                     from: handle,
-                    orientation: snapshotOrientation,
-                    index: snapshotIndex,
+                    plane: snapshotPlane,
                     window: snapshotWindow,
-                    level: snapshotLevel
+                    level: snapshotLevel,
+                    interpolation: .linear
                 )
                 guard !Task.isCancelled else { return }
                 guard sliceRequestTokens[index] == token else { return }
@@ -1503,8 +1641,10 @@ final class ViewerViewModel: ObservableObject {
         sliceTasks[index] = task
     }
 
-    private func sliceCount(for orientation: SliceOrientation) -> Int {
-        guard let descriptor = currentDescriptor else { return 0 }
+    private func sliceCount(
+        for descriptor: VolumeDescriptor,
+        orientation: SliceOrientation
+    ) -> Int {
         switch orientation {
         case .axial:
             return descriptor.sizeZ
@@ -1515,11 +1655,49 @@ final class ViewerViewModel: ObservableObject {
         }
     }
 
-    private func engineSliceIndex(for orientation: SliceOrientation) -> Int {
-        let count = sliceCount(for: orientation)
-        guard count > 0 else { return 0 }
-        let clamped = min(max(viewerState.sliceIndex, 0), count - 1)
-        return max(count - 1, 0) - clamped
+    private func patientPoint(
+        for descriptor: VolumeDescriptor,
+        orientation: SliceOrientation,
+        displayIndex: Int,
+        referencePoint: SIMD3<Double>
+    ) -> SIMD3<Double> {
+        let count = sliceCount(for: descriptor, orientation: orientation)
+        guard count > 0 else { return referencePoint }
+
+        let clampedDisplayIndex = min(max(displayIndex, 0), count - 1)
+        let engineIndex = max(count - 1, 0) - clampedDisplayIndex
+        var voxelIndex = ChromaEngineBridge.patientToVoxelIndex(
+            descriptor: descriptor,
+            point: referencePoint
+        )
+
+        switch orientation {
+        case .axial:
+            voxelIndex.z = Double(engineIndex)
+        case .coronal:
+            voxelIndex.y = Double(engineIndex)
+        case .sagittal:
+            voxelIndex.x = Double(engineIndex)
+        }
+
+        let patientPoint = ChromaEngineBridge.voxelToPatient(
+            descriptor: descriptor,
+            index: voxelIndex
+        )
+        return ChromaEngineBridge.clampPatientPoint(descriptor: descriptor, point: patientPoint)
+    }
+
+    private func imagePoint(for patientPoint: SIMD3<Double>, on plane: PatientPlane) -> CGPoint {
+        let delta = patientPoint - plane.origin
+        let u = (delta.x * plane.axisU.x + delta.y * plane.axisU.y + delta.z * plane.axisU.z) / plane.spacingU
+        let v = (delta.x * plane.axisV.x + delta.y * plane.axisV.y + delta.z * plane.axisV.z) / plane.spacingV
+
+        let maxX = max(CGFloat(plane.width), 0)
+        let maxY = max(CGFloat(plane.height), 0)
+        return CGPoint(
+            x: min(max(CGFloat(u), 0), maxX),
+            y: min(max(CGFloat(v), 0), maxY)
+        )
     }
 
     private func stopCineForNonImagingViewports() {
@@ -1540,14 +1718,11 @@ final class ViewerViewModel: ObservableObject {
             let state = viewerState.cineState(for: viewportIndex)
             guard state.isPlaying else { return }
             guard viewerState.isImagingViewport(viewportIndex) else { return }
-            guard viewerState.sliceCount > 1 else { return }
+            guard let sliceInfo = sliceInfo(for: viewportIndex), sliceInfo.sliceCount > 1 else { return }
             guard viewerState.volumeHandle != nil else { return }
 
-            let count = sliceCount(for: viewerState.orientation(for: viewportIndex))
-            guard count > 1 else { return }
-
-            let nextIndex = (viewerState.sliceIndex + 1) % count
-            setSliceIndex(nextIndex)
+            let nextIndex = (sliceInfo.displayIndex + 1) % sliceInfo.sliceCount
+            setSliceIndex(nextIndex, for: viewportIndex)
 
             let delay = UInt64((1.0 / max(state.fps, 1)) * 1_000_000_000)
             try? await Task.sleep(nanoseconds: delay)
@@ -1576,8 +1751,75 @@ final class ViewerViewModel: ObservableObject {
     }
 
     private func applyDefaultsFromSettings() {
-        viewerState.window = Float(appSettings.defaultWindow)
-        viewerState.level = Float(appSettings.defaultLevel)
+        let defaults = appDefaultWindowLevel()
+        viewerState.baselineWindow = defaults.window
+        viewerState.baselineLevel = defaults.level
+        viewerState.window = defaults.window
+        viewerState.level = defaults.level
+    }
+
+    private func clampWindowLevel(window: Float, level: Float) -> (window: Float, level: Float) {
+        (
+            min(max(window, WindowLevelLimits.minWindow), WindowLevelLimits.maxWindow),
+            min(max(level, WindowLevelLimits.minLevel), WindowLevelLimits.maxLevel)
+        )
+    }
+
+    private func appDefaultWindowLevel() -> (window: Float, level: Float) {
+        clampWindowLevel(
+            window: Float(appSettings.defaultWindow),
+            level: Float(appSettings.defaultLevel)
+        )
+    }
+
+    private func resolvedWindowLevelState(
+        for metadata: CIMetadata
+    ) -> (
+        baseline: (window: Float, level: Float),
+        dicomPresets: [ViewerWindowLevelPreset]
+    ) {
+        let dicomPresets = dicomWindowLevelPresets(for: metadata)
+        let baseline = dicomPresets
+            .first
+            .map { ($0.window, $0.level) }
+            ?? appDefaultWindowLevel()
+        return (baseline, dicomPresets)
+    }
+
+    private func dicomWindowLevelPresets(for metadata: CIMetadata) -> [ViewerWindowLevelPreset] {
+        guard metadata.sourceFormat == .dicom,
+              let centers = metadata.windowCenter,
+              let widths = metadata.windowWidth,
+              !centers.isEmpty,
+              centers.count == widths.count else {
+            return []
+        }
+
+        var presets: [ViewerWindowLevelPreset] = []
+        presets.reserveCapacity(widths.count)
+
+        for (index, pair) in zip(centers, widths).enumerated() {
+            let center = pair.0
+            let width = pair.1
+            guard center.isFinite, width.isFinite, width > 0 else { continue }
+            let clamped = clampWindowLevel(window: Float(width), level: Float(center))
+            let name = widths.count == 1 ? "DICOM" : "DICOM \(index + 1)"
+            presets.append(
+                ViewerWindowLevelPreset(
+                    id: "dicom-\(index)",
+                    name: name,
+                    window: clamped.window,
+                    level: clamped.level,
+                    source: .dicom
+                )
+            )
+        }
+
+        return presets
+    }
+
+    private func availableWindowLevelPresets() -> [ViewerWindowLevelPreset] {
+        viewerState.dicomWindowLevelPresets + standardWindowLevelPresets
     }
 
     private struct OrientationVector {
@@ -1747,7 +1989,10 @@ final class ViewerViewModel: ObservableObject {
         }
 
         do {
-            let descriptor = try await engineBridge.loadVolume(from: request.url)
+            let descriptor = try await engineBridge.loadVolume(
+                from: request.url,
+                dicomSelection: request.dicomSelection
+            )
             installVolume(descriptor)
         } catch {
             viewerState.isLoadingVolume = false

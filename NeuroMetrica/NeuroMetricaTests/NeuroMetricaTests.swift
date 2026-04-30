@@ -10,6 +10,48 @@ import simd
 import ChromaEngineKit
 @testable import NeuroMetrica
 
+private struct RecordedOpenVolumeCall: Equatable {
+    let url: URL
+    let selection: DicomImportSelection?
+}
+
+@MainActor
+private final class MockVolumeRouter: VolumeOpenRouting {
+    private(set) var openVolumeCalls: [RecordedOpenVolumeCall] = []
+
+    func openVolume(from url: URL) async {
+        await openVolume(from: url, dicomSelection: nil)
+    }
+
+    func openVolume(from url: URL, dicomSelection: DicomImportSelection?) async {
+        openVolumeCalls.append(
+            RecordedOpenVolumeCall(url: url, selection: dicomSelection)
+        )
+    }
+
+    func openVolumes(from urls: [URL]) async {
+        for url in urls {
+            await openVolume(from: url, dicomSelection: nil)
+        }
+    }
+
+    func openStudy(_ study: Study) async {}
+
+    func openSeries(_ series: StudySeries, study: Study?) async {}
+}
+
+private actor MockDicomImportInspector: DicomImportInspecting {
+    private var inspectionsByPath: [String: DicomImportInspection?] = [:]
+
+    func setInspection(_ inspection: DicomImportInspection?, for url: URL) {
+        inspectionsByPath[url.path] = inspection
+    }
+
+    func inspectImport(at url: URL) async throws -> DicomImportInspection? {
+        inspectionsByPath[url.path] ?? nil
+    }
+}
+
 final class NeuroMetricaTests: XCTestCase {
 
     @MainActor
@@ -60,7 +102,7 @@ final class NeuroMetricaTests: XCTestCase {
     }
 
     @MainActor
-    func testCineStopsWhenSliceCountIsOne() {
+    func testCineStopsWhenSliceCountIsOne() async {
         let state = ViewerState()
         let engineBridge = ChromaEngineBridge(config: .standard)
         let appSettings = AppSettings()
@@ -72,7 +114,9 @@ final class NeuroMetricaTests: XCTestCase {
             recentFilesStore: recentFilesStore
         )
 
-        state.sliceCount = 1
+        let volume = makeTestVolume(size: 1)
+        let descriptor = await engineBridge.registerVolumeForTesting(volume: volume)
+        viewModel.installVolumeForTesting(descriptor)
         viewModel.startCine(for: 0)
 
         XCTAssertFalse(state.cineState(for: 0).isPlaying)
@@ -105,7 +149,8 @@ final class NeuroMetricaTests: XCTestCase {
         let importViewModel = ImportViewModel(
             filePickerService: FilePickerService(),
             recentFilesStore: recentFilesStore,
-            volumeRouter: viewerViewModel
+            volumeRouter: viewerViewModel,
+            dicomImportInspector: engineBridge
         )
 
         let studies = [
@@ -239,6 +284,121 @@ final class NeuroMetricaTests: XCTestCase {
     }
 
     @MainActor
+    func testImportViewModelAutoLoadsRecommendedSelectionForCleanDicomImport() async {
+        let recentFilesStore = RecentFilesStore()
+        let router = MockVolumeRouter()
+        let inspector = MockDicomImportInspector()
+        let viewModel = ImportViewModel(
+            filePickerService: FilePickerService(),
+            recentFilesStore: recentFilesStore,
+            volumeRouter: router,
+            dicomImportInspector: inspector
+        )
+
+        let url = URL(fileURLWithPath: "/tmp/import/series-001")
+        let selection = DicomImportSelection(seriesInstanceUID: "series-001", subseriesKey: "stack-a")
+        let inspection = DicomImportInspection(
+            options: [
+                DicomImportOption(
+                    selection: selection,
+                    studyDescription: "Study",
+                    seriesDescription: "Axial PD",
+                    modality: "MR",
+                    seriesNumber: "1",
+                    fileCount: 24,
+                    confidence: 5,
+                    orientationConsistent: true,
+                    spacingUniform: true,
+                    spacingReferenceMm: 1.0,
+                    maxSpacingErrorMm: 0.0,
+                    reasons: [],
+                    isRecommended: true
+                )
+            ],
+            recommendedSelection: selection,
+            selectionPolicy: "highest_confidence_then_file_count_then_uid"
+        )
+
+        await inspector.setInspection(inspection, for: url)
+        await viewModel.processImportTargets([url])
+
+        XCTAssertNil(viewModel.pendingDicomReviewSession)
+        XCTAssertEqual(
+            router.openVolumeCalls,
+            [RecordedOpenVolumeCall(url: url, selection: selection)]
+        )
+    }
+
+    @MainActor
+    func testImportViewModelPresentsReviewForAmbiguousDicomImport() async {
+        let recentFilesStore = RecentFilesStore()
+        let router = MockVolumeRouter()
+        let inspector = MockDicomImportInspector()
+        let viewModel = ImportViewModel(
+            filePickerService: FilePickerService(),
+            recentFilesStore: recentFilesStore,
+            volumeRouter: router,
+            dicomImportInspector: inspector
+        )
+
+        let url = URL(fileURLWithPath: "/tmp/import/series-ambiguous")
+        let recommendedSelection = DicomImportSelection(seriesInstanceUID: "series-001", subseriesKey: "stack-a")
+        let alternateSelection = DicomImportSelection(seriesInstanceUID: "series-002", subseriesKey: "stack-b")
+        let inspection = DicomImportInspection(
+            options: [
+                DicomImportOption(
+                    selection: recommendedSelection,
+                    studyDescription: "Study",
+                    seriesDescription: "Axial PD",
+                    modality: "MR",
+                    seriesNumber: "1",
+                    fileCount: 24,
+                    confidence: 5,
+                    orientationConsistent: true,
+                    spacingUniform: true,
+                    spacingReferenceMm: 1.0,
+                    maxSpacingErrorMm: 0.0,
+                    reasons: [],
+                    isRecommended: true
+                ),
+                DicomImportOption(
+                    selection: alternateSelection,
+                    studyDescription: "Study",
+                    seriesDescription: "Localizer",
+                    modality: "MR",
+                    seriesNumber: "2",
+                    fileCount: 3,
+                    confidence: 2,
+                    orientationConsistent: false,
+                    spacingUniform: false,
+                    spacingReferenceMm: nil,
+                    maxSpacingErrorMm: nil,
+                    reasons: ["localizerLike"],
+                    isRecommended: false
+                )
+            ],
+            recommendedSelection: recommendedSelection,
+            selectionPolicy: "highest_confidence_then_file_count_then_uid"
+        )
+
+        await inspector.setInspection(inspection, for: url)
+        await viewModel.processImportTargets([url])
+
+        XCTAssertEqual(router.openVolumeCalls.count, 0)
+        XCTAssertEqual(viewModel.pendingDicomReviewSession?.sourceURL, url)
+        XCTAssertEqual(viewModel.pendingDicomReviewSession?.selectedOptionID, inspection.recommendedOptionID)
+
+        viewModel.confirmPendingDicomReview()
+        try? await Task.sleep(nanoseconds: 20_000_000)
+
+        XCTAssertNil(viewModel.pendingDicomReviewSession)
+        XCTAssertEqual(
+            router.openVolumeCalls,
+            [RecordedOpenVolumeCall(url: url, selection: recommendedSelection)]
+        )
+    }
+
+    @MainActor
     func testMPRCrosshairRefreshRequestsAllPanes() async {
         let state = ViewerState()
         let engineBridge = ChromaEngineBridge(config: .standard)
@@ -314,12 +474,12 @@ final class NeuroMetricaTests: XCTestCase {
         state.setOrientation(.sagittal, for: 2)
         state.window = 1200
         state.level = -200
-        state.sliceIndex = 0
+        state.setPatientPoint(SIMD3<Double>(0, 0, 0), for: 0)
+        state.setPatientPoint(SIMD3<Double>(0, 0, 0), for: 2)
         state.setZoom(2.4, for: 0)
         state.setPan(CGSize(width: 18, height: -12), for: 0)
         state.setZoom(1.8, for: 3)
         state.setPan(CGSize(width: -9, height: 11), for: 3)
-        state.setCrosshairPoint(CGPoint(x: 1, y: 1), for: 2, imageSize: CGSize(width: 5, height: 5))
         state.setCinePlaying(true, for: 0)
         state.mprCrosshairPoint = SIMD3<Double>(0, 0, 0)
         state.mprActivePane = .sagittal
@@ -339,18 +499,138 @@ final class NeuroMetricaTests: XCTestCase {
         XCTAssertEqual(state.orientation(for: 0), .axial)
         XCTAssertEqual(state.orientation(for: 1), .sagittal)
         XCTAssertEqual(state.orientation(for: 2), .coronal)
+        XCTAssertEqual(state.baselineWindow, Float(appSettings.defaultWindow))
+        XCTAssertEqual(state.baselineLevel, Float(appSettings.defaultLevel))
         XCTAssertEqual(state.window, Float(appSettings.defaultWindow))
         XCTAssertEqual(state.level, Float(appSettings.defaultLevel))
-        XCTAssertEqual(state.sliceIndex, 2)
+        XCTAssertEqual(viewModel.sliceInfo(for: 0)?.displayIndex, 2)
+        XCTAssertEqual(viewModel.sliceInfo(for: 2)?.displayIndex, 2)
         XCTAssertEqual(state.zoom(for: 0), ViewerState.defaultZoom)
         XCTAssertEqual(state.zoom(for: 3), ViewerState.defaultZoom)
         XCTAssertEqual(state.pan(for: 0), .zero)
         XCTAssertEqual(state.pan(for: 3), .zero)
-        XCTAssertEqual(state.crosshairPoint(for: 2, imageSize: CGSize(width: 5, height: 5)), CGPoint(x: 2.5, y: 2.5))
+        XCTAssertEqual(state.patientPoint(for: 2), SIMD3<Double>(2, 2, 2))
         XCTAssertFalse(state.cineState(for: 0).isPlaying)
         XCTAssertEqual(state.mprCrosshairPoint, SIMD3<Double>(2, 2, 2))
         XCTAssertEqual(state.mprActivePane, .axial)
         XCTAssertEqual(state.mprOrientationMap, ViewerState.defaultMPROrientationMap)
+    }
+
+    @MainActor
+    func testViewportSliceStateIsIndependentPerViewport() async {
+        let state = ViewerState()
+        state.layoutMode = .threeUp
+
+        let engineBridge = ChromaEngineBridge(config: .standard)
+        let appSettings = AppSettings()
+        let recentFilesStore = RecentFilesStore()
+        let viewModel = ViewerViewModel(
+            viewerState: state,
+            engineBridge: engineBridge,
+            appSettings: appSettings,
+            recentFilesStore: recentFilesStore
+        )
+
+        let volume = makeTestVolume(size: 5)
+        let descriptor = await engineBridge.registerVolumeForTesting(volume: volume)
+        viewModel.installVolumeForTesting(descriptor)
+
+        viewModel.setSliceIndex(0, for: 0)
+        viewModel.setSliceIndex(4, for: 1)
+        viewModel.setSliceIndex(1, for: 2)
+
+        XCTAssertEqual(viewModel.sliceInfo(for: 0)?.displayIndex, 0)
+        XCTAssertEqual(viewModel.sliceInfo(for: 1)?.displayIndex, 4)
+        XCTAssertEqual(viewModel.sliceInfo(for: 2)?.displayIndex, 1)
+        XCTAssertEqual(state.patientPoint(for: 0), SIMD3<Double>(2, 2, 4))
+        XCTAssertEqual(state.patientPoint(for: 1), SIMD3<Double>(0, 2, 2))
+        XCTAssertEqual(state.patientPoint(for: 2), SIMD3<Double>(2, 3, 2))
+
+        viewModel.stepSlice(by: 1, for: 0)
+
+        XCTAssertEqual(viewModel.sliceInfo(for: 0)?.displayIndex, 1)
+        XCTAssertEqual(viewModel.sliceInfo(for: 1)?.displayIndex, 4)
+        XCTAssertEqual(viewModel.sliceInfo(for: 2)?.displayIndex, 1)
+    }
+
+    @MainActor
+    func testInstallVolumeUsesDicomWindowLevelBaselineAndResetRestoresIt() async {
+        let state = ViewerState()
+        let engineBridge = ChromaEngineBridge(config: .standard)
+        let appSettings = AppSettings()
+        appSettings.defaultWindow = 410
+        appSettings.defaultLevel = 55
+        let recentFilesStore = RecentFilesStore()
+        let viewModel = ViewerViewModel(
+            viewerState: state,
+            engineBridge: engineBridge,
+            appSettings: appSettings,
+            recentFilesStore: recentFilesStore
+        )
+
+        let metadata = CIMetadata(
+            sourceFormat: .dicom,
+            windowCenter: [32, 80],
+            windowWidth: [640, 1600]
+        )
+        let volume = makeTestVolume(size: 5)
+        let descriptor = await engineBridge.registerVolumeForTesting(volume: volume, metadata: metadata)
+
+        viewModel.installVolumeForTesting(descriptor)
+
+        XCTAssertEqual(state.dicomWindowLevelPresets.count, 2)
+        XCTAssertEqual(state.baselineWindow, 640)
+        XCTAssertEqual(state.baselineLevel, 32)
+        XCTAssertEqual(state.window, 640)
+        XCTAssertEqual(state.level, 32)
+
+        state.window = 1200
+        state.level = -100
+
+        viewModel.resetViewPresentation()
+
+        XCTAssertEqual(state.baselineWindow, 640)
+        XCTAssertEqual(state.baselineLevel, 32)
+        XCTAssertEqual(state.window, 640)
+        XCTAssertEqual(state.level, 32)
+    }
+
+    @MainActor
+    func testResetViewPresentationUsesStoredBaselineForNonDicomSeries() async {
+        let state = ViewerState()
+        let engineBridge = ChromaEngineBridge(config: .standard)
+        let appSettings = AppSettings()
+        appSettings.defaultWindow = 410
+        appSettings.defaultLevel = 55
+        let recentFilesStore = RecentFilesStore()
+        let viewModel = ViewerViewModel(
+            viewerState: state,
+            engineBridge: engineBridge,
+            appSettings: appSettings,
+            recentFilesStore: recentFilesStore
+        )
+
+        let volume = makeTestVolume(size: 5)
+        let descriptor = await engineBridge.registerVolumeForTesting(volume: volume)
+
+        viewModel.installVolumeForTesting(descriptor)
+
+        XCTAssertEqual(state.baselineWindow, 410)
+        XCTAssertEqual(state.baselineLevel, 55)
+        XCTAssertEqual(state.window, 410)
+        XCTAssertEqual(state.level, 55)
+
+        appSettings.defaultWindow = 900
+        appSettings.defaultLevel = 125
+        state.window = 1200
+        state.level = -100
+
+        viewModel.resetViewPresentation()
+
+        XCTAssertEqual(state.baselineWindow, 410)
+        XCTAssertEqual(state.baselineLevel, 55)
+        XCTAssertEqual(state.window, 410)
+        XCTAssertEqual(state.level, 55)
     }
 
     func testMPRCrosshairAxisColors() {

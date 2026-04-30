@@ -146,6 +146,33 @@ enum ViewerTool: String, CaseIterable, Identifiable {
     }
 }
 
+struct ViewerWindowLevelPreset: Identifiable, Equatable, Hashable {
+    enum Source: String, Equatable, Hashable {
+        case dicom
+        case standard
+    }
+
+    let id: String
+    let name: String
+    let window: Float
+    let level: Float
+    let source: Source
+
+    var menuLabel: String {
+        "\(name) (W \(Int(window.rounded())) / L \(Int(level.rounded())))"
+    }
+}
+
+struct ViewerWindowLevelPresetSection: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let presets: [ViewerWindowLevelPreset]
+}
+
+struct ViewportSliceState: Equatable {
+    var patientPoint: SIMD3<Double>?
+}
+
 
 // MARK: - Observable Viewer State (UI + Imaging)
 
@@ -231,15 +258,17 @@ final class ViewerState {
         set { setOrientation(newValue, for: clampedActiveIndex) }
     }
 
-    /// Zero-based slice index within the current orientation
-    var sliceIndex: Int = 0
-
-    /// Total number of slices available in the current orientation
-    var sliceCount: Int = 0
-
     /// Window width and level (engine-space)
     var window: Float = 350
     var level: Float = 40
+
+    /// Baseline window width and level for the currently loaded series.
+    /// This is the source of truth used for initial display and Reset.
+    var baselineWindow: Float = 350
+    var baselineLevel: Float = 40
+
+    /// DICOM-derived WW/WL presets extracted from the loaded series, if available.
+    var dicomWindowLevelPresets: [ViewerWindowLevelPreset] = []
 
     // MARK: MPR (Tri-planar) State
 
@@ -276,7 +305,7 @@ final class ViewerState {
 
     private var viewportZooms: [Int: CGFloat] = [:]
     private var viewportPans: [Int: CGSize] = [:]
-    private var viewportCrosshairPoints: [Int: CGPoint] = [:]
+    private var viewportSliceStates: [Int: ViewportSliceState] = [:]
 
     /// Indicates an async load / reslice is in progress
     var isLoadingVolume: Bool = false
@@ -307,12 +336,6 @@ final class ViewerState {
     /// Whether a volume is currently loaded
     var hasVolume: Bool {
         volumeHandle != nil
-    }
-
-    /// Slice index clamped into [0, sliceCount - 1]
-    var clampedSliceIndex: Int {
-        guard sliceCount > 0 else { return 0 }
-        return max(0, min(sliceIndex, sliceCount - 1))
     }
 
     // MARK: - Overlay display helpers
@@ -355,7 +378,10 @@ final class ViewerState {
         if let total = metadata?.additionalTags["0020,1209"], !total.isEmpty {
             return total
         }
-        return "\(max(sliceCount, 1))"
+        if let numberOfInstances = metadata?.numberOfInstances, numberOfInstances > 0 {
+            return "\(numberOfInstances)"
+        }
+        return "1"
     }
 
     var patientDisplayName: String {
@@ -421,10 +447,11 @@ final class ViewerState {
         metadata = nil
         activeSeries = nil
         viewportOrientations = [:]
-        sliceIndex = 0
-        sliceCount = 0
         window = 350
         level = 40
+        baselineWindow = 350
+        baselineLevel = 40
+        dicomWindowLevelPresets = []
         mprCrosshairPoint = nil
         mprActivePane = .axial
         mprOrientationMap = Self.defaultMPROrientationMap
@@ -432,6 +459,7 @@ final class ViewerState {
         mprSlabThickness = 0.0
         viewportZooms = [:]
         viewportPans = [:]
+        viewportSliceStates = [:]
         isLoadingVolume = false
         lastError = nil
         lastErrorContext = nil
@@ -518,24 +546,20 @@ final class ViewerState {
         viewportPans[index] = Self.defaultPan
     }
 
-    func crosshairPoint(for index: Int, imageSize: CGSize) -> CGPoint {
-        let stored = viewportCrosshairPoints[index]
-        let defaultPoint = CGPoint(x: imageSize.width * 0.5, y: imageSize.height * 0.5)
-        return clampCrosshairPoint(stored ?? defaultPoint, imageSize: imageSize)
+    func sliceState(for index: Int) -> ViewportSliceState {
+        viewportSliceStates[index] ?? ViewportSliceState()
     }
 
-    func setCrosshairPoint(_ point: CGPoint, for index: Int, imageSize: CGSize) {
-        viewportCrosshairPoints[index] = clampCrosshairPoint(point, imageSize: imageSize)
+    func patientPoint(for index: Int) -> SIMD3<Double>? {
+        sliceState(for: index).patientPoint
     }
 
-    func resetCrosshairPoints() {
-        viewportCrosshairPoints.removeAll()
+    func setPatientPoint(_ point: SIMD3<Double>?, for index: Int) {
+        viewportSliceStates[index] = ViewportSliceState(patientPoint: point)
     }
 
-    private func clampCrosshairPoint(_ point: CGPoint, imageSize: CGSize) -> CGPoint {
-        let x = min(max(point.x, 0), max(imageSize.width, 0))
-        let y = min(max(point.y, 0), max(imageSize.height, 0))
-        return CGPoint(x: x, y: y)
+    func resetViewportSliceStates() {
+        viewportSliceStates.removeAll()
     }
 
     func isImagingViewport(_ index: Int) -> Bool {

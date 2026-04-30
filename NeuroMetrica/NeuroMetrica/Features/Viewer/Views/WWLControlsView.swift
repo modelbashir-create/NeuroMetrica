@@ -40,26 +40,15 @@ struct WWLControlsView: View {
                 HStack {
                     Text("Preset")
                     Spacer()
-                    Menu("Brain") {
-                        Button("Brain (W 80 / L 40)") {
-                            viewModel.setWindow(80)
-                            viewModel.setLevel(40)
-                        }
-                        Button("Lung (W 1500 / L -600)") {
-                            viewModel.setWindow(1500)
-                            viewModel.setLevel(-600)
-                        }
-                        Button("Subdural (W 200 / L 80)") {
-                            viewModel.setWindow(200)
-                            viewModel.setLevel(80)
-                        }
-                        Button("Stroke (W 40 / L 40)") {
-                            viewModel.setWindow(40)
-                            viewModel.setLevel(40)
-                        }
-                        Button("Bone (W 2500 / L 500)") {
-                            viewModel.setWindow(2500)
-                            viewModel.setLevel(500)
+                    Menu("Presets") {
+                        ForEach(viewModel.windowLevelPresetSections()) { section in
+                            Section(section.title) {
+                                ForEach(section.presets) { preset in
+                                    Button(preset.menuLabel) {
+                                        viewModel.applyWindowLevelPreset(preset)
+                                    }
+                                }
+                            }
                         }
                     }
                 }

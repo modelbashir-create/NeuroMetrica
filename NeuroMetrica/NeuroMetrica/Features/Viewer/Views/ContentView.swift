@@ -83,6 +83,22 @@ struct ContentView: View {
             .applyMorphingTransition(id: "settings", in: settingsTransition)
         }
 
+        .sheet(
+            item: Binding(
+                get: { importViewModel.pendingDicomReviewSession },
+                set: { session in
+                    if session == nil {
+                        importViewModel.dismissPendingDicomReview()
+                    }
+                }
+            )
+        ) { session in
+            DicomImportReviewSheet(
+                viewModel: importViewModel,
+                session: session
+            )
+        }
+
         // MARK: Keyboard Handling
 
         .focusable()

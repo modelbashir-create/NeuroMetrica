@@ -15,6 +15,12 @@ struct ViewportView: View {
         index == viewerState.clampedActiveIndex
     }
 
+    private var sliceDisplayText: String? {
+        guard let sliceInfo = viewModel.sliceInfo(for: index) else { return nil }
+        let currentSlice = min(max(sliceInfo.displayIndex + 1, 1), max(sliceInfo.sliceCount, 1))
+        return "SLICE \(String(format: "%02d", currentSlice))/\(sliceInfo.sliceCount)"
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
@@ -26,10 +32,10 @@ struct ViewportView: View {
             ZStack {
                 // Base viewport
                 Rectangle()
-                    .fill(viewerState.hasVolume ? HeritagePACSTheme.viewportBackground : viewportSystemBackground)
+                    .fill(HeritagePACSTheme.viewportBackground)
                     .overlay(
                         Rectangle()
-                            .strokeBorder(.separator, lineWidth: 1)
+                            .strokeBorder(HeritagePACSTheme.viewportBorder, lineWidth: 1)
                     )
 
                 if viewerState.isImagingViewport(index) {
@@ -62,8 +68,8 @@ struct ViewportView: View {
                         CrosshairOverlay(
                             contentRect: contentRect,
                             position: crosshairPoint,
-                            horizontalColor: .secondary,
-                            verticalColor: .secondary
+                            horizontalColor: HeritagePACSTheme.crosshairColor,
+                            verticalColor: HeritagePACSTheme.crosshairColor
                         )
                         .gesture(crosshairDragGesture(
                             viewSize: size,
@@ -84,7 +90,7 @@ struct ViewportView: View {
 
                 if isActive {
                     Rectangle()
-                        .strokeBorder(Color.accentColor, lineWidth: 1)
+                        .strokeBorder(HeritagePACSTheme.activeViewportBorder, lineWidth: 1)
                         .allowsHitTesting(false)
                 }
             }
@@ -223,8 +229,10 @@ struct ViewportView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("W \(Int(viewerState.window))  L \(Int(viewerState.level))")
                     .font(.caption2.monospaced())
-                Text("SLICE \(String(format: "%02d", viewerState.clampedSliceIndex + 1))/\(viewerState.seriesImagesDisplay)")
-                    .font(.caption2.monospaced())
+                if let sliceDisplayText {
+                    Text(sliceDisplayText)
+                        .font(.caption2.monospaced())
+                }
             }
             .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
             .padding(6)
@@ -248,11 +256,4 @@ struct ViewportView: View {
         }
     }
 
-    private var viewportSystemBackground: Color {
-        #if os(macOS)
-        Color(nsColor: .windowBackgroundColor)
-        #else
-        Color(uiColor: .systemBackground)
-        #endif
-    }
 }

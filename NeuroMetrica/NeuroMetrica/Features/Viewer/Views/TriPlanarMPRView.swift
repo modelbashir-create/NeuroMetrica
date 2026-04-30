@@ -103,8 +103,8 @@ private struct MPRPaneView: View {
 
             ZStack {
                 Rectangle()
-                    .fill(viewerState.hasVolume ? HeritagePACSTheme.viewportBackground : viewportSystemBackground)
-                    .overlay(Rectangle().strokeBorder(.separator, lineWidth: 1))
+                    .fill(HeritagePACSTheme.viewportBackground)
+                    .overlay(Rectangle().strokeBorder(HeritagePACSTheme.viewportBorder, lineWidth: 1))
 
                 if let image = viewModel.mprImage(for: pane) {
                     image
@@ -115,7 +115,7 @@ private struct MPRPaneView: View {
                         .overlay(scrollWheelOverlay)
                 } else {
                     Text(viewerState.isLoadingVolume ? "Loading…" : "No volume loaded")
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(HeritagePACSTheme.overlayTextSecondary)
                         .padding()
                 }
 
@@ -257,13 +257,5 @@ private struct MPRPaneView: View {
                 onChooseAnother: {}
             )
         }
-    }
-
-    private var viewportSystemBackground: Color {
-        #if os(macOS)
-        Color(nsColor: .windowBackgroundColor)
-        #else
-        Color(uiColor: .systemBackground)
-        #endif
     }
 }
