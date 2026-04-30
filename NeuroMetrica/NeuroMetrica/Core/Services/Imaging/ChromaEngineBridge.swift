@@ -109,7 +109,7 @@ private struct VolumeRecord {
 // MARK: - Bridge Actor
 
 /// Actor to serialize access to the underlying engine and volume registry.
-actor ChromaEngineBridge {
+actor ChromaEngineBridge: DicomImportInspecting {
     
     // MARK: - Properties
     
@@ -179,6 +179,14 @@ actor ChromaEngineBridge {
     ///
     /// ViewModels can call this when they only have a `URL` from the file picker.
     func loadVolume(from url: URL) async throws -> VolumeDescriptor {
+        try await loadVolume(from: url, dicomSelection: nil)
+    }
+
+    /// Heuristic loader that supports an explicit DICOM series/subseries selection.
+    func loadVolume(
+        from url: URL,
+        dicomSelection: DicomImportSelection?
+    ) async throws -> VolumeDescriptor {
         let format = inferFormat(from: url)
         
         switch format {
@@ -187,9 +195,22 @@ actor ChromaEngineBridge {
         case .nrrd:
             return try await loadNRRDVolume(from: url)
         case .dicomDirectory, .dicomFile:
-            return try await loadDicom(from: url, format: format)
+            return try await loadDicom(from: url, format: format, selection: dicomSelection)
         case .rawStack, .unknown:
             throw ChromaEngineBridgeError.unsupportedFormat(url)
+        }
+    }
+
+    func inspectImport(at url: URL) async throws -> DicomImportInspection? {
+        guard inferFormat(from: url) == .dicomDirectory else {
+            return nil
+        }
+
+        do {
+            let inspection = try await engine.inspectDicomDirectory(at: url)
+            return makeDicomImportInspection(from: inspection)
+        } catch {
+            throw ChromaEngineBridgeError.underlyingEngineError(error.localizedDescription)
         }
     }
     
@@ -223,7 +244,11 @@ actor ChromaEngineBridge {
         }
     }
     
-    func loadDicom(from url: URL, format: VolumeFormat? = nil) async throws -> VolumeDescriptor {
+    func loadDicom(
+        from url: URL,
+        format: VolumeFormat? = nil,
+        selection: DicomImportSelection? = nil
+    ) async throws -> VolumeDescriptor {
         let dicomFormat: VolumeFormat
         if let explicit = format {
             dicomFormat = explicit
@@ -235,7 +260,10 @@ actor ChromaEngineBridge {
             let engineDescriptor: EngineVolumeDescriptor
             switch dicomFormat {
             case .dicomDirectory:
-                engineDescriptor = try await engine.loadDicomSeries(from: url)
+                engineDescriptor = try await engine.loadDicomSeries(
+                    from: url,
+                    selection: selection.map(makeEngineDicomSelection)
+                )
             case .dicomFile:
                 engineDescriptor = try await engine.loadDicomFile(from: url)
             default:
@@ -452,6 +480,65 @@ actor ChromaEngineBridge {
         volumes[handle.id] = record
         return descriptor
     }
+
+    private func makeEngineDicomSelection(_ selection: DicomImportSelection) -> CIDicomSeriesSelection {
+        CIDicomSeriesSelection(
+            seriesInstanceUID: selection.seriesInstanceUID,
+            subseriesKey: selection.subseriesKey
+        )
+    }
+
+    private func makeDicomImportInspection(from inspection: CIDicomImportInspection) -> DicomImportInspection {
+        let seriesByUID = Dictionary(uniqueKeysWithValues: inspection.series.map { ($0.seriesInstanceUID, $0) })
+        let recommendedSelection = inspection.selectedSeriesInfo.map {
+            DicomImportSelection(
+                seriesInstanceUID: $0.seriesInstanceUID,
+                subseriesKey: $0.subseriesKey
+            )
+        }
+
+        let options = inspection.subseries.map { subseries in
+            let series = seriesByUID[subseries.seriesInstanceUID]
+            let optionSelection = DicomImportSelection(
+                seriesInstanceUID: subseries.seriesInstanceUID,
+                subseriesKey: subseries.subseriesKey
+            )
+
+            return DicomImportOption(
+                selection: optionSelection,
+                studyDescription: series?.studyDescription,
+                seriesDescription: series?.seriesDescription,
+                modality: series?.modality,
+                seriesNumber: series?.seriesNumber,
+                fileCount: subseries.fileCount,
+                confidence: subseries.confidence,
+                orientationConsistent: subseries.orientationConsistent,
+                spacingUniform: subseries.spacingUniform,
+                spacingReferenceMm: subseries.spacingReferenceMm,
+                maxSpacingErrorMm: subseries.maxSpacingErrorMm,
+                reasons: subseries.reasons,
+                isRecommended: recommendedSelection == optionSelection
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.isRecommended != rhs.isRecommended {
+                return lhs.isRecommended && !rhs.isRecommended
+            }
+            if lhs.confidence != rhs.confidence {
+                return lhs.confidence > rhs.confidence
+            }
+            if lhs.fileCount != rhs.fileCount {
+                return lhs.fileCount > rhs.fileCount
+            }
+            return lhs.id < rhs.id
+        }
+
+        return DicomImportInspection(
+            options: options,
+            recommendedSelection: recommendedSelection,
+            selectionPolicy: inspection.selectionPolicy
+        )
+    }
     
     /// Very simple format inference from file extension.
     /// The goal is to be predictable and transparent, not magical.
@@ -531,7 +618,7 @@ actor ChromaEngineBridge {
         abs(a.x - b.x) <= epsilon && abs(a.y - b.y) <= epsilon && abs(a.z - b.z) <= epsilon
     }
 
-    static func makeCanonicalPlane(
+    nonisolated static func makeCanonicalPlane(
         volume: CImageVolume,
         orientation: SliceOrientation,
         crosshairPoint: SIMD3<Double>
@@ -616,7 +703,92 @@ actor ChromaEngineBridge {
         )
     }
 
-    static func clampPatientPoint(volume: CImageVolume, point: SIMD3<Double>) -> SIMD3<Double> {
+    nonisolated static func makeCanonicalPlane(
+        descriptor: VolumeDescriptor,
+        orientation: SliceOrientation,
+        crosshairPoint: SIMD3<Double>
+    ) -> PatientPlane {
+        let axes = directionColumns(descriptor: descriptor)
+        let direction = directionMatrix(descriptor: descriptor)
+        let spacing = SIMD3<Double>(descriptor.spacingX, descriptor.spacingY, descriptor.spacingZ)
+        let origin = SIMD3<Double>(descriptor.originX, descriptor.originY, descriptor.originZ)
+
+        let index = patientToVoxelIndex(
+            direction: direction,
+            spacing: spacing,
+            origin: origin,
+            point: crosshairPoint
+        )
+
+        let sizeX = descriptor.sizeX
+        let sizeY = descriptor.sizeY
+        let sizeZ = descriptor.sizeZ
+
+        let sliceIndex: Int
+        switch orientation {
+        case .axial:
+            sliceIndex = clamp(Int(index.z.rounded()), 0, max(sizeZ - 1, 0))
+        case .coronal:
+            sliceIndex = clamp(Int(index.y.rounded()), 0, max(sizeY - 1, 0))
+        case .sagittal:
+            sliceIndex = clamp(Int(index.x.rounded()), 0, max(sizeX - 1, 0))
+        }
+
+        let outputWidth: Int
+        let outputHeight: Int
+        switch orientation {
+        case .axial:
+            outputWidth = sizeX
+            outputHeight = sizeY
+        case .coronal:
+            outputWidth = sizeX
+            outputHeight = sizeZ
+        case .sagittal:
+            outputWidth = sizeY
+            outputHeight = sizeZ
+        }
+
+        let planeOrigin: SIMD3<Double>
+        let axisU: SIMD3<Double>
+        let axisV: SIMD3<Double>
+        let spacingU: Double
+        let spacingV: Double
+
+        switch orientation {
+        case .axial:
+            planeOrigin = voxelToPatient(direction: direction, spacing: spacing, origin: origin, index: SIMD3<Double>(0, 0, Double(sliceIndex)))
+            axisU = axes.x
+            axisV = axes.y
+            spacingU = spacing.x
+            spacingV = spacing.y
+        case .coronal:
+            planeOrigin = voxelToPatient(direction: direction, spacing: spacing, origin: origin, index: SIMD3<Double>(0, Double(sliceIndex), 0))
+            axisU = axes.x
+            axisV = axes.z
+            spacingU = spacing.x
+            spacingV = spacing.z
+        case .sagittal:
+            planeOrigin = voxelToPatient(direction: direction, spacing: spacing, origin: origin, index: SIMD3<Double>(Double(sliceIndex), 0, 0))
+            axisU = axes.y
+            axisV = axes.z
+            spacingU = spacing.y
+            spacingV = spacing.z
+        }
+
+        return PatientPlane(
+            origin: planeOrigin,
+            axisU: axisU,
+            axisV: axisV,
+            spacingU: spacingU,
+            spacingV: spacingV,
+            width: outputWidth,
+            height: outputHeight,
+            orientationHint: orientation,
+            sliceIndexHint: sliceIndex
+        )
+    }
+
+    nonisolated static func clampPatientPoint(volume: CImageVolume, point: SIMD3<Double>) -> SIMD3<Double> {
         let direction = directionMatrix(volume: volume)
         let spacing = SIMD3<Double>(volume.spacingX, volume.spacingY, volume.spacingZ)
         let origin = SIMD3<Double>(volume.originX, volume.originY, volume.originZ)
@@ -662,7 +834,71 @@ actor ChromaEngineBridge {
         )
     }
 
-    private static func directionMatrix(volume: CImageVolume) -> [[Double]] {
+    nonisolated static func clampPatientPoint(descriptor: VolumeDescriptor, point: SIMD3<Double>) -> SIMD3<Double> {
+        let direction = directionMatrix(descriptor: descriptor)
+        let spacing = SIMD3<Double>(descriptor.spacingX, descriptor.spacingY, descriptor.spacingZ)
+        let origin = SIMD3<Double>(descriptor.originX, descriptor.originY, descriptor.originZ)
+        let maxX = max(descriptor.sizeX - 1, 0)
+        let maxY = max(descriptor.sizeY - 1, 0)
+        let maxZ = max(descriptor.sizeZ - 1, 0)
+
+        let corners = [
+            SIMD3<Double>(0, 0, 0),
+            SIMD3<Double>(Double(maxX), 0, 0),
+            SIMD3<Double>(0, Double(maxY), 0),
+            SIMD3<Double>(0, 0, Double(maxZ)),
+            SIMD3<Double>(Double(maxX), Double(maxY), 0),
+            SIMD3<Double>(Double(maxX), 0, Double(maxZ)),
+            SIMD3<Double>(0, Double(maxY), Double(maxZ)),
+            SIMD3<Double>(Double(maxX), Double(maxY), Double(maxZ))
+        ].map { voxelToPatient(direction: direction, spacing: spacing, origin: origin, index: $0) }
+
+        var minPoint = SIMD3<Double>(Double.greatestFiniteMagnitude,
+                                     Double.greatestFiniteMagnitude,
+                                     Double.greatestFiniteMagnitude)
+        var maxPoint = SIMD3<Double>(-Double.greatestFiniteMagnitude,
+                                     -Double.greatestFiniteMagnitude,
+                                     -Double.greatestFiniteMagnitude)
+
+        for corner in corners {
+            minPoint = SIMD3<Double>(
+                min(minPoint.x, corner.x),
+                min(minPoint.y, corner.y),
+                min(minPoint.z, corner.z)
+            )
+            maxPoint = SIMD3<Double>(
+                max(maxPoint.x, corner.x),
+                max(maxPoint.y, corner.y),
+                max(maxPoint.z, corner.z)
+            )
+        }
+
+        return SIMD3<Double>(
+            min(max(point.x, minPoint.x), maxPoint.x),
+            min(max(point.y, minPoint.y), maxPoint.y),
+            min(max(point.z, minPoint.z), maxPoint.z)
+        )
+    }
+
+    nonisolated static func patientToVoxelIndex(descriptor: VolumeDescriptor, point: SIMD3<Double>) -> SIMD3<Double> {
+        patientToVoxelIndex(
+            direction: directionMatrix(descriptor: descriptor),
+            spacing: SIMD3<Double>(descriptor.spacingX, descriptor.spacingY, descriptor.spacingZ),
+            origin: SIMD3<Double>(descriptor.originX, descriptor.originY, descriptor.originZ),
+            point: point
+        )
+    }
+
+    nonisolated static func voxelToPatient(descriptor: VolumeDescriptor, index: SIMD3<Double>) -> SIMD3<Double> {
+        voxelToPatient(
+            direction: directionMatrix(descriptor: descriptor),
+            spacing: SIMD3<Double>(descriptor.spacingX, descriptor.spacingY, descriptor.spacingZ),
+            origin: SIMD3<Double>(descriptor.originX, descriptor.originY, descriptor.originZ),
+            index: index
+        )
+    }
+
+    nonisolated private static func directionMatrix(volume: CImageVolume) -> [[Double]] {
         let d = volume.direction
         return [
             [d[0], d[1], d[2]],
@@ -671,7 +907,7 @@ actor ChromaEngineBridge {
         ]
     }
 
-    private static func directionColumns(volume: CImageVolume) -> (x: SIMD3<Double>, y: SIMD3<Double>, z: SIMD3<Double>) {
+    nonisolated private static func directionColumns(volume: CImageVolume) -> (x: SIMD3<Double>, y: SIMD3<Double>, z: SIMD3<Double>) {
         let dir = directionMatrix(volume: volume)
         let x = SIMD3<Double>(dir[0][0], dir[1][0], dir[2][0])
         let y = SIMD3<Double>(dir[0][1], dir[1][1], dir[2][1])
@@ -679,7 +915,24 @@ actor ChromaEngineBridge {
         return (x: x, y: y, z: z)
     }
 
-    private static func patientToVoxelIndex(
+    nonisolated private static func directionMatrix(descriptor: VolumeDescriptor) -> [[Double]] {
+        let d = descriptor.direction
+        return [
+            [d[0], d[1], d[2]],
+            [d[4], d[5], d[6]],
+            [d[8], d[9], d[10]]
+        ]
+    }
+
+    nonisolated private static func directionColumns(descriptor: VolumeDescriptor) -> (x: SIMD3<Double>, y: SIMD3<Double>, z: SIMD3<Double>) {
+        let dir = directionMatrix(descriptor: descriptor)
+        let x = SIMD3<Double>(dir[0][0], dir[1][0], dir[2][0])
+        let y = SIMD3<Double>(dir[0][1], dir[1][1], dir[2][1])
+        let z = SIMD3<Double>(dir[0][2], dir[1][2], dir[2][2])
+        return (x: x, y: y, z: z)
+    }
+
+    nonisolated private static func patientToVoxelIndex(
         direction: [[Double]],
         spacing: SIMD3<Double>,
         origin: SIMD3<Double>,
@@ -695,7 +948,7 @@ actor ChromaEngineBridge {
         )
     }
 
-    private static func voxelToPatient(
+    nonisolated private static func voxelToPatient(
         direction: [[Double]],
         spacing: SIMD3<Double>,
         origin: SIMD3<Double>,
@@ -710,14 +963,14 @@ actor ChromaEngineBridge {
         return origin + rotated
     }
 
-    private static func multiply(_ matrix: [[Double]], _ vector: SIMD3<Double>) -> SIMD3<Double> {
+    nonisolated private static func multiply(_ matrix: [[Double]], _ vector: SIMD3<Double>) -> SIMD3<Double> {
         let x = matrix[0][0] * vector.x + matrix[0][1] * vector.y + matrix[0][2] * vector.z
         let y = matrix[1][0] * vector.x + matrix[1][1] * vector.y + matrix[1][2] * vector.z
         let z = matrix[2][0] * vector.x + matrix[2][1] * vector.y + matrix[2][2] * vector.z
         return SIMD3<Double>(x, y, z)
     }
 
-    private static func invert3x3(_ matrix: [[Double]]) -> [[Double]] {
+    nonisolated private static func invert3x3(_ matrix: [[Double]]) -> [[Double]] {
         let a = matrix[0][0], b = matrix[0][1], c = matrix[0][2]
         let d = matrix[1][0], e = matrix[1][1], f = matrix[1][2]
         let g = matrix[2][0], h = matrix[2][1], i = matrix[2][2]
@@ -738,7 +991,7 @@ actor ChromaEngineBridge {
         ]
     }
 
-    private static func clamp(_ value: Int, _ minValue: Int, _ maxValue: Int) -> Int {
+    nonisolated private static func clamp(_ value: Int, _ minValue: Int, _ maxValue: Int) -> Int {
         min(max(value, minValue), maxValue)
     }
 

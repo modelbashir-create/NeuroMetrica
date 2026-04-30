@@ -37,5 +37,20 @@ struct ImportView: View {
         ) { result in
             viewModel.handleFileImport(result: result)
         }
+        .sheet(
+            item: Binding(
+                get: { viewModel.pendingDicomReviewSession },
+                set: { session in
+                    if session == nil {
+                        viewModel.dismissPendingDicomReview()
+                    }
+                }
+            )
+        ) { session in
+            DicomImportReviewSheet(
+                viewModel: viewModel,
+                session: session
+            )
+        }
     }
 }

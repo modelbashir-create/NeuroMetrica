@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		ABCD10012F6C000100000001 /* DicomImportReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD10112F6C000100000011 /* DicomImportReview.swift */; };
+		ABCD10022F6C000100000002 /* DicomImportInspecting.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD10122F6C000100000012 /* DicomImportInspecting.swift */; };
+		ABCD10032F6C000100000003 /* DicomImportReviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD10132F6C000100000013 /* DicomImportReviewSheet.swift */; };
 		13A48E68A14A4034A93349C2 /* ErrorOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC479D57ADC4A0A83AC1191 /* ErrorOverlayView.swift */; };
 		2E3A1F5EFCEB4D61BEE0A287 /* ViewViewerTransitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6619C6ADAF6F48B29CAF6AC1 /* ViewViewerTransitions.swift */; };
 		3DDB3321273E42159E379CCC /* ViewViewerGlassEffect.swift in Sources */ = {isa = PBXBuildFile; fileRef = C34F7F1AC3094DCD8D5046DD /* ViewViewerGlassEffect.swift */; };
@@ -85,6 +88,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		ABCD10112F6C000100000011 /* DicomImportReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DicomImportReview.swift; sourceTree = "<group>"; };
+		ABCD10122F6C000100000012 /* DicomImportInspecting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DicomImportInspecting.swift; sourceTree = "<group>"; };
+		ABCD10132F6C000100000013 /* DicomImportReviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DicomImportReviewSheet.swift; sourceTree = "<group>"; };
 		0D8B3C3979B7413EA9E9FB40 /* CrosshairOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrosshairOverlay.swift; sourceTree = "<group>"; };
 		44BB442C53914EB5BF4F2EB8 /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
 		4AC479D57ADC4A0A83AC1191 /* ErrorOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorOverlayView.swift; sourceTree = "<group>"; };
@@ -247,6 +253,7 @@
 		9DF9149971FE4775B3691DAB /* Protocols */ = {
 			isa = PBXGroup;
 			children = (
+				ABCD10122F6C000100000012 /* DicomImportInspecting.swift */,
 				FFB120042F5B0001 /* VolumeOpenRouting.swift */,
 			);
 			path = Protocols;
@@ -275,6 +282,7 @@
 			children = (
 				FF9BB7392EC7199D000F271C /* AppError.swift */,
 				FF9BB73A2EC7199D000F271C /* AppSettings.swift */,
+				ABCD10112F6C000100000011 /* DicomImportReview.swift */,
 				FFCCB0012F00000100000002 /* Study.swift */,
 				FFCCB0032F00000100000004 /* StudySeries.swift */,
 			);
@@ -398,6 +406,7 @@
 		FF9BB7552EC7199D000F271C /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				ABCD10132F6C000100000013 /* DicomImportReviewSheet.swift */,
 				FF9BB7542EC7199D000F271C /* ImportView.swift */,
 			);
 			path = Views;
@@ -762,6 +771,8 @@
 				FF9BB7762EC7199D000F271C /* AppError.swift in Sources */,
 				FF9BB7772EC7199D000F271C /* AppContainer.swift in Sources */,
 				FF9BB7782EC7199D000F271C /* HeritagePACSTheme.swift in Sources */,
+				ABCD10012F6C000100000001 /* DicomImportReview.swift in Sources */,
+				ABCD10022F6C000100000002 /* DicomImportInspecting.swift in Sources */,
 				FFCCB0102F00000100000010 /* ViewerErrorPresenter.swift in Sources */,
 				FF9BB7792EC7199D000F271C /* SettingsViewModel.swift in Sources */,
 				FF9BB77A2EC7199D000F271C /* ViewNeuroMetrica.swift in Sources */,
@@ -769,6 +780,7 @@
 				FF9BB77C2EC7199D000F271C /* RecentFilesStore.swift in Sources */,
 				A3A3A3A3A3A3A3A3A3A3A3A3 /* MetadataDiagnostics.swift in Sources */,
 				A5A5A5A5A5A5A5A5A5A5A5A5 /* ImageDataDiagnostics.swift in Sources */,
+				ABCD10032F6C000100000003 /* DicomImportReviewSheet.swift in Sources */,
 				FF9BB77D2EC7199D000F271C /* ViewerViewModel.swift in Sources */,
 				FF9BB77E2EC7199D000F271C /* DebugOverlayView.swift in Sources */,
 				FF9BB77F2EC7199D000F271C /* ImportViewModel.swift in Sources */,

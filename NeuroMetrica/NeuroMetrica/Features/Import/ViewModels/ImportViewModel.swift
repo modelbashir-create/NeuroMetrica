@@ -6,19 +6,25 @@ import UniformTypeIdentifiers
 final class ImportViewModel: ObservableObject, @unchecked Sendable {
     @Published var searchText: String = ""
     @Published var isFileImporterPresented: Bool = false
+    @Published private(set) var pendingDicomReviewSession: DicomImportReviewSession?
 
     private let filePickerService: FilePickerService
     private let recentFilesStore: RecentFilesStore
     private let volumeRouter: VolumeOpenRouting
+    private let dicomImportInspector: DicomImportInspecting
+    private var queuedImportTargets: [URL] = []
+    private var isProcessingQueuedImports: Bool = false
 
     init(
         filePickerService: FilePickerService,
         recentFilesStore: RecentFilesStore,
-        volumeRouter: VolumeOpenRouting
+        volumeRouter: VolumeOpenRouting,
+        dicomImportInspector: DicomImportInspecting
     ) {
         self.filePickerService = filePickerService
         self.recentFilesStore = recentFilesStore
         self.volumeRouter = volumeRouter
+        self.dicomImportInspector = dicomImportInspector
     }
 
     var allowedContentTypes: [UTType] {
@@ -90,8 +96,44 @@ final class ImportViewModel: ObservableObject, @unchecked Sendable {
         let targets = filePickerService.loadTargets(from: urls)
         guard !targets.isEmpty else { return }
         Task {
-            await volumeRouter.openVolumes(from: targets)
+            await processImportTargets(targets)
         }
+    }
+
+    func selectPendingDicomReviewOption(id: String) {
+        guard var session = pendingDicomReviewSession else { return }
+        guard session.options.contains(where: { $0.id == id }) else { return }
+        session.selectedOptionID = id
+        pendingDicomReviewSession = session
+    }
+
+    func confirmPendingDicomReview() {
+        guard let session = pendingDicomReviewSession else { return }
+        pendingDicomReviewSession = nil
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.volumeRouter.openVolume(
+                from: session.sourceURL,
+                dicomSelection: session.selectedOption?.selection
+            )
+            await self.processQueuedImportsIfNeeded()
+        }
+    }
+
+    func dismissPendingDicomReview() {
+        pendingDicomReviewSession = nil
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.processQueuedImportsIfNeeded()
+        }
+    }
+
+    func processImportTargets(_ targets: [URL]) async {
+        guard !targets.isEmpty else { return }
+        queuedImportTargets.append(contentsOf: targets)
+        await processQueuedImportsIfNeeded()
     }
 
     // Canvas/sidebar drop handler: loads a file URL and routes it through the existing import/open flow.
@@ -143,6 +185,51 @@ final class ImportViewModel: ObservableObject, @unchecked Sendable {
                     continuation.resume(returning: resolvedURL)
                 }
             }
+        }
+    }
+
+    private func processQueuedImportsIfNeeded() async {
+        guard !isProcessingQueuedImports else { return }
+        guard pendingDicomReviewSession == nil else { return }
+
+        isProcessingQueuedImports = true
+        defer { isProcessingQueuedImports = false }
+
+        while pendingDicomReviewSession == nil, !queuedImportTargets.isEmpty {
+            let url = queuedImportTargets.removeFirst()
+            await processImportTarget(url)
+        }
+    }
+
+    private func processImportTarget(_ url: URL) async {
+        let inspection = await inspectDicomImportIfNeeded(at: url)
+        if let inspection, inspection.shouldPresentReview {
+            pendingDicomReviewSession = DicomImportReviewSession(
+                sourceURL: url,
+                inspection: inspection
+            )
+            return
+        }
+
+        await volumeRouter.openVolume(
+            from: url,
+            dicomSelection: inspection?.recommendedSelection
+        )
+    }
+
+    private func inspectDicomImportIfNeeded(at url: URL) async -> DicomImportInspection? {
+        let didStartAccess = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccess {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            return try await dicomImportInspector.inspectImport(at: url)
+        } catch {
+            AppLogger.error("DICOM import inspection failed for \(url.path)", error: error)
+            return nil
         }
     }
 

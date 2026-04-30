@@ -44,7 +44,8 @@ struct AppContainer: View {
         let importViewModel = ImportViewModel(
             filePickerService: filePickerService,
             recentFilesStore: recentFilesStore,
-            volumeRouter: viewerViewModel
+            volumeRouter: viewerViewModel,
+            dicomImportInspector: engineBridge
         )
 
         let loadingViewModel = LoadingViewModel()
