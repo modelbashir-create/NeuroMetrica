@@ -370,6 +370,7 @@ extension ChromaEngine {
         var selectedCandidateId: String?
         var selectionReason: String?
         var selectionInfo: SeriesSelectionInfo?
+        var selectionPolicy: String?
     }
 
     func parseSeriesDiagnostics(from metadataJSON: String?) -> SeriesDiagnosticsParseResult {
@@ -387,6 +388,7 @@ extension ChromaEngine {
         let selectedCandidateId = dict["_selectedSeriesCandidateId"] as? String
         let selectionReason = dict["_seriesSelectionReason"] as? String
         let selectionInfo = parseSeriesSelectionInfo(dict["_selectedSeriesCandidateInfo"])
+        let selectionPolicy = dict["_inspectionSelectionPolicy"] as? String
 
         return SeriesDiagnosticsParseResult(
             series: series,
@@ -395,7 +397,8 @@ extension ChromaEngine {
             candidates: candidates,
             selectedCandidateId: selectedCandidateId,
             selectionReason: selectionReason,
-            selectionInfo: selectionInfo
+            selectionInfo: selectionInfo,
+            selectionPolicy: selectionPolicy
         )
     }
 
@@ -406,9 +409,32 @@ extension ChromaEngine {
             guard let dict = entry as? [String: Any],
                   let uid = dict["seriesInstanceUID"] as? String else { continue }
             let fileCount = (dict["fileCount"] as? NSNumber)?.intValue ?? 0
-            results.append(CISeriesDiagnostic(seriesInstanceUID: uid, fileCount: fileCount))
+            results.append(CISeriesDiagnostic(
+                seriesInstanceUID: uid,
+                fileCount: fileCount,
+                studyDescription: dict["studyDescription"] as? String,
+                seriesDescription: dict["seriesDescription"] as? String,
+                modality: dict["modality"] as? String,
+                seriesNumber: dict["seriesNumber"] as? String
+            ))
         }
         return results.isEmpty ? nil : results
+    }
+
+    func parseDicomImportInspection(from metadataJSON: String?) -> CIDicomImportInspection? {
+        let diagnostics = parseSeriesDiagnostics(from: metadataJSON)
+        guard let series = diagnostics.series,
+              let subseries = diagnostics.subseries,
+              !subseries.isEmpty else {
+            return nil
+        }
+
+        return CIDicomImportInspection(
+            series: series,
+            subseries: subseries,
+            selectedSeriesInfo: diagnostics.selected,
+            selectionPolicy: diagnostics.selectionPolicy
+        )
     }
 
     func parseSubseriesDiagnosticsArray(_ value: Any?) -> [CISubseriesDiagnostic]? {

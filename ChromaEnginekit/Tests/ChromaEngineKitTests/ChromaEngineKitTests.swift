@@ -85,6 +85,51 @@ final class ChromaEngineKitTests: XCTestCase {
         XCTAssertEqual(result.selectionInfo?.fallbackUsed, false)
     }
 
+    func testDicomImportInspectionParsing() throws {
+        let engine = ChromaEngine(config: ChromaEngineConfig())
+        let json = """
+        {
+          "_seriesDiagnostics":[
+            {
+              "seriesInstanceUID":"series-1",
+              "fileCount":24,
+              "studyDescription":"Knee",
+              "seriesDescription":"AX PD",
+              "modality":"MR",
+              "seriesNumber":"4"
+            }
+          ],
+          "_subseriesDiagnostics":[
+            {
+              "seriesInstanceUID":"series-1",
+              "subseriesKey":"stack-a",
+              "fileCount":24,
+              "confidence":5,
+              "orientationConsistent":true,
+              "spacingUniform":true,
+              "reasons":[]
+            }
+          ],
+          "_selectedSeriesInfo":{
+            "seriesInstanceUID":"series-1",
+            "subseriesKey":"stack-a",
+            "confidence":5
+          },
+          "_inspectionSelectionPolicy":"highest_confidence_then_file_count_then_uid"
+        }
+        """
+
+        let inspection = engine.parseDicomImportInspection(from: json)
+
+        XCTAssertNotNil(inspection)
+        XCTAssertEqual(inspection?.series.count, 1)
+        XCTAssertEqual(inspection?.series.first?.seriesDescription, "AX PD")
+        XCTAssertEqual(inspection?.series.first?.studyDescription, "Knee")
+        XCTAssertEqual(inspection?.subseries.first?.subseriesKey, "stack-a")
+        XCTAssertEqual(inspection?.selectedSeriesInfo?.seriesInstanceUID, "series-1")
+        XCTAssertEqual(inspection?.selectionPolicy, "highest_confidence_then_file_count_then_uid")
+    }
+
     func testGeometryValidationParsing() throws {
         let engine = ChromaEngine(config: ChromaEngineConfig())
         let json = """

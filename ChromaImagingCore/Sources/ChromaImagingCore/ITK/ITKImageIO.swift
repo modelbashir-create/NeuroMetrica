@@ -79,7 +79,7 @@ public enum ITKImageIO {
 
         switch resolvedFormat {
         case .dicomSeries:
-            return try loadDicomSeries(at: url, backend: dicomBackend)
+            return try loadDicomSeriesDescriptor(at: url, backend: dicomBackend)
         case .singleFile:
             return try loadSingleFileVolume(at: url, backend: dicomBackend)
         case .auto:
@@ -88,11 +88,62 @@ public enum ITKImageIO {
         }
     }
 
+    /// Inspect a DICOM directory and return JSON describing detected series
+    /// and candidate stacks without allocating voxel buffers.
+    public static func inspectDicomDirectory(
+        at url: URL,
+        backend: ITKDicomBackend = .automatic
+    ) throws -> String {
+        let fm = FileManager.default
+        let path = url.path
+
+        guard fm.fileExists(atPath: path) else {
+            throw ITKImageIOError.fileNotFound(url)
+        }
+
+        let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+        guard isDirectory else {
+            throw ITKImageIOError.unsupportedPath(url)
+        }
+
+        return try inspectDicomDirectoryJSON(at: url, backend: backend)
+    }
+
+    /// Load a DICOM series from a directory using an explicit series/subseries
+    /// selection when provided.
+    public static func loadSelectedDicomSeries(
+        at url: URL,
+        selectedSeriesInstanceUID: String? = nil,
+        selectedSubseriesKey: String? = nil,
+        backend: ITKDicomBackend = .automatic
+    ) throws -> ITKImageDescriptor {
+        let fm = FileManager.default
+        let path = url.path
+
+        guard fm.fileExists(atPath: path) else {
+            throw ITKImageIOError.fileNotFound(url)
+        }
+
+        let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+        guard isDirectory else {
+            throw ITKImageIOError.unsupportedPath(url)
+        }
+
+        return try loadDicomSeriesDescriptor(
+            at: url,
+            selectedSeriesInstanceUID: selectedSeriesInstanceUID,
+            selectedSubseriesKey: selectedSubseriesKey,
+            backend: backend
+        )
+    }
+
     // MARK: - Internal Helpers
 
     /// Load a DICOM series volume from a directory via ITKBridge.
-    private static func loadDicomSeries(
+    private static func loadDicomSeriesDescriptor(
         at url: URL,
+        selectedSeriesInstanceUID: String? = nil,
+        selectedSubseriesKey: String? = nil,
         backend: ITKDicomBackend
     ) throws -> ITKImageDescriptor {
         var cDescriptor = ITKImageDescriptorC()
@@ -100,14 +151,34 @@ public enum ITKImageIO {
 
         let resolvedBackend = resolveBackend(backend)
         let success = pathString(for: url).withCString { cPath in
-            errorBuffer.withUnsafeMutableBufferPointer { errPtr in
-                ITKLoadDicomSeriesWithBackend(
-                    cPath,
-                    resolvedBackend,
-                    &cDescriptor,
-                    errPtr.baseAddress,
-                    Int32(errPtr.count)   // <- Int → Int32
-                )
+            let seriesUIDValue = selectedSeriesInstanceUID ?? ""
+            return seriesUIDValue.withCString { cSeriesUID in
+                let subseriesKeyValue = selectedSubseriesKey ?? ""
+                return subseriesKeyValue.withCString { cSubseriesKey in
+                    errorBuffer.withUnsafeMutableBufferPointer { errPtr in
+                        if selectedSeriesInstanceUID == nil && selectedSubseriesKey == nil {
+                            return ITKLoadDicomSeriesWithBackend(
+                                cPath,
+                                resolvedBackend,
+                                &cDescriptor,
+                                errPtr.baseAddress,
+                                Int32(errPtr.count)
+                            )
+                        }
+
+                        let seriesPointer = selectedSeriesInstanceUID == nil ? nil : cSeriesUID
+                        let subseriesPointer = selectedSubseriesKey == nil ? nil : cSubseriesKey
+                        return ITKLoadDicomSeriesSelectionWithBackend(
+                            cPath,
+                            seriesPointer,
+                            subseriesPointer,
+                            resolvedBackend,
+                            &cDescriptor,
+                            errPtr.baseAddress,
+                            Int32(errPtr.count)
+                        )
+                    }
+                }
             }
         }
 
@@ -118,6 +189,43 @@ public enum ITKImageIO {
         }
 
         return ITKImageDescriptor(cDescriptor: cDescriptor)
+    }
+
+    private static func inspectDicomDirectoryJSON(
+        at url: URL,
+        backend: ITKDicomBackend
+    ) throws -> String {
+        var cResult = ITKJSONStringResultC()
+        var errorBuffer = [CChar](repeating: 0, count: 1024)
+
+        let resolvedBackend = resolveBackend(backend)
+        let success = pathString(for: url).withCString { cPath in
+            errorBuffer.withUnsafeMutableBufferPointer { errPtr in
+                ITKInspectDicomDirectoryWithBackend(
+                    cPath,
+                    resolvedBackend,
+                    &cResult,
+                    errPtr.baseAddress,
+                    Int32(errPtr.count)
+                )
+            }
+        }
+
+        guard success else {
+            let rawMessage = String(cString: errorBuffer)
+            let message = rawMessage.isEmpty ? "Unknown ITK error." : rawMessage
+            throw ITKImageIOError.loadFailed(message: message)
+        }
+
+        defer {
+            ITKFreeJSONStringResult(&cResult)
+        }
+
+        guard let jsonPointer = cResult.json else {
+            return "{}"
+        }
+
+        return String(cString: jsonPointer)
     }
 
     /// Load a single-file volume (NIfTI, NRRD, etc.) via ITKBridge.

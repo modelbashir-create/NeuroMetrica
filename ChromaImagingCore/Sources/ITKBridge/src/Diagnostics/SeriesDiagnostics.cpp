@@ -13,6 +13,8 @@ SeriesDiagnosticsResult buildSeriesDiagnostics(
 ) {
     SeriesDiagnosticsResult result;
     std::vector<SubseriesCandidate> candidates;
+    std::vector<SeriesDiagnosticRecord> seriesRecords;
+    const std::string selectionPolicy = "highest_confidence_then_file_count_then_uid";
 
     std::string seriesDiagnostics = "[";
     std::string subseriesDiagnostics = "[";
@@ -21,18 +23,14 @@ SeriesDiagnosticsResult buildSeriesDiagnostics(
 
     for (const auto &seriesUID : seriesUIDs) {
         std::vector<std::string> fileNames = nameGen->GetFileNames(seriesUID);
-        if (!firstSeries) { seriesDiagnostics += ","; }
-        firstSeries = false;
-        seriesDiagnostics += "{";
-        bool firstField = true;
-        seriesDiagnostics += jsonStringField("seriesInstanceUID", seriesUID, firstField);
-        seriesDiagnostics += jsonObjectField("fileCount", jsonNumber(static_cast<double>(fileNames.size())), firstField);
-        seriesDiagnostics += "}";
-
         std::map<std::string, std::vector<size_t>> subseriesIndices;
         std::vector<std::vector<double>> iopValues(fileNames.size());
         std::vector<std::vector<double>> ippValues(fileNames.size());
         std::vector<bool> pixelDataPresent(fileNames.size(), false);
+        std::string studyDescription;
+        std::string seriesDescription;
+        std::string modality;
+        std::string seriesNumber;
 
         for (size_t i = 0; i < fileNames.size(); ++i) {
             const std::string &file = fileNames[i];
@@ -40,6 +38,13 @@ SeriesDiagnosticsResult buildSeriesDiagnostics(
             dicomIO->SetFileName(file);
             dicomIO->ReadImageInformation();
             const auto &dict = dicomIO->GetMetaDataDictionary();
+
+            if (i == 0) {
+                extractDicomString(dict, "0008|1030", studyDescription);
+                extractDicomString(dict, "0008|103e", seriesDescription);
+                extractDicomString(dict, "0008|0060", modality);
+                extractDicomString(dict, "0020|0011", seriesNumber);
+            }
 
             std::vector<double> iop;
             std::vector<double> ipp;
@@ -71,6 +76,35 @@ SeriesDiagnosticsResult buildSeriesDiagnostics(
 
             subseriesIndices[key].push_back(i);
         }
+
+        SeriesDiagnosticRecord seriesRecord;
+        seriesRecord.seriesUID = seriesUID;
+        seriesRecord.fileCount = fileNames.size();
+        seriesRecord.studyDescription = studyDescription;
+        seriesRecord.seriesDescription = seriesDescription;
+        seriesRecord.modality = modality;
+        seriesRecord.seriesNumber = seriesNumber;
+        seriesRecords.push_back(seriesRecord);
+
+        if (!firstSeries) { seriesDiagnostics += ","; }
+        firstSeries = false;
+        seriesDiagnostics += "{";
+        bool firstField = true;
+        seriesDiagnostics += jsonStringField("seriesInstanceUID", seriesUID, firstField);
+        seriesDiagnostics += jsonObjectField("fileCount", jsonNumber(static_cast<double>(fileNames.size())), firstField);
+        if (!studyDescription.empty()) {
+            seriesDiagnostics += jsonStringField("studyDescription", studyDescription, firstField);
+        }
+        if (!seriesDescription.empty()) {
+            seriesDiagnostics += jsonStringField("seriesDescription", seriesDescription, firstField);
+        }
+        if (!modality.empty()) {
+            seriesDiagnostics += jsonStringField("modality", modality, firstField);
+        }
+        if (!seriesNumber.empty()) {
+            seriesDiagnostics += jsonStringField("seriesNumber", seriesNumber, firstField);
+        }
+        seriesDiagnostics += "}";
 
         for (const auto &entry : subseriesIndices) {
             const std::string &key = entry.first;
@@ -255,20 +289,27 @@ SeriesDiagnosticsResult buildSeriesDiagnostics(
         result.selectedConfidence = best.confidence;
     }
 
-    std::string selectedInfo = "{";
-    bool selectedFirst = true;
-    if (!result.selectedSeriesUID.empty()) {
-        selectedInfo += jsonStringField("seriesInstanceUID", result.selectedSeriesUID, selectedFirst);
-    }
-    if (!result.selectedSubseriesKey.empty()) {
-        selectedInfo += jsonStringField("subseriesKey", result.selectedSubseriesKey, selectedFirst);
-    }
-    selectedInfo += jsonObjectField("confidence", jsonNumber(static_cast<double>(result.selectedConfidence)), selectedFirst);
-    selectedInfo += "}";
+    std::string selectedInfo = selectedSeriesInfoToJSON(
+        result.selectedSeriesUID,
+        result.selectedSubseriesKey,
+        result.selectedConfidence
+    );
 
+    std::string inspectionJSON = "{";
+    bool inspectionFirst = true;
+    inspectionJSON += jsonObjectField("_seriesDiagnostics", seriesDiagnostics, inspectionFirst);
+    inspectionJSON += jsonObjectField("_subseriesDiagnostics", subseriesDiagnostics, inspectionFirst);
+    inspectionJSON += jsonObjectField("_selectedSeriesInfo", selectedInfo, inspectionFirst);
+    inspectionJSON += jsonStringField("_inspectionSelectionPolicy", selectionPolicy, inspectionFirst);
+    inspectionJSON += "}";
+
+    result.selectionPolicy = selectionPolicy;
     result.seriesDiagnosticsJSON = seriesDiagnostics;
     result.subseriesDiagnosticsJSON = subseriesDiagnostics;
     result.selectedInfoJSON = selectedInfo;
+    result.inspectionJSON = inspectionJSON;
+    result.seriesRecords = seriesRecords;
+    result.subseriesCandidates = candidates;
     return result;
 }
 
@@ -337,4 +378,20 @@ std::string geometryValidationToJSON(const GeometryValidationResult &validation)
     json += jsonStringField("validationStatus", validation.validationStatus, firstField);
     json += "}";
     return json;
+}
+
+std::string selectedSeriesInfoToJSON(const std::string &seriesUID,
+                                     const std::string &subseriesKey,
+                                     int confidence) {
+    std::string selectedInfo = "{";
+    bool selectedFirst = true;
+    if (!seriesUID.empty()) {
+        selectedInfo += jsonStringField("seriesInstanceUID", seriesUID, selectedFirst);
+    }
+    if (!subseriesKey.empty()) {
+        selectedInfo += jsonStringField("subseriesKey", subseriesKey, selectedFirst);
+    }
+    selectedInfo += jsonObjectField("confidence", jsonNumber(static_cast<double>(confidence)), selectedFirst);
+    selectedInfo += "}";
+    return selectedInfo;
 }

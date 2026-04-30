@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,7 @@ struct GroupingResult {
     std::vector<size_t> selectedIndices;
     std::vector<std::string> keysUsed;
     std::vector<SeriesCandidateRecord> candidates;
+    std::map<std::string, std::vector<size_t>> groupIndices;
     std::string selectionReason;
     size_t selectedSliceCount = 0;
 };
@@ -25,4 +27,3 @@ struct GroupingResult {
 GroupingResult groupFilesByTags(
     const std::vector<std::string> &fileNames,
     const std::vector<itk::MetaDataDictionary> &dictionaries);
-

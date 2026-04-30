@@ -16,11 +16,14 @@ import ChromaImagingCore   // ITKImageIO + ITKImageDescriptor
 
 public enum ChromaEngineError: Error, LocalizedError {
     case notImplemented(String)
+    case invalidMetadata(String)
 
     public var errorDescription: String? {
         switch self {
         case .notImplemented(let feature):
             return "\(feature) is not implemented yet in ChromaEngine."
+        case .invalidMetadata(let description):
+            return description
         }
     }
 }
@@ -95,12 +98,15 @@ public struct ChromaEngine: Sendable {
     /// Long-term: delegate to ITK DICOM series reader (GDCM/DCMTK)
     /// via the ITK bridge.
     public func loadDicomSeries(from directoryURL: URL) async throws -> EngineVolumeDescriptor {
-        let descriptor = try ITKImageIO.loadVolume(
-            at: directoryURL,
-            formatHint: .dicomSeries,
-            dicomBackend: mapDicomBackend(config.dicomBackend)
-        )
-        return convertDescriptorToVolume(descriptor, sourceFormat: .dicom, sourceDescription: directoryURL.path)
+        try loadDicomSeriesVolume(from: directoryURL, selection: nil)
+    }
+
+    /// Load a DICOM series from a directory using an explicit selection when provided.
+    public func loadDicomSeries(
+        from directoryURL: URL,
+        selection: CIDicomSeriesSelection?
+    ) async throws -> EngineVolumeDescriptor {
+        try loadDicomSeriesVolume(from: directoryURL, selection: selection)
     }
 
     /// Invalidate GPU cache entries for a specific volume.

@@ -105,6 +105,15 @@ typedef struct ITKImageDescriptorC {
     int32_t sliceProvenanceJSONLength;
 } ITKImageDescriptorC;
 
+/// Heap-allocated UTF-8 JSON payload returned by inspection APIs.
+typedef struct ITKJSONStringResultC {
+    /// Pointer to a null-terminated UTF-8 JSON string.
+    const char *json;
+
+    /// Length in bytes of `json` (excluding null terminator).
+    int32_t jsonLength;
+} ITKJSONStringResultC;
+
 
 /// Fill `buffer` with a human-readable ITK version string.
 ///
@@ -143,6 +152,34 @@ bool ITKLoadDicomSeriesWithBackend(const char *directoryPath,
                                    char *errorBuffer,
                                    int errorBufferLength);
 
+/// Load a DICOM series selection from a directory, forcing a specific backend.
+///
+/// `seriesInstanceUID` and `subseriesKey` are optional. Pass NULL to use the
+/// bridge's automatic selection. `subseriesKey` only applies within the chosen
+/// series UID.
+bool ITKLoadDicomSeriesSelectionWithBackend(const char *directoryPath,
+                                            const char *seriesInstanceUID,
+                                            const char *subseriesKey,
+                                            ITKDicomBackendC backend,
+                                            ITKImageDescriptorC *outDescriptor,
+                                            char *errorBuffer,
+                                            int errorBufferLength);
+
+/// Inspect a DICOM directory and return JSON describing detected series and
+/// candidate subseries without loading voxel data.
+bool ITKInspectDicomDirectory(const char *directoryPath,
+                              ITKJSONStringResultC *outResult,
+                              char *errorBuffer,
+                              int errorBufferLength);
+
+/// Inspect a DICOM directory and return JSON describing detected series and
+/// candidate subseries, forcing a specific backend.
+bool ITKInspectDicomDirectoryWithBackend(const char *directoryPath,
+                                         ITKDicomBackendC backend,
+                                         ITKJSONStringResultC *outResult,
+                                         char *errorBuffer,
+                                         int errorBufferLength);
+
 
 /// Load a single-file volume (NIfTI, NRRD, MetaImage, etc.).
 ///
@@ -176,6 +213,9 @@ bool ITKLoadDicomFileWithBackend(const char *filePath,
 /// After this call, bufferHandle is set to NULL, valueCount is zeroed,
 /// and the rest of the fields are left in a safe default state.
 void ITKFreeImageDescriptor(ITKImageDescriptorC *descriptor);
+
+/// Free resources owned by a JSON inspection result.
+void ITKFreeJSONStringResult(ITKJSONStringResultC *result);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -63,5 +63,10 @@ void registerDicomIOFactories();
 itk::ImageIOBase::Pointer makeDicomIO(ITKDicomBackendC backend);
 
 VolumeLoadResult loadDicomSeries(const char *directoryPath, ITKDicomBackendC backend);
+VolumeLoadResult loadDicomSeriesSelection(const char *directoryPath,
+                                          const char *seriesInstanceUID,
+                                          const char *subseriesKey,
+                                          ITKDicomBackendC backend);
+std::string inspectDicomDirectory(const char *directoryPath, ITKDicomBackendC backend);
 VolumeLoadResult loadSingleFileVolume(const char *filePath);
 VolumeLoadResult loadDicomFile(const char *filePath, ITKDicomBackendC backend);

@@ -21,13 +21,26 @@ struct SubseriesCandidate {
     std::vector<std::string> reasons;
 };
 
+struct SeriesDiagnosticRecord {
+    std::string seriesUID;
+    size_t fileCount = 0;
+    std::string studyDescription;
+    std::string seriesDescription;
+    std::string modality;
+    std::string seriesNumber;
+};
+
 struct SeriesDiagnosticsResult {
     std::string selectedSeriesUID;
     std::string selectedSubseriesKey;
     int selectedConfidence = 0;
+    std::string selectionPolicy;
     std::string seriesDiagnosticsJSON;
     std::string subseriesDiagnosticsJSON;
     std::string selectedInfoJSON;
+    std::string inspectionJSON;
+    std::vector<SeriesDiagnosticRecord> seriesRecords;
+    std::vector<SubseriesCandidate> subseriesCandidates;
 };
 
 SeriesDiagnosticsResult buildSeriesDiagnostics(
@@ -44,3 +57,7 @@ std::string seriesSelectionInfoToJSON(const SeriesCandidateRecord &selected,
                                       const std::string &selectionReason);
 
 std::string geometryValidationToJSON(const GeometryValidationResult &validation);
+
+std::string selectedSeriesInfoToJSON(const std::string &seriesUID,
+                                     const std::string &subseriesKey,
+                                     int confidence);

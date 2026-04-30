@@ -337,10 +337,25 @@ public struct CIMetadata: Sendable, Equatable {
 public struct CISeriesDiagnostic: Sendable, Equatable {
     public var seriesInstanceUID: String
     public var fileCount: Int
+    public var studyDescription: String?
+    public var seriesDescription: String?
+    public var modality: String?
+    public var seriesNumber: String?
 
-    public init(seriesInstanceUID: String, fileCount: Int) {
+    public init(
+        seriesInstanceUID: String,
+        fileCount: Int,
+        studyDescription: String? = nil,
+        seriesDescription: String? = nil,
+        modality: String? = nil,
+        seriesNumber: String? = nil
+    ) {
         self.seriesInstanceUID = seriesInstanceUID
         self.fileCount = fileCount
+        self.studyDescription = studyDescription
+        self.seriesDescription = seriesDescription
+        self.modality = modality
+        self.seriesNumber = seriesNumber
     }
 }
 

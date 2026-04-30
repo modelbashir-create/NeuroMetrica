@@ -124,6 +124,7 @@ GroupingResult groupFilesByTags(
         candidate.candidateId = "group:" + entry.first;
         candidate.sliceCount = entry.second.size();
         candidate.groupingKeys = result.keysUsed;
+        result.groupIndices[entry.first] = entry.second;
         if (entry.first != result.selectedKey) {
             if (entry.first.find("spatial=none") != std::string::npos) {
                 candidate.rejectionReason = "missing_geometry";

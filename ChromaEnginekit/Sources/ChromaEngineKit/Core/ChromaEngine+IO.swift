@@ -22,6 +22,20 @@ extension ChromaEngine {
     public func loadDicomFile(from url: URL) async throws -> EngineVolumeDescriptor {
         try loadSingleFileVolume(from: url, sourceFormat: .dicom)
     }
+
+    /// Inspect a DICOM directory without loading voxel data.
+    public func inspectDicomDirectory(at url: URL) async throws -> CIDicomImportInspection {
+        let json = try ITKImageIO.inspectDicomDirectory(
+            at: url,
+            backend: mapDicomBackend(config.dicomBackend)
+        )
+
+        guard let inspection = parseDicomImportInspection(from: json) else {
+            throw ChromaEngineError.invalidMetadata("Failed to parse DICOM inspection payload.")
+        }
+
+        return inspection
+    }
 }
 
 // MARK: - Private helpers
@@ -38,6 +52,24 @@ extension ChromaEngine {
             dicomBackend: mapDicomBackend(config.dicomBackend)
         )
         return convertDescriptorToVolume(descriptor, sourceFormat: sourceFormat, sourceDescription: url.path)
+    }
+
+    func loadDicomSeriesVolume(
+        from url: URL,
+        selection: CIDicomSeriesSelection? = nil
+    ) throws -> EngineVolumeDescriptor {
+        let descriptor = try ITKImageIO.loadSelectedDicomSeries(
+            at: url,
+            selectedSeriesInstanceUID: selection?.seriesInstanceUID,
+            selectedSubseriesKey: selection?.subseriesKey,
+            backend: mapDicomBackend(config.dicomBackend)
+        )
+
+        return convertDescriptorToVolume(
+            descriptor,
+            sourceFormat: .dicom,
+            sourceDescription: url.path
+        )
     }
 
     func mapDicomBackend(_ backend: DicomBackend) -> ITKDicomBackend {

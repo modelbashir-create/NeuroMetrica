@@ -90,12 +90,7 @@ std::vector<itk::MetaDataDictionary> copyDictionaryArray(
     return dictionaries;
 }
 
-} // namespace
-
-VolumeLoadResult loadDicomSeries(const char *directoryPath,
-                                 ITKDicomBackendC backend) {
-    using ImageType   = Float3DImage;
-    using ReaderType  = itk::ImageSeriesReader<ImageType>;
+itk::GDCMSeriesFileNames::Pointer makeSeriesNameGenerator(const char *directoryPath) {
     using GDCMNameGenType = itk::GDCMSeriesFileNames;
 
     registerDicomIOFactories();
@@ -103,6 +98,36 @@ VolumeLoadResult loadDicomSeries(const char *directoryPath,
     nameGen->SetUseSeriesDetails(true);
     nameGen->AddSeriesRestriction("0008|0021");
     nameGen->SetDirectory(directoryPath);
+    return nameGen;
+}
+
+} // namespace
+
+VolumeLoadResult loadDicomSeries(const char *directoryPath,
+                                 ITKDicomBackendC backend) {
+    return loadDicomSeriesSelection(directoryPath, nullptr, nullptr, backend);
+}
+
+std::string inspectDicomDirectory(const char *directoryPath, ITKDicomBackendC backend) {
+    auto nameGen = makeSeriesNameGenerator(directoryPath);
+    const std::vector<std::string> &seriesUIDs = nameGen->GetSeriesUIDs();
+    if (seriesUIDs.empty()) {
+        throw itk::ExceptionObject(__FILE__, __LINE__,
+                                   "No DICOM series found in directory",
+                                   "ITKBridge");
+    }
+
+    SeriesDiagnosticsResult diagnostics = buildSeriesDiagnostics(nameGen, seriesUIDs, backend);
+    return diagnostics.inspectionJSON;
+}
+
+VolumeLoadResult loadDicomSeriesSelection(const char *directoryPath,
+                                          const char *seriesInstanceUID,
+                                          const char *subseriesKey,
+                                          ITKDicomBackendC backend) {
+    using ImageType   = Float3DImage;
+    using ReaderType  = itk::ImageSeriesReader<ImageType>;
+    auto nameGen = makeSeriesNameGenerator(directoryPath);
 
     const std::vector<std::string> &seriesUIDs = nameGen->GetSeriesUIDs();
     if (seriesUIDs.empty()) {
@@ -112,7 +137,20 @@ VolumeLoadResult loadDicomSeries(const char *directoryPath,
     }
 
     SeriesDiagnosticsResult diagnostics = buildSeriesDiagnostics(nameGen, seriesUIDs, backend);
-    std::string selectedSeriesUID = diagnostics.selectedSeriesUID.empty() ? seriesUIDs.front() : diagnostics.selectedSeriesUID;
+    const std::string requestedSeriesUID = seriesInstanceUID ? seriesInstanceUID : "";
+    const std::string requestedSubseriesKey = subseriesKey ? subseriesKey : "";
+
+    std::string selectedSeriesUID = requestedSeriesUID;
+    if (selectedSeriesUID.empty()) {
+        selectedSeriesUID = diagnostics.selectedSeriesUID.empty() ? seriesUIDs.front() : diagnostics.selectedSeriesUID;
+    } else {
+        const bool seriesExists = std::find(seriesUIDs.begin(), seriesUIDs.end(), selectedSeriesUID) != seriesUIDs.end();
+        if (!seriesExists) {
+            throw itk::ExceptionObject(__FILE__, __LINE__,
+                                       "Requested DICOM series was not found in directory",
+                                       "ITKBridge");
+        }
+    }
     std::vector<std::string> fileNames = nameGen->GetFileNames(selectedSeriesUID);
 
     if (fileNames.empty()) {
@@ -133,6 +171,18 @@ VolumeLoadResult loadDicomSeries(const char *directoryPath,
 
     if (!isMultiFrameInput) {
         grouping = groupFilesByTags(fileNames, dictionaries);
+        if (!requestedSubseriesKey.empty()) {
+            const auto requestedGroup = grouping.groupIndices.find(requestedSubseriesKey);
+            if (requestedGroup == grouping.groupIndices.end()) {
+                throw itk::ExceptionObject(__FILE__, __LINE__,
+                                           "Requested DICOM subseries was not found in series",
+                                           "ITKBridge");
+            }
+            grouping.selectedKey = requestedSubseriesKey;
+            grouping.selectedIndices = requestedGroup->second;
+            grouping.selectedSliceCount = requestedGroup->second.size();
+            grouping.selectionReason = "user_selected_subseries";
+        }
         if (!grouping.selectedIndices.empty() && grouping.selectedIndices.size() != fileNames.size()) {
             std::vector<std::string> groupedFileNames;
             std::vector<itk::MetaDataDictionary> groupedDicts;
@@ -201,6 +251,24 @@ VolumeLoadResult loadDicomSeries(const char *directoryPath,
                 break;
             }
         }
+    }
+
+    if (!requestedSeriesUID.empty() || !requestedSubseriesKey.empty()) {
+        diagnostics.selectedSeriesUID = selectedSeriesUID;
+        diagnostics.selectedSubseriesKey = grouping.selectedKey;
+        diagnostics.selectedConfidence = 0;
+        for (const auto &candidate : diagnostics.subseriesCandidates) {
+            if (candidate.seriesUID == diagnostics.selectedSeriesUID
+                && candidate.key == diagnostics.selectedSubseriesKey) {
+                diagnostics.selectedConfidence = candidate.confidence;
+                break;
+            }
+        }
+        diagnostics.selectedInfoJSON = selectedSeriesInfoToJSON(
+            diagnostics.selectedSeriesUID,
+            diagnostics.selectedSubseriesKey,
+            diagnostics.selectedConfidence
+        );
     }
 
     std::vector<std::string> missingGeometryTags;
