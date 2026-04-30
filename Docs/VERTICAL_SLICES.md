@@ -1,6 +1,6 @@
 # Neurometrica – Vertical Slices / Release Plan
 
-_Last updated: 2026-03-23_
+_Last updated: 2026-04-20_
 
 This document breaks V1 and V2 into concrete, shippable “slices” so it’s clear what needs to be implemented and wired.
 
@@ -15,6 +15,8 @@ Use these tags to indicate implementation strategy for a feature:
 - `[ITK -> Native]` = implement in ITK / reference path first, then build the native path later only if it is justified by performance, UX, or product goals
 
 These tags are planning markers. They do not imply that both paths are user-facing at the same time.
+
+Status key: `✅` done, `◐` partially implemented / in progress, `☐` not done yet.
 
 ---
 
@@ -50,7 +52,7 @@ Goal: a fast, trustworthy personal neuro imaging workspace that can actually be 
 - ✅ `[Native]` **Orientation labels** on screen (AX / COR / SAG, and later L/R markers)
 - ✅ `[ITK]` **Slice position** visible somewhere (index and/or physical position)
 - ✅ `[ITK]` Basic **study/series info** visible (modality, study/series description)
-- ☐ `[ITK]` Basic **voxel spacing** available in a small info panel or overlay
+- ◐ `[ITK]` Basic **voxel spacing** available in a small info panel or overlay
 
 ### V1.5 – Reliability & UX Basics
 
@@ -70,7 +72,7 @@ Goal: feels like a serious 2D workstation clinicians can actually plan with, not
 - ✅ `[Native]` **Zoom** in/out on the image (trackpad gesture or scroll + modifier)
 - ✅ `[Native]` **Pan** the image when zoomed (click–drag)
 - ✅ `[Native]` **Fit to window** action
-- ☐ `[Native]` **Reset view** (zoom + pan back to default)
+- ✅ `[Native]` **Reset view** (zoom + pan back to default)
 - ☐ `[ITK -> Native]` **Sync Images** across linked 2D viewports / series when layouts and workflows require it
 
 ### V2.2 – WW/WL Behavior Upgrades
@@ -101,7 +103,7 @@ Goal: feels like a serious 2D workstation clinicians can actually plan with, not
 
 ### V2.4 – Export & Sharing
 
-- ☐ `[Native]` **Export current view** as PNG or JPEG
+- ◐ `[Native]` **Export current view** as PNG or JPEG
   - ☐ `[Native]` Includes current WW/WL
   - ☐ `[Native]` Includes current zoom/pan
 - ☐ `[Native]` Option to export **with overlays** (orientation, slice, measurements)
@@ -110,13 +112,13 @@ Goal: feels like a serious 2D workstation clinicians can actually plan with, not
 
 ### V2.5 – Study Info Panel
 
-- ☐ `[Native]` Toggle-able **Study Info** panel with:
-  - ☐ `[ITK]` Modality
-  - ☐ `[ITK]` Study and series description
-  - ☐ `[ITK]` Patient ID/name (or anonymized display, depending on mode)
-  - ☐ `[ITK]` Study date
-  - ☐ `[ITK]` Image matrix size and voxel spacing
-- ☐ `[Native]` Info panel layout does not interfere with reading (can be hidden quickly)
+- ◐ `[Native]` Toggle-able **Study Info** panel with:
+  - ✅ `[ITK]` Modality
+  - ✅ `[ITK]` Study and series description
+  - ✅ `[ITK]` Patient ID/name (or anonymized display, depending on mode)
+  - ✅ `[ITK]` Study date
+  - ◐ `[ITK]` Image matrix size and voxel spacing
+- ✅ `[Native]` Info panel layout does not interfere with reading (can be hidden quickly)
 
 ### V2.6 – Re-slicing & Projection Tools
 
@@ -146,7 +148,7 @@ Goal: extend the mature 2D workstation into a serious advanced viewing environme
 
 ### V3A.1 – MPR Maturation
 
-- ☐ `[ITK -> Native]` Mature **3D MPR view** as a first-class viewing mode, not just a transitional scaffold
+- ◐ `[ITK -> Native]` Mature **3D MPR view** as a first-class viewing mode, not just a transitional scaffold
 
 ### V3A.2 – Projection & Slab Modes
 
@@ -166,7 +168,7 @@ Goal: first true 3D-capable release. Introduce a dedicated 3D workspace with fam
 
 - ☐ `[Native]` Add a dedicated 3D viewer mode / workspace (enterable from the 2D viewer)
 - ☐ `[Native]` Support modes: **Slice**, **MIP**, and **Basic VR** (volume rendering prototype)
-- ☐ `[Native]` Clear UI toggle between 2D viewer and 3D viewer
+- ◐ `[Native]` Clear UI toggle between 2D viewer and 3D viewer
 
 ### V3B.2 – 3D Navigation & Camera
 

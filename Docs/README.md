@@ -107,19 +107,20 @@ Metadata missing: Accession Number [0008,0050] (PHI)
 Metadata missing: Window Center [0028,1050]
 ```
 
+Status key: `✅` done, `◐` partially implemented / in progress, `☐` not done yet.
 
 ### V1.1 – File & Format Support
 
-- ☐ Open **DICOM** series (CT/MR brain and spine)
+- ✅ Open **DICOM** series (CT/MR brain and spine)
 - ✅ Open **NIfTI** volumes (`.nii`, `.nii.gz`)
 - ✅ Basic file open flow from the Mac app for NIfTI volumes (e.g., file menu / open button)
-- ☐ Clear error message when a file cannot be opened or is unsupported
+- ✅ Clear error message when a file cannot be opened or is unsupported
 
 ### V1.2 – Viewing & Navigation
 
 - ✅ Single main viewport
-- ☐ Ability to choose **orientation**: axial / coronal / sagittal (one at a time)
-- ☐ **Scroll wheel / trackpad over the image** moves through slices
+- ✅ Ability to choose **orientation**: axial / coronal / sagittal (one at a time)
+- ✅ **Scroll wheel / trackpad over the image** moves through slices
 - ✅ **Arrow keys** move through slices
 - ✅ **Slice index display** (e.g. `32 / 188`)
 
@@ -133,17 +134,17 @@ Metadata missing: Window Center [0028,1050]
 
 ### V1.4 – Overlays & Metadata
 
-- ☐ **Orientation labels** on screen (AX / COR / SAG, and later L/R markers)
+- ✅ **Orientation labels** on screen (AX / COR / SAG, and later L/R markers)
 - ✅ **Slice position** visible somewhere (index and/or physical position)
-- ☐ Basic **study/series info** visible (modality, study/series description)
-- ☐ Basic **voxel spacing** available in a small info panel or overlay
+- ✅ Basic **study/series info** visible (modality, study/series description)
+- ◐ Basic **voxel spacing** available in a small info panel or overlay
 
 ### V1.5 – Reliability & UX Basics
 
 - ☐ Reasonable performance for typical CT/MR brain volumes on Apple silicon Macs
 - ✅ Dark viewer UI that doesn’t distract from the image
-- ☐ Clear, non-confusing empty state when no study is loaded
-- ☐ If loading fails, the user sees an explanatory message (not just a black screen)
+- ✅ Clear, non-confusing empty state when no study is loaded
+- ✅ If loading fails, the user sees an explanatory message (not just a black screen)
 
 ---
 
@@ -153,17 +154,17 @@ Goal: feels like a serious 2D workstation clinicians can actually plan with, not
 
 ### V2.1 – Pro Interaction Tools
 
-- ☐ **Zoom** in/out on the image (trackpad gesture or scroll + modifier)
-- ☐ **Pan** the image when zoomed (click–drag)
-- ☐ **Fit to window** action
-- ☐ **Reset view** (zoom + pan back to default)
+- ✅ **Zoom** in/out on the image (trackpad gesture or scroll + modifier)
+- ✅ **Pan** the image when zoomed (click–drag)
+- ✅ **Fit to window** action
+- ✅ **Reset view** (zoom + pan back to default)
 
 ### V2.2 – WW/WL Behavior Upgrades
 
-- ☐ **Drag-based WW/WL** (e.g. modifier + drag over the image)
-- ☐ WW/WL **sliders** and drag interaction stay in sync
-- ☐ Simple **WW/WL presets** (e.g. Brain / Bone / Soft Tissue where appropriate)
-- ☐ Presets show their numeric values somewhere (not “magic”)
+- ✅ **Drag-based WW/WL** (e.g. modifier + drag over the image)
+- ✅ WW/WL **sliders** and drag interaction stay in sync
+- ✅ Simple **WW/WL presets** (e.g. Brain / Bone / Soft Tissue where appropriate)
+- ✅ Presets show their numeric values somewhere (not “magic”)
 
 ### V2.3 – Measurements & Planning
 
@@ -178,7 +179,7 @@ Goal: feels like a serious 2D workstation clinicians can actually plan with, not
 
 ### V2.4 – Export & Sharing
 
-- ☐ **Export current view** as PNG or JPEG
+- ◐ **Export current view** as PNG or JPEG
   - ☐ Includes current WW/WL
   - ☐ Includes current zoom/pan
 - ☐ Option to export **with overlays** (orientation, slice, measurements)
@@ -187,13 +188,13 @@ Goal: feels like a serious 2D workstation clinicians can actually plan with, not
 
 ### V2.5 – Study Info Panel
 
-- ☐ Toggle-able **Study Info** panel with:
-  - ☐ Modality
-  - ☐ Study and series description
-  - ☐ Patient ID/name (or anonymized display, depending on mode)
-  - ☐ Study date
-  - ☐ Image matrix size and voxel spacing
-- ☐ Info panel layout does not interfere with reading (can be hidden quickly)
+- ◐ Toggle-able **Study Info** panel with:
+  - ✅ Modality
+  - ✅ Study and series description
+  - ✅ Patient ID/name (or anonymized display, depending on mode)
+  - ✅ Study date
+  - ◐ Image matrix size and voxel spacing
+- ✅ Info panel layout does not interfere with reading (can be hidden quickly)
 
 ### V2.6 – Workstation Parity Layer
 
@@ -230,7 +231,7 @@ Goal: extend the 2D workstation into a serious advanced viewing environment with
 
 ### V3A.1 – MPR Maturation
 
-- ☐ Mature **3D MPR view** as a first-class viewing mode, not just a transitional scaffold
+- ◐ Mature **3D MPR view** as a first-class viewing mode, not just a transitional scaffold
 
 ### V3A.2 – Projection & Slab Modes
 
@@ -248,7 +249,7 @@ Goal: first true 3D-capable release. Introduce a dedicated 3D workspace with fam
 
 - ☐ Add a dedicated 3D viewer mode / workspace (enterable from the 2D viewer)
 - ☐ Support modes: **Slice**, **MIP**, and **Basic VR** (volume rendering prototype)
-- ☐ Clear UI toggle between 2D viewer and 3D viewer
+- ◐ Clear UI toggle between 2D viewer and 3D viewer
 
 ### V3B.2 – 3D Navigation & Camera
 
