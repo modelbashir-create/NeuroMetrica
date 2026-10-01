@@ -2,102 +2,167 @@
   <img src="../regularicon.png" alt="NeuroMetrica app icon" width="180" />
 </p>
 
-NeuroMetrica is a solo-developed, neurosurgery focused imaging and planning workspace built for Apple silicon (iPad, Mac, and iPhone). The long-term goal is to give clinicians powerful on device AI tools by integrating strong, pre-trained neuroimaging models into a mobile software viewer, while also growing into a serious Apple-native imaging workstation with the classic viewing, reformatting, ROI, and 3D tools clinicians expect from established desktop software.
-The core design goal is to build a federated learning platform for medical imaging rather than a cloud only model server.
-Federated learning:
+# NeuroMetrica
 
-NeuroMetrica acts as a federated learning client:
-* A user loads a CT/MR volume and draws a tumor mask, region of interest, or other segmentation.
-* The device slices the volume into tiles and runs raining steps locally on device using those labels.
-* The local student model updates its weights, and periodically sends only weight updates (no scans, or PHIs) to a central server runing Nvidia Flare.
-* The server aggregates updates from many users into a new global student model and ships updated weights back down via in-app model updates.
-https://developer.nvidia.com/blog/effortless-federated-learning-on-mobile-with-nvidia-flare-and-meta-executorch/
-Why this approach
+NeuroMetrica is an independently developed imaging and planning workspace focused on neurosurgery, built for Apple silicon across iPad, Mac, and iPhone. Its long-term goal is to provide clinicians with powerful on-device AI tools by integrating pretrained neuroimaging models into a mobile imaging viewer. In parallel, the project aims to grow into a comprehensive Apple-native imaging workstation with the viewing, reformatting, region-of-interest (ROI), and 3D tools clinicians expect from established desktop applications.
 
-1. Distributed training – Training is spread across users’ devices; the server’s main job is aggregation, not heavy compute.
-2. Privacy by design** – Raw volumes, DICOMs, and patient identifiers stay on the device. Only ML weight updates are transmitted, which greatly reduces data-sharing risk.
-3. Every case helps the next – Each labeled case makes the global model a little better. Users are not just solving their own case; they are continuously improving the tools they will use on their next patient.
+A central design objective is to build a federated learning platform for medical imaging rather than relying exclusively on cloud-hosted models.
 
-Planned teacher models (server-side)
+## Project Motivation
 
-On the server, NeuroMetrica will use a small group of teachers of pre-trained models. A single on-device student model (I call the model Red Eyes) is distilled from these teachers and then updated via federated learning.
-The planned first-paper architecture is:
-* multiple task-specific teacher models on the server
-* one shared on-device student backbone
-* separate student heads for the primary task families
-* measurements derived from segmentation where possible instead of training a separate measurement model
+NeuroMetrica began after NVIDIA announced the integration of its FLARE SDK with Meta’s ExecuTorch for mobile federated learning. The accompanying examples and iOS demonstration showed a practical path for combining on-device training with server-coordinated model updates. This provided the technical starting point and confidence I needed to begin exploring the approach for medical imaging. [NVIDIA’s announcement](https://developer.nvidia.com/blog/effortless-federated-learning-on-mobile-with-nvidia-flare-and-meta-executorch/)
 
-The current task-family plan is:
-* Segmentation family
-  * tumor segmentation
-  * edema segmentation
-  * anatomy / ROI segmentation where it shares the same pipeline
-* Classification family
-  * lesion presence / absence
-  * other lightweight study-level classification outputs if they fit the same student
-* Measurement / quantification family
-  * tumor volume and related quantitative outputs derived from segmentation outputs when possible
+I am developing NeuroMetrica as an independent research and engineering project to deepen my understanding of medical imaging, explore the capabilities of modern Apple hardware, and investigate practical applications of its Neural Engine. The goal is to build on that foundation with an Apple-native imaging workspace that brings together clinical viewing tools, on-device AI, and federated learning.
 
-This keeps the on-device model more transparent and consistent than shipping many separate models, while still allowing strong teacher models to supervise different heads during distillation.
-Brain MRI
-* SynthSeg (https://github.com/BBillot/SynthSeg)
-    * Robust brain structure segmentation across scanners, resolutions, and MRI contrasts.
-    * Used to supervise:
-        * A brain mask head (brain vs non-brain, derived from SynthSeg labels).
-        * A brain structures head (multi-class parcellation: GM/WM/CSF + subcortical regions).
-* BraTS nnU-Net (pre-trained on BraTS glioma) (https://github.com/mobarakol/nnUNet_BraTS)
-    * Brain tumor segmentation (enhancing tumor / tumor core / edema) on multi-sequence MRI.
-    * Used to supervise:
-        * A dedicated tumor head in the student model.
-* VoxelMorph (brain registration) (https://github.com/voxelmorph/voxelmorph)
-    * Learned deformable registration between brain volumes (e.g., patient→atlas or pre-op→post-op).
-    * Used to supervise:
-        * A registration head that predicts deformation fields.
-Spine
-* Spinal Cord Toolbox (SCT deepseg_sc / deepseg_gm) (https://github.com/sct-pipeline/deepseg-training)
-    * Pre-trained deep learning models for spinal cord (and optionally gray matter) segmentation on spine MRI.
-    * Used to supervise:
-        * A spinal cord head for cervical/thoracic MRIs.
-* TotalSegmentator (CT, nnU-Net-based) (https://github.com/wasserth/TotalSegmentator)
-    * Multi-organ CT segmentation model that includes vertebrae, ribs, and other bony structures.
-    * Used to supervise:
-        * A vertebrae head (per-vertebra labels on CT).
-        * Optional additional spine/CT heads (e.g., spinal canal, ribs) if needed.
-The long-term idea is:
-Server: run these heavier teacher models on NVIDIA GPUs and train/refine a single multi-head student.
-Device: run the compressed student model on iPad/Mac (ExecuTorch + Core ML), keep federated learning always on, and optionally offer cloud teacher mode as an opt-in for users who want the strongest possible server-side results.
+## Federated Learning
 
-Why I’m building this
+NeuroMetrica is designed to operate as a federated learning client:
 
-I’m using NeuroMetrica as a sandbox to experiment, push modern Apple hardware (find a use case for those neural engines), and teach myself more about medical imaging.
+1. A user loads a CT or MR volume and annotates a tumor, ROI, or other segmentation target.
+2. The device divides the volume into tiles and performs local training using those annotations.
+3. The on-device student model updates its weights and periodically sends model weight updates, without scans or patient identifiers, to a central server running NVIDIA FLARE.
+4. The server aggregates updates from participating devices into a revised global student model and distributes the updated weights through in-app model updates.
 
-Backend planning shorthand used in the project docs:
+### Rationale
 
-- `[ITK]` = ITK / reference backend only for now
-- `[Native]` = Apple-native backend only
-- `[ITK -> Native]` = implement in ITK / reference path first, then build the native path later only if it is justified by performance, UX, or product goals
+- **Distributed training:** Training is distributed across participating devices, with the federated server primarily responsible for aggregating updates.
+- **Local data retention:** Raw imaging volumes, DICOM files, and patient identifiers remain on the device. Transmitting model weight updates instead of source imaging data is intended to reduce data-sharing risk.
+- **Continuous improvement:** Labeled cases can contribute to refining the shared model, allowing work on individual cases to support improvements in future model performance.
 
-The detailed, tagged feature roadmap lives in `VERTICAL_SLICES.md`.
+## Planned Model Architecture
 
-DEV JOURNAL/COMMENTS 
+NeuroMetrica will use a group of pretrained teacher models on the server. A single on-device student model, **RedEye**, will be distilled from these teachers and subsequently updated through federated learning.
 
-Project Update notes:
+The architecture planned for the initial research paper consists of:
 
-Update: I: decided on my UI work flow. sketch UI on my Ipad after researching designs and other software, Figma for a quick mockup, then back to swift UI to dial things in before wiring. UI docs will be coming and I will add license information at V2 stage.
+- Multiple task-specific teacher models on the server.
+- One shared on-device student backbone.
+- Separate student heads for the primary task families.
+- Measurements derived from segmentation outputs wherever possible, avoiding separate measurement models when unnecessary.
 
-Update 2: Calibration per device will be a big challlenge and I dont have the expertise or resources to do that. Eventually I will write a calibration alogrithem that works with colorimeters. Calibration tool will be finished after V2 but before V3 at that point I will buy a cheap calorimeter from amazon to start with, run some tests and see how close to DICOM GSDF calibration can I get on my ipad pro.
+### Primary Task Families
 
-Update 3: decided on federated learning flow NVIDIA MONAI for initial traning and flare + flower for deployment of red eyes. Server stuff is not that hard already so many examples. figuring out CoreML backend with exotorch is very new and i need to do some research of flare deployment on ios.
+**Segmentation**
 
-Update 4: I will try to integrate one full feature tumor detection with exotorch core ML backend and Flare server as proof of concept before moving on to V3.
+- Tumor segmentation.
+- Edema segmentation.
+- Anatomical and ROI segmentation where these tasks can share the same processing pipeline.
 
-Update 5: Finished designing the iOS app logo and have Icon Composer ready. The icon is inspired by my internal codenames: RedEye for the on-device student model and Brightmind for the server-side teacher model + FLARE pipeline. I’m excited to start the server and model-training work, but I know the app itself needs to mature first—especially the frontend. UI is the hardest part for me: I love Illustrator and Figma, but going from sketch → mockup → SwiftUI implementation → wiring everything together is a grind. To stay sane, I’m taking a systematic approach: finish the UI mockups, then implement them while I work in parallel on Brightmind.
+**Classification**
 
-Update 6: I started reasearching old PACS from 90s-2000s to get inspiration. I want things to look and feel modern but also respect the history. I want the application to feel modern yet familiar. I want to see a radiologist or surgeon feel some nostalgia looking at my application. I want them to be reminded of Agfa IMPAX or siemens MagicView from the 90s or the Fuji Synapse PACS from the early 2000s. I pay homage to this heritage through color selection, layout design, translating old toolbar icons to modern animated SF icons. I will channel my inner Jony Ive.
+- Lesion presence or absence.
+- Additional lightweight, study-level classification outputs where compatible with the shared student model.
 
-UPDATE 7: I orginally planned on using DCMTK and Nifti library for dicom and nifti support. I have since gone back on that, I scrapped building DCMTK lib for project and instead decided to build ITK for IOS. It required not only custom scripts for each platform IOS, IOS sim, Vision OS, Vision OS sim and Macos but sperate edited source files. Once I add documentation I will add it to a seprate github project or a fork of ITK for apple devices. 
+**Measurement and quantification**
 
-Update 8:  Successfully built a multi-slice ITK.xcframework for macOS/iOS/visionOS (device + simulators) and integrated it to ChromaImagingCore package. I want to limit the use of ITK to IO and simple image operations.In terms of speed well optomized c++ code is as fast if not faster then native swift code with vDSP. I dont think i can do better then ITK in image processing but I will limit my use when it comes to rendering 3D objects or AI tasks that are much better handled by metal and CoreML. Where possible I will aim to use ITK logic and write swift code if something is simple enough. if its not simple But better handled by metal or coreMl I will write native code.
+- Tumor volume and related quantitative measurements derived from segmentation outputs wherever possible.
+
+This architecture is intended to make the on-device model more transparent and consistent while allowing specialized teacher models to supervise different student heads during distillation.
+
+### Brain MRI
+
+**[SynthSeg](https://github.com/BBillot/SynthSeg)**
+
+Planned for brain structure segmentation across scanners, resolutions, and MRI contrasts. Its labels would supervise:
+
+- A brain mask head distinguishing brain from non-brain tissue.
+- A brain structures head for multiclass parcellation, including gray matter, white matter, cerebrospinal fluid, and subcortical regions.
+
+**[BraTS nnU-Net](https://github.com/mobarakol/nnUNet_BraTS)**
+
+A model pretrained on BraTS glioma data, planned for brain tumor segmentation on multisequence MRI, including enhancing tumor, tumor core, and edema. It would supervise a dedicated tumor segmentation head in RedEye.
+
+**[VoxelMorph](https://github.com/voxelmorph/voxelmorph)**
+
+Planned for learned deformable registration between brain volumes, such as patient-to-atlas or preoperative-to-postoperative registration. It would supervise a registration head that predicts deformation fields.
+
+### Spine Imaging
+
+**[Spinal Cord Toolbox models: deepseg_sc / deepseg_gm](https://github.com/sct-pipeline/deepseg-training)**
+
+Pretrained models planned for spinal cord and, optionally, gray matter segmentation on spine MRI. They would supervise a spinal cord segmentation head for cervical and thoracic MRI.
+
+**[TotalSegmentator](https://github.com/wasserth/TotalSegmentator)**
+
+An nnU-Net-based CT segmentation model that includes vertebrae, ribs, and other bony structures. It would supervise:
+
+- A vertebral segmentation head with individual vertebra labels on CT.
+- Optional additional spine and CT segmentation heads, such as spinal canal or rib segmentation, as needed.
+
+### Long-Term Deployment Plan
+
+**Server:** Run the larger teacher models on NVIDIA GPUs to train and refine RedEye through Brightmind.
+
+**Device:** Run the compressed RedEye model on iPad and Mac using ExecuTorch and Core ML, with ongoing federated learning. An optional cloud teacher mode would provide access to the larger server-side models.
+
+## Backend Implementation Strategy
+
+The project documentation uses the following labels to identify planned implementation paths:
+
+- `[ITK]`: Use ITK or the reference backend for the current implementation.
+- `[Native]`: Use an Apple-native backend.
+- `[ITK -> Native]`: Implement the ITK or reference path first, then develop a native implementation if justified by performance, user experience, or product requirements.
+
+The detailed feature roadmap, including these implementation labels, is maintained in `VERTICAL_SLICES.md`.
+
+## Development Journal
+
+### Update 1: UI Design Workflow
+
+I have established a UI development workflow that begins with researching existing designs and imaging software, followed by sketching interfaces on my iPad. I then create initial mockups in Figma before refining the interface in SwiftUI and connecting it to the application’s functionality.
+
+UI documentation is planned, and license information will be added at the V2 stage.
+
+### Update 2: Display Calibration
+
+Device-specific display calibration remains a significant challenge, and my current expertise and resources in this area are limited. I plan to develop a calibration algorithm that works with colorimeters, with implementation scheduled after V2 and before V3.
+
+At that stage, I plan to buy a cheap colorimeter from Amazon, run tests, and evaluate how closely my iPad Pro display can approximate the DICOM Grayscale Standard Display Function (GSDF).
+
+### Update 3: Federated Learning Infrastructure
+
+The planned workflow uses NVIDIA MONAI for initial training, with NVIDIA FLARE and Flower supporting federated learning and deployment for RedEye.
+
+Existing server-side examples provide a useful foundation. Integrating ExecuTorch with the Core ML backend is less familiar territory for me and will require further investigation, alongside research into NVIDIA FLARE deployment on iOS.
+
+### Update 4: End-to-End Proof of Concept
+
+Before progressing to V3, I plan to implement a complete tumor detection feature as a proof of concept, integrating ExecuTorch, its Core ML backend, and a NVIDIA FLARE server.
+
+### Update 5: Application Identity and Development Priorities
+
+The iOS application logo is complete, and Icon Composer is ready for the next stage.
+
+I am eager to begin the server and model-training work, but the application itself—particularly the frontend—needs to mature first. Although I enjoy working in Illustrator and Figma, translating sketches and mockups into a functional SwiftUI interface has been one of the more demanding aspects of the project.
+
+To stay sane, I’m taking a systematic approach: complete the UI mockups, then implement them while developing Brightmind in parallel.
+
+### Update 6: Interface Design Influences
+
+I have begun researching picture archiving and communication systems (PACS) from the 1990s and early 2000s to inform the interface design. The goal is to create an application that feels contemporary while retaining familiar elements for radiologists and surgeons who have used earlier imaging systems.
+
+Design references include Agfa IMPAX and Siemens MagicView from the 1990s, along with Fuji Synapse PACS from the early 2000s. These references inform the color palette, layout, and reinterpretation of legacy toolbar icons using modern, animated SF Symbols. The aim is to combine familiar clinical workflows with a contemporary Apple-native interface.
+
+### Update 7: ITK Support for Apple Platforms
+
+I initially planned to use DCMTK and a NIfTI library for DICOM and NIfTI support. I subsequently revised that approach and built ITK for Apple platforms, replacing the planned DCMTK integration.
+
+This work required custom build scripts and source modifications for macOS, iOS, and visionOS, including device and simulator targets. I have published the work as a dedicated project: [ITK-6.0-ApplePlatforms](https://github.com/modelbashir-create/ITK-6.0-ApplePlatforms).
+
+### Update 8: ITK Integration and Native Processing Strategy
+
+I successfully built an `ITK.xcframework` with support for macOS, iOS, and visionOS, including device and simulator targets, and integrated it into the `ChromaImagingCore` package.
+
+The current plan is to use ITK primarily for input/output and basic image operations. Well-optimized C++ can deliver performance comparable to or better than Swift implementations using vDSP, and ITK provides an established foundation for image processing.
+
+For 3D rendering and AI workloads, I intend to prioritize Metal and Core ML where their capabilities are better suited to the task. Straightforward operations may be reimplemented in Swift using ITK’s logic as a reference. More complex operations will receive native implementations when Metal or Core ML offers a clear advantage.
+
+### Metadata Diagnostics
+
+Metadata diagnostics use `AppLogger`, with protected health information (PHI) redacted by default.
+### Metadata Diagnostics
+
+Metadata diagnostics use `AppLogger`, with protected health information (PHI) redacted by default.
 
 Metadata diagnostics example (AppLogger, PHI redacted by default):
 
